@@ -621,6 +621,14 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                 comparisonBuilder.append("*");
             }
         });
+        
+        m.put(PredicateParser.MATCHES_FUZZY_OPERATOR, new FullTextMatchOperator(false, true) {
+            @Override
+            protected void addNonMissingValue(StringBuilder comparisonBuilder, String solrField, Object value) {
+                comparisonBuilder.append(escapeValue(value));
+                comparisonBuilder.append("~");
+            }
+        });
 
         m.put(PredicateParser.LESS_THAN_OPERATOR, new RangeOperator("{* TO ", "}"));
         m.put(PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR, new RangeOperator("[* TO ", "]"));

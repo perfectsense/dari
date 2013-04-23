@@ -90,6 +90,13 @@ public class PredicateParserTest {
     	);
     	assertEquals(expect, pred);
     }
+    
+    @Test
+    public void parse_matches_fuzzy(){
+    	Predicate pred = parser.parse("a ~ 1");
+    	Predicate expect = new ComparisonPredicate(PredicateParser.MATCHES_FUZZY_OPERATOR, false, "a", Arrays.asList("1"));
+    	assertEquals(expect, pred);
+    }
 
     /*
      * Key handling
