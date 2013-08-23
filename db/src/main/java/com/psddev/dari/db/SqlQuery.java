@@ -304,6 +304,11 @@ class SqlQuery {
             fromBuilder.append(" ");
             fromBuilder.append(join.table);
 
+            // avoid Using temporary; Using filesort
+            if (join.type == JoinType.LEFT_OUTER && join.equals(mysqlIndexHint) && join.sqlIndexTable.getVersion() >= 2){
+            	fromBuilder.append(" /*! USE INDEX (PRIMARY) */");
+            }
+            
             if (join.type == JoinType.INNER && join.equals(mysqlIndexHint)) {
                 fromBuilder.append(" /*! USE INDEX (k_name_value) */");
 
