@@ -1507,6 +1507,15 @@ public class Query<E> extends Record {
     public PaginatedResult<E> select(long offset, int limit) {
         return getDatabase().readPartial(this, offset, limit);
     }
+    
+    /**
+     * Returns a partial list of all objects matching this query
+     * starting from the given {@code offset} 
+     * in a {@linkplain #getDatabase database}.
+     */
+    public PaginatedResult<E> select(long offset) {
+        return select(offset, Integer.MAX_VALUE);
+    }    
 
     /**
      * Returns a list of all objects matching this query in a
