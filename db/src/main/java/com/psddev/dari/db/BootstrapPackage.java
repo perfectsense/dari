@@ -269,6 +269,7 @@ public class BootstrapPackage extends Record {
             Set<ObjectType> exportTypes = new HashSet<ObjectType>();
             Query<?> query = Query.fromAll().using(database);
             Set<ObjectType> allTypeMappableTypes = new HashSet<ObjectType>();
+            Set<UUID> concreteTypeIds = new HashSet<UUID>();
 
             for (ObjectType type : database.getEnvironment().getTypes()) {
                 if (!type.as(TypeData.class).getTypeMappableGroups().isEmpty() &&
@@ -276,8 +277,6 @@ public class BootstrapPackage extends Record {
                     allTypeMappableTypes.add(type);
                 }
             }
-
-            query.where("_type != ?", objType);
 
             // Package:
             writer.write(PACKAGE_NAME_HEADER + ": ");
@@ -319,7 +318,16 @@ public class BootstrapPackage extends Record {
                     }
                 }
 
-                query.where("_type = ?", exportTypes);
+                for (ObjectType exportType : exportTypes) {
+                    String clsName = exportType.getObjectClassName();
+                    if (!ObjectUtils.isBlank(clsName)) {
+                        for (ObjectType concreteType : database.getEnvironment().getTypesByGroup(clsName)) {
+                            if (!concreteType.isAbstract()) {
+                                concreteTypeIds.add(concreteType.getId());
+                            }
+                        }
+                    }
+                }
 
                 if (exportTypes.contains(objType)) {
                     if (!first) {
@@ -365,7 +373,14 @@ public class BootstrapPackage extends Record {
             }
 
             if (!typeMaps.isEmpty()) {
-                query.where("_type != ?", typeMaps);
+                for (ObjectType typeMapType : typeMaps) {
+                    String clsName = typeMapType.getObjectClassName();
+                    if (!ObjectUtils.isBlank(clsName)) {
+                        for (ObjectType type : database.getEnvironment().getTypesByGroup(clsName)) {
+                            concreteTypeIds.remove(type.getId());
+                        }
+                    }
+                }
             }
 
             // Mapping Types:
@@ -391,19 +406,25 @@ public class BootstrapPackage extends Record {
             }
 
             // Row Count:
-            Long count;
+            Long count = 0L;
             try {
-                if (pkg.isInit()) {
+                if (concreteTypeIds.isEmpty()) {
                     count = Query.fromAll().using(database).noCache().count();
                 } else {
-                    Query<?> countQuery = Query.fromAll().using(database).noCache().where("_type = ?", exportTypes);
+                    for (UUID concreteTypeId : concreteTypeIds) {
+                        long concreteCount = Query.fromAll().using(database).noCache().where("_type = ?", concreteTypeId).count();
+                        count = count + concreteCount;
+                    }
                     if (needsObjectTypeMap) {
-                        countQuery.or("_type = ?", objType);
+                        long objectCount = Query.fromAll().using(database).noCache().where("_type = ?", objType).count();
+                        count = count + objectCount;
                     }
                     if (!typeMaps.isEmpty()) {
-                        countQuery.or("_type = ?", typeMaps);
+                        for (ObjectType typeMapType : typeMaps) {
+                            long typeMapCount = Query.fromAll().using(database).noCache().where("_type = ?", typeMapType).count();
+                            count = count + typeMapCount;
+                        }
                     }
-                    count = countQuery.count();
                 }
                 writer.write(ROW_COUNT_HEADER + ": ");
                 writer.write(ObjectUtils.to(String.class, count));
@@ -434,51 +455,62 @@ public class BootstrapPackage extends Record {
             }
 
             // Then everything else
+            if (pkg.isInit()) {
+                concreteTypeIds.clear(); // should already be empty
+                concreteTypeIds.add(null);
+            }
             UUID lastTypeId = null;
             Set<UUID> seenIds = new HashSet<UUID>();
-            for (Object o : query.noCache().resolveToReferenceOnly().iterable(100)) {
-                if (o instanceof Recordable) {
-                    Recordable r = (Recordable) o;
-                    writer.write(ObjectUtils.toJson(r.getState().getSimpleValues(true)));
-                    writer.write('\n');
-                    if (!pkg.isInit()) {
-                        if (lastTypeId == null || !lastTypeId.equals(r.getState().getTypeId())) {
-                            seenIds.clear();
-                        } else if (seenIds.size() > MAX_SEEN_REFERENCE_IDS_SIZE) {
-                            seenIds.clear();
-                        }
-                        lastTypeId = r.getState().getTypeId();
-                        Map<String, ObjectType> followReferencesFieldMap;
-                        if ((followReferencesFieldMap = followReferences.get(r.getState().getTypeId())) != null) {
-                            for (Map.Entry<String, ObjectType> entry : followReferencesFieldMap.entrySet()) {
-                                Object reference = r.getState().getRawValue(entry.getKey());
-                                Set<UUID> referenceIds = new HashSet<UUID>();
-                                if (reference instanceof Collection) {
-                                    for (Object referenceObj : ((Collection<?>) reference)) {
-                                        if (referenceObj instanceof Recordable) {
-                                            UUID referenceUUID = ObjectUtils.to(UUID.class, ((Recordable) referenceObj).getState().getId());
-                                            if (referenceUUID != null) {
-                                                if (!seenIds.contains(referenceUUID)) {
-                                                    referenceIds.add(referenceUUID);
+            query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
+            for (UUID typeId : concreteTypeIds) {
+                Query<?> concreteQuery = query.clone();
+                if (typeId != null) {
+                    concreteQuery.where("_type = ?", typeId);
+                }
+                for (Object o : concreteQuery.noCache().resolveToReferenceOnly().iterable(100)) {
+                    if (o instanceof Recordable) {
+                        Recordable r = (Recordable) o;
+                        writer.write(ObjectUtils.toJson(r.getState().getSimpleValues(true)));
+                        writer.write('\n');
+                        if (!pkg.isInit()) {
+                            if (lastTypeId == null || !lastTypeId.equals(r.getState().getTypeId())) {
+                                seenIds.clear();
+                            } else if (seenIds.size() > MAX_SEEN_REFERENCE_IDS_SIZE) {
+                                seenIds.clear();
+                            }
+                            lastTypeId = r.getState().getTypeId();
+                            Map<String, ObjectType> followReferencesFieldMap;
+                            if ((followReferencesFieldMap = followReferences.get(r.getState().getTypeId())) != null) {
+                                for (Map.Entry<String, ObjectType> entry : followReferencesFieldMap.entrySet()) {
+                                    Object reference = r.getState().getRawValue(entry.getKey());
+                                    Set<UUID> referenceIds = new HashSet<UUID>();
+                                    if (reference instanceof Collection) {
+                                        for (Object referenceObj : ((Collection<?>) reference)) {
+                                            if (referenceObj instanceof Recordable) {
+                                                UUID referenceUUID = ObjectUtils.to(UUID.class, ((Recordable) referenceObj).getState().getId());
+                                                if (referenceUUID != null) {
+                                                    if (!seenIds.contains(referenceUUID)) {
+                                                        referenceIds.add(referenceUUID);
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
-                                } else if (reference instanceof Recordable) {
-                                    UUID referenceUUID = ObjectUtils.to(UUID.class, ((Recordable) reference).getState().getId());
-                                    if (referenceUUID != null) {
-                                        if (!seenIds.contains(referenceUUID)) {
-                                            referenceIds.add(referenceUUID);
+                                    } else if (reference instanceof Recordable) {
+                                        UUID referenceUUID = ObjectUtils.to(UUID.class, ((Recordable) reference).getState().getId());
+                                        if (referenceUUID != null) {
+                                            if (!seenIds.contains(referenceUUID)) {
+                                                referenceIds.add(referenceUUID);
+                                            }
                                         }
                                     }
-                                }
-                                if (!referenceIds.isEmpty()) {
-                                    for (Object ref : Query.fromType(entry.getValue()).noCache().using(database).where("_id = ?", referenceIds).selectAll()) {
-                                        if (ref instanceof Recordable) {
-                                            Recordable refr = (Recordable) ref;
-                                            seenIds.add(refr.getState().getId());
-                                            writer.write(ObjectUtils.toJson(refr.getState().getSimpleValues(true)));
-                                            writer.write('\n');
+                                    if (!referenceIds.isEmpty()) {
+                                        for (Object ref : Query.fromType(entry.getValue()).noCache().using(database).where("_id = ?", referenceIds).selectAll()) {
+                                            if (ref instanceof Recordable) {
+                                                Recordable refr = (Recordable) ref;
+                                                seenIds.add(refr.getState().getId());
+                                                writer.write(ObjectUtils.toJson(refr.getState().getSimpleValues(true)));
+                                                writer.write('\n');
+                                            }
                                         }
                                     }
                                 }
