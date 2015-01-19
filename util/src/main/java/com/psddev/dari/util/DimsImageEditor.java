@@ -26,6 +26,13 @@ public class DimsImageEditor extends AbstractImageEditor {
     /** Setting key for the base URL to the mod_dims installation. */
     public static final String BASE_URL_SETTING = "baseUrl";
 
+    /**
+     * Sub-setting key for the base URL that's used to construct the
+     * {@linkplain #getBaseUrl base URL} by distributing it across the
+     * defined base URLs.
+     */
+    public static final String BASE_URLS_SUB_SETTING = "baseUrls";
+
     /** Setting key for the shared secret to use when signing URLs. */
     public static final String SHARED_SECRET_SETTING = "sharedSecret";
 
@@ -50,10 +57,11 @@ public class DimsImageEditor extends AbstractImageEditor {
     /** Setting key for enabling the preservation of the image's metadata. */
     public static final String PRESERVE_METADATA_SETTING = "preserveMetadata";
 
-    /** Setting key for enabling appending image URLs instead of passing them as a parater. */
+    /** Setting key for enabling appending image URLs instead of passing them as a parameter. */
     public static final String APPEND_IMAGE_URLS_SETTING = "appendImageUrls";
 
     private String baseUrl;
+    private List<String> baseUrls;
     private String sharedSecret;
 
     private Date expireTimestamp;
@@ -67,12 +75,27 @@ public class DimsImageEditor extends AbstractImageEditor {
 
     /** Returns the base URL. */
     public String getBaseUrl() {
+        if (baseUrl == null && !ObjectUtils.isBlank(getBaseUrls())) {
+            return getBaseUrls().get(0);
+        }
+
         return baseUrl;
     }
 
     /** Sets the base URL. */
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public List<String> getBaseUrls() {
+        if (baseUrls == null) {
+            baseUrls = new ArrayList<String>();
+        }
+        return baseUrls;
+    }
+
+    public void setBaseUrls(List<String> baseUrls) {
+        this.baseUrls = baseUrls;
     }
 
     public String getSharedSecret() {
@@ -144,6 +167,13 @@ public class DimsImageEditor extends AbstractImageEditor {
     @Override
     public void initialize(String settingsKey, Map<String, Object> settings) {
         setBaseUrl(ObjectUtils.to(String.class, settings.get(BASE_URL_SETTING)));
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> baseUrls = (Map<String, String>) settings.get(BASE_URLS_SUB_SETTING);
+        if (baseUrls != null) {
+            setBaseUrls(new ArrayList<String>(baseUrls.values()));
+        }
+
         setSharedSecret(ObjectUtils.to(String.class, settings.get(SHARED_SECRET_SETTING)));
 
         setExpireTimestamp(ObjectUtils.to(Date.class, settings.get(EXPIRE_TIMESTAMP_SETTING)));
@@ -300,6 +330,22 @@ public class DimsImageEditor extends AbstractImageEditor {
         }
     }
 
+    private String getBaseUrlForImageUrl(String imageUrl) {
+        List<String> baseUrls = getBaseUrls();
+
+        String baseUrl = getBaseUrl();
+        if (baseUrls.size() > 0) {
+            int bucketIndex = imageUrl.hashCode() % baseUrls.size();
+            if (bucketIndex < 0) {
+                bucketIndex *= -1;
+            }
+
+            baseUrl = baseUrls.get(bucketIndex);
+        }
+
+        return baseUrl;
+    }
+
     private class DimsUrl {
 
         /** DIMS specific path to the original width of the image in the metadata */
@@ -329,7 +375,7 @@ public class DimsImageEditor extends AbstractImageEditor {
                 url = "file:" + url;
             }
 
-            String baseUrl = StringUtils.removeEnd(DimsImageEditor.this.getBaseUrl(), "/");
+            String baseUrl = StringUtils.removeEnd(DimsImageEditor.this.getBaseUrlForImageUrl(url), "/");
             if (url.startsWith(baseUrl)) {
 
                 // It's an existing DIMS URL that we're further modifying
@@ -591,7 +637,7 @@ public class DimsImageEditor extends AbstractImageEditor {
             StringBuilder dimsUrlBuilder = new StringBuilder();
 
             String imageUrl = this.imageUrl.toString();
-            String baseUrl = StringUtils.ensureEnd(DimsImageEditor.this.getBaseUrl(), "/");
+            String baseUrl = StringUtils.ensureEnd(DimsImageEditor.this.getBaseUrlForImageUrl(imageUrl), "/");
 
             if (imageUrl.startsWith("file:")) {
                 imageUrl = imageUrl.substring(5);
