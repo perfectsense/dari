@@ -9,15 +9,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicIntegerArray;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.cache.Cache;
@@ -25,15 +23,27 @@ import com.google.common.cache.CacheBuilder;
 
 public class ResponseCacheFilter extends AbstractFilter implements AbstractFilter.Auto {
 
+    // TODO: settings
+    private static final Long TIMEOUT_THRESHOLD = 2000L;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ResponseCacheFilter.class);
     private static final Stats STATS = new Stats("Response Cache");
-    // TODO: settings
-    private static final int MEASURE_SECONDS = 30;
-    private static final double HITS_PER_SECOND_THRESHOLD = 10;
     private static final Set<String> ALLOWED_REQUEST_HEADERS = new HashSet<>();
     private static final Collection<String> STRIP_RESPONSE_HEADERS = new HashSet<>();
-    private static final Map<String, String> ADD_RESPONSE_HEADERS = new CompactMap<>();
     private static final String CACHE_KEY_REQUEST_ATTRIBUTE_NAME = "responseCache.cacheKey";
+    private static final String DEGRADED_HEADER_NAME = "X-Degraded";
+
+    private static final Cache<String, CachedResponse> RESPONSE_OUTPUT_CACHE = CacheBuilder.newBuilder().
+            concurrencyLevel(20).
+            maximumSize(50).
+            expireAfterWrite(60000L, TimeUnit.MILLISECONDS).
+            build();
+
+    private static final Cache<String, Double> TIMED_OUT_RESPONSES = CacheBuilder.newBuilder().
+            concurrencyLevel(20).
+            maximumSize(50).
+            expireAfterWrite(60000L, TimeUnit.MILLISECONDS).
+            build();
 
     static {
         // TODO: allow more headers (User-Agent, for starters)
@@ -43,18 +53,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         ALLOWED_REQUEST_HEADERS.add("X-Forwarded-Host");
 
         STRIP_RESPONSE_HEADERS.add("Set-Cookie");
-
-        ADD_RESPONSE_HEADERS.put("X-Degraded-Experience", "true");
     }
-
-    // TODO: expire these some number of seconds after last read
-    private final ConcurrentHashMap<String, AtomicIntegerArray> hitCounters = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Integer> cumulativeHitCounters = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, AtomicLong> previousHitSeconds = new ConcurrentHashMap<>();
-    // TODO: settings for all of this
-    private final Cache<String, CachedResponse> responseOutputCache = CacheBuilder.newBuilder().concurrencyLevel(20).maximumSize(50).expireAfterWrite(60000L, TimeUnit.MILLISECONDS).build();
-    private final AtomicIntegerArrayFactory atomicIntegerArrayFactory = new AtomicIntegerArrayFactory();
-    private final AtomicLongFactory atomicLongFactory = new AtomicLongFactory();
 
     // --- AbstractFilter support ---
     @Override
@@ -73,28 +72,44 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             FilterChain chain)
             throws IOException, ServletException {
 
-        if (shouldCache(request)) {
+        String cacheKey = getCacheKey(request);
+        Boolean forceParam = ObjectUtils.to(Boolean.class, request.getParameter("_responseCache"));
+        Double responseTime = TIMED_OUT_RESPONSES.getIfPresent(cacheKey);
+        boolean isTimedOut = responseTime != null;
+        boolean cache = false;
+
+        if (isTimedOut && !Boolean.FALSE.equals(forceParam)) {
+
+            cache = true;
+            response.setHeader(DEGRADED_HEADER_NAME, "response time " + Math.round(responseTime) + "ms");
+        } else if (Boolean.TRUE.equals(forceParam)) {
+            cache = true;
+            response.setHeader(DEGRADED_HEADER_NAME, "forced");
+        }
+
+        if (cache) {
             doCache(request, response, chain);
         } else {
-            chain.doFilter(request, response);
+            timeResponse(request, response, chain);
         }
-        incrementHitCount(getCacheKey(request));
+    }
+
+    private void timeResponse(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain)
+            throws IOException, ServletException {
+        ResponseTimer.startTimer(getCacheKey(request), TIMEOUT_THRESHOLD);
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            ResponseTimer.stopTimer();
+        }
     }
 
     private boolean isEnabled() {
         // TODO: setting.
         return true;
-    }
-
-    // TODO: come up with a better measuring stick than hits per second.
-    private boolean shouldCache(HttpServletRequest request) {
-        String cacheKey = getCacheKey(request);
-        double hitsPerSecond = getHitsPerSecond(cacheKey);
-        Boolean forceParam = ObjectUtils.to(Boolean.class, request.getParameter("_responseCache"));
-
-        return ((hitsPerSecond >= HITS_PER_SECOND_THRESHOLD ||
-                Boolean.TRUE.equals(forceParam)) &&
-                !Boolean.FALSE.equals(forceParam));
     }
 
     private void doCache(
@@ -107,7 +122,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         String cacheKey = getCacheKey(request);
         // TODO: if getOutput() is empty, next time don't try to cache it. . .
         request = new HeaderStrippingRequest(request, ALLOWED_REQUEST_HEADERS);
-        CachedResponse cachedResponse = responseOutputCache.getIfPresent(cacheKey);
+        CachedResponse cachedResponse = RESPONSE_OUTPUT_CACHE.getIfPresent(cacheKey);
 
         if (cachedResponse != null) {
             cachedResponse.writeOutput(response);
@@ -115,47 +130,17 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         } else {
             CapturingResponse capturingResponse = new CapturingResponse(response);
             try {
-                chain.doFilter(request, capturingResponse);
+                timeResponse(request, capturingResponse, chain);
                 timer.stop("Cache Miss");
             } finally {
                 Map<String, String> extraHeaders = new CompactMap<>();
-                extraHeaders.putAll(ADD_RESPONSE_HEADERS);
-                cachedResponse = CachedResponse.createInstanceOrNull(request, capturingResponse, STRIP_RESPONSE_HEADERS, extraHeaders);
+                cachedResponse = CachedResponse.createInstanceOrNull(request, capturingResponse, STRIP_RESPONSE_HEADERS);
                 if (cachedResponse != null) {
                     cachedResponse.writeOutput(response);
-                    responseOutputCache.put(cacheKey, cachedResponse);
+                    RESPONSE_OUTPUT_CACHE.put(cacheKey, cachedResponse);
                 }
             }
         }
-    }
-
-    private void incrementHitCount(String key) {
-        final AtomicIntegerArray hitCounter = hitCounters.computeIfAbsent(key, atomicIntegerArrayFactory);
-        AtomicLong atomicPreviousHit = previousHitSeconds.computeIfAbsent(key, atomicLongFactory);
-        long timestampSeconds = getTimestampSeconds();
-        long previousTimestampSeconds = atomicPreviousHit.getAndSet(timestampSeconds);
-        int secondsPointer = getSecondsPointer(timestampSeconds);
-
-        if (previousTimestampSeconds != timestampSeconds) {
-            for (long i = previousTimestampSeconds + 1; i <= timestampSeconds && i <= previousTimestampSeconds + MEASURE_SECONDS; i++) {
-                int removeSecondsPointer = getSecondsPointer(i);
-                hitCounter.set(removeSecondsPointer, 0);
-            }
-            int cumulativeHits = 0;
-            for (int i = 0; i < MEASURE_SECONDS; i++) {
-                cumulativeHits += hitCounter.get(i);
-            }
-            cumulativeHitCounters.put(key, cumulativeHits);
-        }
-        hitCounter.incrementAndGet(secondsPointer);
-    }
-
-    private int getHitCount(String key) {
-        return cumulativeHitCounters.getOrDefault(key, 0);
-    }
-
-    private double getHitsPerSecond(String key) {
-        return (double) getHitCount(key) / MEASURE_SECONDS;
     }
 
     private static String getCacheKey(HttpServletRequest request) {
@@ -168,29 +153,71 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         return cacheKey;
     }
 
-    // Static methods
-    private static long getTimestampSeconds() {
-        return (System.currentTimeMillis() / 1000);
-    }
+    protected static final class ResponseTimer extends RepeatingTask {
 
-    private static int getSecondsPointer(long timestampSeconds) {
-        return (int) (timestampSeconds % MEASURE_SECONDS);
-    }
-
-    // Helper classes
-    private static class AtomicLongFactory implements Function<String, AtomicLong> {
+        private static final Map<Long, TimedResponse> RUNNING_THREADS = new ConcurrentHashMap<>();
 
         @Override
-        public AtomicLong apply(String s) {
-            return new AtomicLong();
+        protected DateTime calculateRunTime(DateTime currentTime) {
+            return currentTime;
         }
-    }
-
-    private static class AtomicIntegerArrayFactory implements Function<String, AtomicIntegerArray> {
 
         @Override
-        public AtomicIntegerArray apply(String s) {
-            return new AtomicIntegerArray(MEASURE_SECONDS);
+        protected void doRepeatingTask(DateTime runTime) throws Exception {
+            for (Map.Entry<Long, TimedResponse> entry : RUNNING_THREADS.entrySet()) {
+                TimedResponse tr = entry.getValue();
+                if (tr.isTimedOut()) {
+                    reportTimeout(tr.responseCacheKey(), tr.elapsedTimeMillis(), tr.timeoutMillis());
+                }
+            }
+        }
+
+        private void reportTimeout(String responseCacheKey, Double elapsedTime, Long timeoutMillis) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Response Timeout - " + responseCacheKey + " : " + elapsedTime + " > " + timeoutMillis);
+            }
+            TIMED_OUT_RESPONSES.put(responseCacheKey, elapsedTime);
+        }
+
+        public static void startTimer(String cacheKey, long timeoutMillis) {
+            RUNNING_THREADS.put(Thread.currentThread().getId(), new TimedResponse(cacheKey, timeoutMillis));
+        }
+
+        public static void stopTimer() {
+            TimedResponse tr = RUNNING_THREADS.remove(Thread.currentThread().getId());
+        }
+
+        private static final class TimedResponse {
+
+            private final String responseCacheKey;
+            private final long startNanoTime;
+            private final long timeoutMillis;
+
+            public TimedResponse(String responseCacheKey, long timeoutMillis) {
+                this.startNanoTime = System.nanoTime();
+                this.responseCacheKey = responseCacheKey;
+                this.timeoutMillis = timeoutMillis;
+            }
+
+            public String responseCacheKey() {
+                return responseCacheKey;
+            }
+
+            public long startNanoTime() {
+                return startNanoTime;
+            }
+
+            public long timeoutMillis() {
+                return timeoutMillis;
+            }
+
+            public boolean isTimedOut() {
+                return elapsedTimeMillis() > timeoutMillis;
+            }
+
+            public double elapsedTimeMillis() {
+                return (System.nanoTime() - startNanoTime) / 1e6;
+            }
         }
     }
 
@@ -200,7 +227,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         private final String output;
         private final String contentType;
 
-        public static CachedResponse createInstanceOrNull(HttpServletRequest request, CapturingResponse response, Iterable<String> stripHeaders, Map<String, String> addHeaders) {
+        public static CachedResponse createInstanceOrNull(HttpServletRequest request, CapturingResponse response, Iterable<String> stripHeaders) {
 
             // Check method: GET only
             if (!"GET".equals(request.getMethod())) {
@@ -240,9 +267,6 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                     }
                 }
             }
-            if (addHeaders != null) {
-                headers.putAll(addHeaders);
-            }
 
             // copy response output or return null if it's empty
             String output = response.getOutput();
@@ -262,7 +286,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         public void writeOutput(HttpServletResponse response) throws IOException {
             response.setContentType(contentType);
             for (Map.Entry<String, String> header : headers.entrySet()) {
-                response.addHeader(header.getKey(), header.getValue());
+                response.setHeader(header.getKey(), header.getValue());
             }
             response.getWriter().write(output);
         }
