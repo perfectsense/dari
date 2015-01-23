@@ -90,6 +90,24 @@ public class HeaderStrippingRequest extends HttpServletRequestWrapper {
         return null;
     }
 
+    @Override
+    public Locale getLocale() {
+        if (isAllowed("Accept-Language")) {
+            return super.getLocale();
+        } else {
+            return Locale.getDefault();
+        }
+    }
+
+    @Override
+    public Enumeration<Locale> getLocales() {
+        if (isAllowed("Accept-Language")) {
+            return super.getLocales();
+        } else {
+            return Collections.enumeration(Collections.singleton(Locale.getDefault()));
+        }
+    }
+
     private abstract static class FilteringEnumeration<T> implements Enumeration<T> {
 
         private final Enumeration<T> delegate;
