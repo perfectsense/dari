@@ -8,12 +8,15 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -103,16 +106,22 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             build();
 
     static {
-        // TODO: allow more headers (User-Agent, for starters)
-        // but require the app to provide something that can be
-        // used to build the cache key (e.g. key("Mozilla") -> "desktop")
         ALLOWED_REQUEST_HEADERS.add("Host");
         ALLOWED_REQUEST_HEADERS.add("X-Forwarded-Host");
 
         STRIP_RESPONSE_HEADERS.add("Set-Cookie");
     }
 
+    private final Collection<RequestNormalizer> requestNormalizers = new ArrayList<>();
+
     // --- AbstractFilter support ---
+    @Override
+    protected void doInit() throws Exception {
+        super.doInit();
+        requestNormalizers.clear();
+        requestNormalizers.addAll(RequestNormalizer.Static.findGlobalInstances());
+    }
+
     @Override
     public void updateDependencies(Class<? extends AbstractFilter> filterClass, List<Class<? extends Filter>> dependencies) {
         if (PageContextFilter.class.isAssignableFrom(filterClass)) {
@@ -139,13 +148,17 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             if (Boolean.TRUE.equals(forceParam)) {
                 cache = true;
                 response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "forced");
-                response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+                if (!Settings.isProduction()) {
+                    response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+                }
             }
             Long responseTime = TIMED_OUT_RESPONSES.getIfPresent(cacheKey);
             if (responseTime != null) {
                 cache = true;
                 response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "response time " + responseTime + "ms");
-                response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+                if (!Settings.isProduction()) {
+                    response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+                }
             }
         }
 
@@ -166,7 +179,9 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
         Stats.Timer timer = STATS.startTimer();
         String cacheKey = generateCacheKey(request);
-        request = new HeaderStrippingRequest(request, ALLOWED_REQUEST_HEADERS);
+
+        Collection<String> allowedHeaders = getAccessedHeaders(request);
+        request = new HeaderStrippingRequest(request, allowedHeaders);
         CachedResponse cachedResponse = RESPONSE_OUTPUT_CACHE.getIfPresent(cacheKey);
 
         if (cachedResponse != null) {
@@ -230,7 +245,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
     }
 
     private boolean ableToCache(HttpServletRequest request) {
-        if (!"GET".equals(request.getMethod())) {
+        if (accessedCookie(request) || !"GET".equals(request.getMethod())) {
             return false;
         }
         String cacheControlHeader = request.getHeader("Cache-Control");
@@ -240,6 +255,30 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             }
         }
         return true;
+    }
+
+    private Map<String, Collection<String>> getNormalizedHeader(HttpServletRequest request) {
+        ensureRequestNormalizersExecuteOnce(request);
+        return RequestNormalizer.Static.getNormalizedHeaders(request);
+    }
+
+    private Collection<String> getAccessedHeaders(HttpServletRequest request) {
+        ensureRequestNormalizersExecuteOnce(request);
+        return RequestNormalizer.Static.getAccessedHeaderNames(request);
+    }
+
+    private boolean accessedCookie(HttpServletRequest request) {
+        ensureRequestNormalizersExecuteOnce(request);
+        return RequestNormalizer.Static.accessedCookies(request);
+    }
+
+    private void ensureRequestNormalizersExecuteOnce(HttpServletRequest request) {
+        if (!RequestNormalizer.Static.hasExecuted(request)) {
+            RequestNormalizer.NormalizingRequest req = new RequestNormalizer.NormalizingRequest(request);
+            for (RequestNormalizer requestNormalizer : requestNormalizers) {
+                requestNormalizer.normalizeRequest(req);
+            }
+        }
     }
 
     /**
@@ -254,11 +293,25 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             cacheKeyBuilder.append(request.getRequestURI());
             String queryString = request.getQueryString();
             if (queryString != null && !queryString.isEmpty()) {
-                Matcher matcher = StringUtils.getPattern(FORCE_RESPONSE_CACHE_PARAM + '=' + "([Ff][Aa][Ll][Ss][Ee]|[Tt][Rr][Uu][Ee])").matcher(queryString);
+                Matcher matcher = StringUtils.getPattern(FORCE_RESPONSE_CACHE_PARAM + "=([Ff][Aa][Ll][Ss][Ee]|[Tt][Rr][Uu][Ee])").matcher(queryString);
                 queryString = matcher.replaceAll("");
                 if (!queryString.isEmpty()) {
-                    cacheKeyBuilder.append("?");
+                    cacheKeyBuilder.append('?');
                     cacheKeyBuilder.append(queryString);
+                }
+            }
+            Map<String, Collection<String>> normalizedHeaders = getNormalizedHeader(request);
+            if (!normalizedHeaders.isEmpty()) {
+                Map<String, Collection<String>> sortedNormalizedHeaders = new TreeMap<>(normalizedHeaders);
+                for (Map.Entry<String, Collection<String>> header : sortedNormalizedHeaders.entrySet()) {
+                    String headerName = header.getKey();
+                    Iterable<String> sortedHeaderValues = new TreeSet<>(header.getValue());
+                    for (String headerValue : sortedHeaderValues) {
+                        cacheKeyBuilder.append(';');
+                        cacheKeyBuilder.append(headerName);
+                        cacheKeyBuilder.append('=');
+                        cacheKeyBuilder.append(String.valueOf(headerValue).replace('\n', ' ').replace('\r', ' '));
+                    }
                 }
             }
             cacheKey = cacheKeyBuilder.toString();
@@ -432,7 +485,9 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             if (storageItem.getPath() == null) {
                 storageItem.setPath(UuidUtils.createSequentialUuid() + CACHED_FILE_EXTENSION);
             }
-            storageItem.setData(new ByteArrayInputStream(output.getBytes()));
+            byte[] data = output.getBytes();
+            storageItem.getMetadata().put("length", data.length);
+            storageItem.setData(new ByteArrayInputStream(data));
             storageItem.save();
 
             return new CachedResponse(response.getContentType(), headers, storageItem);
@@ -467,6 +522,10 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                     // Force StorageItem to re-create the InputStream every hit.
                     cachedData = storageItem.getData();
                     storageItem.setData(null);
+                }
+                Integer length;
+                if ((length = (Integer) storageItem.getMetadata().get("length")) != null) {
+                    response.setContentLength(length);
                 }
                 IoUtils.copy(cachedData, responseOut);
                 responseOut.flush();
@@ -548,6 +607,20 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 knownFiles.add(cachedResponse.getStorageItem().getPath());
             }
             return knownFiles;
+        }
+    }
+
+    /**
+     *
+     * The default request normalizer passes through the ALLOWED_REQUEST_HEADERS untouched.
+     */
+    protected static class DefaultRequestNormalizer implements RequestNormalizer.Global {
+
+        @Override
+        public void normalizeRequest(NormalizingRequest request) {
+            for (String headerName : ALLOWED_REQUEST_HEADERS) {
+                request.setNormalizedHeaders(headerName, request.getHeaders(headerName));
+            }
         }
     }
 }
