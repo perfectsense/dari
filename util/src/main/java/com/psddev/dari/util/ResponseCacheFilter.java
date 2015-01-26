@@ -1,6 +1,7 @@
 package com.psddev.dari.util;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,6 +11,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +22,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
+import java.util.zip.GZIPOutputStream;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -486,6 +489,14 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 storageItem.setPath(UuidUtils.createSequentialUuid() + CACHED_FILE_EXTENSION);
             }
             byte[] data = output.getBytes();
+            if (DefaultRequestNormalizer.isGzippable(request) && response.getContentType().startsWith("text/")) {
+                ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
+                try (GZIPOutputStream gzipOutput = new GZIPOutputStream(byteOutput)) {
+                    gzipOutput.write(data);
+                }
+                data = byteOutput.toByteArray();
+                headers.put("Content-Encoding", Collections.singleton("gzip"));
+            }
             storageItem.getMetadata().put("length", data.length);
             storageItem.setData(new ByteArrayInputStream(data));
             storageItem.save();
@@ -612,15 +623,21 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
     /**
      *
-     * The default request normalizer passes through the ALLOWED_REQUEST_HEADERS untouched.
+     * The default request normalizer passes through the ALLOWED_REQUEST_HEADERS untouched and varies on Accept-Encoding.
      */
     protected static class DefaultRequestNormalizer implements RequestNormalizer.Global {
+
+        protected static boolean isGzippable(HttpServletRequest request) {
+            String acceptEncoding = request.getHeader("Accept-Encoding");
+            return acceptEncoding != null && acceptEncoding.contains("gzip");
+        }
 
         @Override
         public void normalizeRequest(NormalizingRequest request) {
             for (String headerName : ALLOWED_REQUEST_HEADERS) {
                 request.setNormalizedHeaders(headerName, request.getHeaders(headerName));
             }
+            request.setNormalizedHeader("gzip", String.valueOf(isGzippable(request)));
         }
     }
 }
