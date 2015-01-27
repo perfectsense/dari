@@ -26,6 +26,7 @@ import java.util.zip.GZIPOutputStream;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -88,7 +89,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
     private static final Logger LOGGER = LoggerFactory.getLogger(ResponseCacheFilter.class);
     private static final Stats STATS = new Stats("Response Cache");
 
-    private static final Set<String> ALLOWED_REQUEST_HEADERS = new HashSet<>();
+    private static final Collection<String> ALLOWED_REQUEST_HEADERS = new HashSet<>();
     private static final Collection<String> STRIP_RESPONSE_HEADERS = new HashSet<>();
     private static final String CACHE_KEY_REQUEST_ATTRIBUTE_NAME = "responseCache.cacheKey";
     private static final String X_RESPONSE_CACHE_REASON_HEADER_NAME = "X-Response-Cache-Reason";
@@ -146,6 +147,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
         if (Boolean.FALSE.equals(forceParam)) {
             invalidateCache(request);
+
         } else if (ableToCache(request)) {
             String cacheKey = generateCacheKey(request);
             if (Boolean.TRUE.equals(forceParam)) {
@@ -182,9 +184,9 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
         Stats.Timer timer = STATS.startTimer();
         String cacheKey = generateCacheKey(request);
-
         Collection<String> allowedHeaders = getAccessedHeaders(request);
-        request = new HeaderStrippingRequest(request, allowedHeaders);
+        Map<String, Collection<String>> normalizedHeaders = getNormalizedHeaders(request);
+        Cookie[] normalizedCookies = getNormalizedCookies(request);
         CachedResponse cachedResponse = RESPONSE_OUTPUT_CACHE.getIfPresent(cacheKey);
 
         if (cachedResponse != null) {
@@ -192,16 +194,19 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 if (cachedResponse.writeOutput(response)) {
                     timer.stop("Cache Hit");
                     return;
+
                 } else {
                     LOGGER.warn("Cached response unable to write output . . .");
                     invalidateCache(request);
                 }
+
             } catch (IOException e) {
                 LOGGER.warn("Error when returning cached response", e);
                 invalidateCache(request);
             }
         }
         CapturingResponse capturingResponse = new CapturingResponse(response);
+        request = new HeaderStrippingRequest(request, allowedHeaders, normalizedHeaders, normalizedCookies);
 
         try {
             timeResponse(request, capturingResponse, chain);
@@ -209,11 +214,11 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
         } finally {
             capturingResponse.writeOutput();
-            Map<String, String> extraHeaders = new CompactMap<>();
             try {
                 cachedResponse = CachedResponse.createInstanceOrNull(request, capturingResponse, STRIP_RESPONSE_HEADERS);
                 if (cachedResponse != null) {
                     RESPONSE_OUTPUT_CACHE.put(cacheKey, cachedResponse);
+
                 } else {
                     // Unable to cache. Remove this from the list of timed out responses.
                     TIMED_OUT_RESPONSES.invalidate(cacheKey);
@@ -248,7 +253,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
     }
 
     private boolean ableToCache(HttpServletRequest request) {
-        if (accessedCookie(request) || !"GET".equals(request.getMethod())) {
+        if (!"GET".equals(request.getMethod())) {
             return false;
         }
         String cacheControlHeader = request.getHeader("Cache-Control");
@@ -260,7 +265,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         return true;
     }
 
-    private Map<String, Collection<String>> getNormalizedHeader(HttpServletRequest request) {
+    private Map<String, Collection<String>> getNormalizedHeaders(HttpServletRequest request) {
         ensureRequestNormalizersExecuteOnce(request);
         return RequestNormalizer.Static.getNormalizedHeaders(request);
     }
@@ -270,9 +275,9 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         return RequestNormalizer.Static.getAccessedHeaderNames(request);
     }
 
-    private boolean accessedCookie(HttpServletRequest request) {
+    private Cookie[] getNormalizedCookies(HttpServletRequest request) {
         ensureRequestNormalizersExecuteOnce(request);
-        return RequestNormalizer.Static.accessedCookies(request);
+        return RequestNormalizer.Static.getNormalizedCookies(request);
     }
 
     private void ensureRequestNormalizersExecuteOnce(HttpServletRequest request) {
@@ -303,7 +308,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                     cacheKeyBuilder.append(queryString);
                 }
             }
-            Map<String, Collection<String>> normalizedHeaders = getNormalizedHeader(request);
+            Map<String, Collection<String>> normalizedHeaders = getNormalizedHeaders(request);
             if (!normalizedHeaders.isEmpty()) {
                 Map<String, Collection<String>> sortedNormalizedHeaders = new TreeMap<>(normalizedHeaders);
                 for (Map.Entry<String, Collection<String>> header : sortedNormalizedHeaders.entrySet()) {
@@ -316,6 +321,12 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                         cacheKeyBuilder.append(String.valueOf(headerValue).replace('\n', ' ').replace('\r', ' '));
                     }
                 }
+            }
+            for (Cookie cookie : getNormalizedCookies(request)) {
+                cacheKeyBuilder.append(';');
+                cacheKeyBuilder.append(cookie.getName());
+                cacheKeyBuilder.append('=');
+                cacheKeyBuilder.append(cookie.getValue().replace('\n', ' ').replace('\r', ' '));
             }
             cacheKey = cacheKeyBuilder.toString();
             request.setAttribute(CACHE_KEY_REQUEST_ATTRIBUTE_NAME, cacheKey);
@@ -623,13 +634,16 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
     /**
      *
-     * The default request normalizer passes through the ALLOWED_REQUEST_HEADERS untouched and varies on Accept-Encoding.
+     * The default request normalizer passes through the ALLOWED_REQUEST_HEADERS untouched and varies on Accept-Encoding contains gzip.
      */
     protected static class DefaultRequestNormalizer implements RequestNormalizer.Global {
 
+        private static final String ACCEPT_ENCODING_HEADER_NAME = "Accept-Encoding";
+        private static final String GZIP = "gzip";
+
         protected static boolean isGzippable(HttpServletRequest request) {
-            String acceptEncoding = request.getHeader("Accept-Encoding");
-            return acceptEncoding != null && acceptEncoding.contains("gzip");
+            String acceptEncoding = request.getHeader(ACCEPT_ENCODING_HEADER_NAME);
+            return acceptEncoding != null && acceptEncoding.contains(GZIP);
         }
 
         @Override
@@ -637,7 +651,9 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             for (String headerName : ALLOWED_REQUEST_HEADERS) {
                 request.setNormalizedHeaders(headerName, request.getHeaders(headerName));
             }
-            request.setNormalizedHeader("gzip", String.valueOf(isGzippable(request)));
+            if (isGzippable(request)) {
+                request.setNormalizedHeader(ACCEPT_ENCODING_HEADER_NAME, GZIP);
+            }
         }
     }
 }

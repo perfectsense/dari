@@ -30,24 +30,33 @@ public interface RequestNormalizer {
 
         private static final String ACCESSED_HEADER_NAMES_ATTRIBUTE_NAME = "requestNormalizer.accessedHeaderNames";
         private static final String NORMALIZED_HEADERS_ATTRIBUTE_NAME = "requestNormalizer.normalizedHeaders";
+        private static final String NORMALIZED_COOKIES_ATTRIBUTE_NAME = "requestNormalizer.normalizedCookies";
         private static final String COOKIE_HEADER_NAME = "Cookie";
         private static final String ACCEPT_LANGUAGE_HEADER_NAME = "Accept-Language";
         private static final String ACCEPT_CHARSET_HEADER_NAME = "Accept-Charset";
 
         private final Collection<String> accessedHeaderNames = new HashSet<>();
         private final Map<String, Collection<String>> normalizedHeaders = new CompactMap<>();
+        private final Collection<Cookie> normalizedCookies = new ArrayList<>();
 
         public NormalizingRequest(HttpServletRequest request) {
             super(request);
             request.setAttribute(ACCESSED_HEADER_NAMES_ATTRIBUTE_NAME, accessedHeaderNames);
             request.setAttribute(NORMALIZED_HEADERS_ATTRIBUTE_NAME, normalizedHeaders);
+            request.setAttribute(NORMALIZED_COOKIES_ATTRIBUTE_NAME, normalizedCookies);
         }
 
         public void setNormalizedHeaders(String name, Collection<String> values) {
+            if (name == null) {
+                throw new NullPointerException();
+            }
             normalizedHeaders.put(name, new ArrayList<>(values));
         }
 
         public void setNormalizedHeaders(String name, Enumeration<String> values) {
+            if (name == null) {
+                throw new NullPointerException();
+            }
             if (values != null) {
                 Collection<String> valuesCollection = new ArrayList<>();
                 while (values.hasMoreElements()) {
@@ -58,12 +67,18 @@ public interface RequestNormalizer {
         }
 
         public void setNormalizedHeader(String name, String value) {
+            if (name == null) {
+                throw new NullPointerException();
+            }
             Collection<String> headerValues = new ArrayList<>();
             headerValues.add(value);
             normalizedHeaders.put(name, headerValues);
         }
 
         public void addNormalizedHeader(String name, String value) {
+            if (name == null) {
+                throw new NullPointerException();
+            }
             if (!normalizedHeaders.containsKey(name)) {
                 normalizedHeaders.put(name, new ArrayList<>());
             }
@@ -73,6 +88,13 @@ public interface RequestNormalizer {
             }
         }
 
+        public void addNormalizedCookie(Cookie cookie) {
+            if (cookie == null) {
+                throw new NullPointerException();
+            }
+            normalizedCookies.add(cookie);
+        }
+
         public String getNormalizedHeader(String name) {
             Collection<String> headers = getNormalizedHeaders(name);
             return headers != null && !headers.isEmpty() ? headers.iterator().next() : null;
@@ -80,6 +102,10 @@ public interface RequestNormalizer {
 
         public Collection<String> getNormalizedHeaders(String name) {
             return normalizedHeaders.get(name);
+        }
+
+        public Cookie[] getNormalizedCookies() {
+            return normalizedCookies.toArray(new Cookie[normalizedCookies.size()]);
         }
 
         private void accessHeader(String headerName) {
@@ -155,6 +181,16 @@ public interface RequestNormalizer {
                 result = Collections.emptySet();
             }
             return result;
+        }
+
+        public static Cookie[] getNormalizedCookies(HttpServletRequest request) {
+            Object r = request.getAttribute(NormalizingRequest.NORMALIZED_COOKIES_ATTRIBUTE_NAME);
+            @SuppressWarnings("unchecked")
+            Collection<Cookie> result = (Collection<Cookie>) request.getAttribute(NormalizingRequest.NORMALIZED_COOKIES_ATTRIBUTE_NAME);
+            if (result == null) {
+                result = new ArrayList<>();
+            }
+            return result.toArray(new Cookie[result.size()]);
         }
 
         public static boolean accessedCookies(HttpServletRequest request) {
