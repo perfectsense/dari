@@ -12,6 +12,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -94,6 +95,9 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
     private static final String CACHE_KEY_REQUEST_ATTRIBUTE_NAME = "responseCache.cacheKey";
     private static final String X_RESPONSE_CACHE_REASON_HEADER_NAME = "X-Response-Cache-Reason";
     private static final String X_RESPONSE_CACHE_KEY_HEADER_NAME = "X-Response-Cache-Key";
+    private static final String X_REFRESH_REQUEST_HEADER_NAME = "X-Response-Cache-Refresh";
+    private static final String X_RESPONSE_REFRESHED_HEADER_NAME = "X-Response-Refreshed";
+
     private static final String CACHED_FILE_EXTENSION = ".responseCache";
 
     private static final Cache<String, CachedResponse> RESPONSE_OUTPUT_CACHE = CacheBuilder.newBuilder().
@@ -104,6 +108,18 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             build();
 
     private static final Cache<String, Long> TIMED_OUT_RESPONSES = CacheBuilder.newBuilder().
+            concurrencyLevel(CACHE_CONCURRENCY_LEVEL).
+            maximumSize(getMaximumSize()).
+            expireAfterWrite(getExpireSeconds(), TimeUnit.SECONDS).
+            build();
+
+    private static final Cache<String, Long> CACHE_LAST_ACCESS = CacheBuilder.newBuilder().
+            concurrencyLevel(CACHE_CONCURRENCY_LEVEL).
+            maximumSize(getMaximumSize()).
+            expireAfterWrite(getExpireSeconds(), TimeUnit.SECONDS).
+            build();
+
+    private static final Cache<String, Long> CACHE_LAST_REFRESH = CacheBuilder.newBuilder().
             concurrencyLevel(CACHE_CONCURRENCY_LEVEL).
             maximumSize(getMaximumSize()).
             expireAfterWrite(getExpireSeconds(), TimeUnit.SECONDS).
@@ -143,26 +159,34 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             throws IOException, ServletException {
 
         boolean cache = false;
-        Boolean forceParam = ObjectUtils.to(Boolean.class, request.getParameter(FORCE_RESPONSE_CACHE_PARAM));
+        boolean refresh = isRefreshHeaderPresent(request);
+        Boolean forceParam = getForceParam(request);
 
-        if (Boolean.FALSE.equals(forceParam)) {
-            invalidateCache(request);
+        if (ableToCache(request)) {
+            // Invalidate cache for ?_responseCache=false
+            if (Boolean.FALSE.equals(forceParam)) {
+                invalidateCache(request);
 
-        } else if (ableToCache(request)) {
-            String cacheKey = generateCacheKey(request);
-            if (Boolean.TRUE.equals(forceParam)) {
-                cache = true;
-                response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "forced");
-                if (!Settings.isProduction()) {
-                    response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+            } else {
+                String cacheKey = generateCacheKey(request);
+
+                // Handle ?_responseCache=true and/or X-Response-Cache-Refresh: true
+                if (Boolean.TRUE.equals(forceParam) || refresh) {
+                    cache = true;
+                    response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "forced");
+                    if (!Settings.isProduction()) {
+                        response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+                    }
                 }
-            }
-            Long responseTime = TIMED_OUT_RESPONSES.getIfPresent(cacheKey);
-            if (responseTime != null) {
-                cache = true;
-                response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "response time " + responseTime + "ms");
-                if (!Settings.isProduction()) {
-                    response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+
+                // Handle timed-out responses.
+                Long responseTime = TIMED_OUT_RESPONSES.getIfPresent(cacheKey);
+                if (responseTime != null) {
+                    cache = true;
+                    response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "response time " + responseTime + "ms");
+                    if (!Settings.isProduction()) {
+                        response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
+                    }
                 }
             }
         }
@@ -187,11 +211,14 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         Collection<String> allowedHeaders = getAccessedHeaders(request);
         Map<String, Collection<String>> normalizedHeaders = getNormalizedHeaders(request);
         Cookie[] normalizedCookies = getNormalizedCookies(request);
+        Boolean refresh = isRefreshHeaderPresent(request);
         CachedResponse cachedResponse = RESPONSE_OUTPUT_CACHE.getIfPresent(cacheKey);
+        CachedResponse originalCachedResponse = cachedResponse;
 
-        if (cachedResponse != null) {
+        if (!refresh && cachedResponse != null) {
             try {
                 if (cachedResponse.writeOutput(response)) {
+                    CACHE_LAST_ACCESS.put(cacheKey, System.currentTimeMillis());
                     timer.stop("Cache Hit");
                     return;
 
@@ -205,28 +232,51 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 invalidateCache(request);
             }
         }
+
         CapturingResponse capturingResponse = new CapturingResponse(response);
         request = new HeaderStrippingRequest(request, allowedHeaders, normalizedHeaders, normalizedCookies);
 
         try {
             timeResponse(request, capturingResponse, chain);
-            timer.stop("Cache Miss");
-
         } finally {
+            timer.stop("Cache " + (refresh ? "Refresh" : "Miss"));
+        }
+
+        // Don't write the output
+        if (!refresh) {
             capturingResponse.writeOutput();
-            try {
-                cachedResponse = CachedResponse.createInstanceOrNull(request, capturingResponse, STRIP_RESPONSE_HEADERS);
-                if (cachedResponse != null) {
-                    RESPONSE_OUTPUT_CACHE.put(cacheKey, cachedResponse);
+        }
+
+        try {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Creating cached response for " + cacheKey);
+            }
+            cachedResponse = CachedResponse.createInstanceOrNull(request, capturingResponse, STRIP_RESPONSE_HEADERS);
+            if (cachedResponse != null) {
+                RESPONSE_OUTPUT_CACHE.put(cacheKey, cachedResponse);
+                if (refresh) {
+                    response.addHeader(X_RESPONSE_REFRESHED_HEADER_NAME, "true");
+                    response.getWriter().flush();
+                }
+                if (originalCachedResponse != null) {
+                    originalCachedResponse.cleanup();
+                }
+
+            } else {
+                if (refresh) {
+                    // Failed to cache during refresh. Leave the cached response alone.
+                    if (originalCachedResponse != null) {
+                        RESPONSE_OUTPUT_CACHE.put(cacheKey, originalCachedResponse);
+                    }
 
                 } else {
                     // Unable to cache. Remove this from the list of timed out responses.
                     TIMED_OUT_RESPONSES.invalidate(cacheKey);
                 }
-
-            } catch (IOException e) {
-                LOGGER.error("Error when writing to StorageItem " + getStorage(), e);
             }
+
+        } catch (IOException e) {
+            LOGGER.error("Error when writing to StorageItem " + getStorage(), e);
         }
     }
 
@@ -250,19 +300,6 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         String cacheKey = generateCacheKey(request);
         RESPONSE_OUTPUT_CACHE.invalidate(cacheKey);
         TIMED_OUT_RESPONSES.invalidate(cacheKey);
-    }
-
-    private boolean ableToCache(HttpServletRequest request) {
-        if (!"GET".equals(request.getMethod())) {
-            return false;
-        }
-        String cacheControlHeader = request.getHeader("Cache-Control");
-        if (cacheControlHeader != null) {
-            if (cacheControlHeader.toLowerCase(Locale.ENGLISH).contains("no-cache")) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private Map<String, Collection<String>> getNormalizedHeaders(HttpServletRequest request) {
@@ -301,8 +338,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             cacheKeyBuilder.append(request.getRequestURI());
             String queryString = request.getQueryString();
             if (queryString != null && !queryString.isEmpty()) {
-                Matcher matcher = StringUtils.getPattern(FORCE_RESPONSE_CACHE_PARAM + "=([Ff][Aa][Ll][Ss][Ee]|[Tt][Rr][Uu][Ee])").matcher(queryString);
-                queryString = matcher.replaceAll("");
+                queryString = stripQueryString(queryString);
                 if (!queryString.isEmpty()) {
                     cacheKeyBuilder.append('?');
                     cacheKeyBuilder.append(queryString);
@@ -316,7 +352,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                     Iterable<String> sortedHeaderValues = new TreeSet<>(header.getValue());
                     for (String headerValue : sortedHeaderValues) {
                         cacheKeyBuilder.append(';');
-                        cacheKeyBuilder.append(headerName);
+                        cacheKeyBuilder.append(headerName.toLowerCase(Locale.ENGLISH));
                         cacheKeyBuilder.append('=');
                         cacheKeyBuilder.append(String.valueOf(headerValue).replace('\n', ' ').replace('\r', ' '));
                     }
@@ -332,6 +368,27 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             request.setAttribute(CACHE_KEY_REQUEST_ATTRIBUTE_NAME, cacheKey);
         }
         return cacheKey;
+    }
+
+    private static boolean ableToCache(HttpServletRequest request) {
+        if (!"GET".equalsIgnoreCase(request.getMethod()) || !"http".equalsIgnoreCase(request.getScheme())) {
+            return false;
+        }
+        String cacheControlHeader = request.getHeader("Cache-Control");
+        if (cacheControlHeader != null) {
+            if (cacheControlHeader.toLowerCase(Locale.ENGLISH).contains("no-cache")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String stripQueryString(String queryString) {
+        if (queryString != null && !queryString.isEmpty()) {
+            Matcher matcher = StringUtils.getPattern(FORCE_RESPONSE_CACHE_PARAM + "=([Ff][Aa][Ll][Ss][Ee]|[Tt][Rr][Uu][Ee]|[Rr][Ee][Ff][Rr][Ee][Ss][Hh])").matcher(queryString);
+            queryString = matcher.replaceAll("");
+        }
+        return queryString;
     }
 
     private static boolean isEnabled() {
@@ -356,6 +413,15 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
     private static StorageItem createStorageItem() {
         return StorageItem.Static.createIn(getStorage());
+    }
+
+    private static Boolean getForceParam(HttpServletRequest request) {
+        return ObjectUtils.to(Boolean.class, request.getParameter(FORCE_RESPONSE_CACHE_PARAM));
+    }
+
+    private static boolean isRefreshHeaderPresent(HttpServletRequest request) {
+        String refreshHeader = request.getHeader(X_REFRESH_REQUEST_HEADER_NAME);
+        return refreshHeader != null && !refreshHeader.isEmpty();
     }
 
     /** Calculates response time with a precision of approximately 1 second. */
@@ -435,14 +501,18 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
     /** Contains a reference to the StorageItem with the cached content. This class is not a real HttpServletResponse. */
     private static final class CachedResponse {
 
+        private static final String CONTENT_ENCODING_RESPONSE_HEADER_NAME = "Content-Encoding";
+        private static final String CONTENT_LENGTH_METADATA_NAME = "contentLength";
+
         private final Map<String, Collection<String>> headers;
         private final String contentType;
         private final StorageItem storageItem;
+        private final RequestReplayer requestReplayer;
 
         /** Creates the CachedResponse, including the underlying StorageItem */
-        public static CachedResponse createInstanceOrNull(HttpServletRequest request, CapturingResponse response, Iterable<String> stripHeaders) throws IOException {
-            // Check method: GET only
-            if (!"GET".equals(request.getMethod())) {
+        public static CachedResponse createInstanceOrNull(HttpServletRequest request, CapturingResponse response, Iterable<String> stripResponseHeaders) throws IOException {
+            if (!ableToCache(request)) {
+                // We shouldn't even be here. . .
                 return null;
             }
 
@@ -453,26 +523,26 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             }
 
             // lowercase headers for comparison
-            Set<String> lowercaseStripHeaders = new HashSet<>();
-            if (stripHeaders != null) {
-                for (String header : stripHeaders) {
+            Set<String> lowercaseStripResponseHeaders = new HashSet<>();
+            if (stripResponseHeaders != null) {
+                for (String header : stripResponseHeaders) {
                     if (header != null) {
-                        lowercaseStripHeaders.add(header.toLowerCase(Locale.ENGLISH));
+                        lowercaseStripResponseHeaders.add(header.toLowerCase(Locale.ENGLISH));
                     }
                 }
             }
 
             // copy headers that shouldn't be stripped and return null if Cache-Control: no-cache is set.
-            Map<String, Collection<String>> headers = new CompactMap<>();
+            Map<String, Collection<String>> responseHeaders = new CompactMap<>();
             Object headerResponseObj = JspUtils.getHeaderResponse(request, response);
             HttpServletResponse headerResponse = (headerResponseObj instanceof HttpServletResponse ? (HttpServletResponse) headerResponseObj : response);
             for (String headerName : headerResponse.getHeaderNames()) {
                 if (headerName != null) {
                     String headerNameLower = headerName.toLowerCase(Locale.ENGLISH);
-                    if (!lowercaseStripHeaders.contains(headerNameLower)) {
+                    if (!lowercaseStripResponseHeaders.contains(headerNameLower)) {
                         Collection<String> headerValues = response.getHeaders(headerName);
                         if (headerValues != null) {
-                            headers.put(headerName, headerValues);
+                            responseHeaders.put(headerName, headerValues);
                             for (String headerValue : headerValues) {
                                 if ("cache-control".equals(headerNameLower) && headerValue != null) {
                                     String headerValueLower = headerValue.toLowerCase(Locale.ENGLISH);
@@ -486,19 +556,26 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 }
             }
 
+            // Save request details for the purpose of refreshing the cache
+            RequestReplayer requestReplayer = RequestReplayer.createInstanceOrNull(request, X_REFRESH_REQUEST_HEADER_NAME, "true");
+            if (requestReplayer == null) {
+                return null;
+            }
+
             // copy response output or return null if it's empty
             String output = response.getOutput();
             if (output == null || output.isEmpty()) {
                 return null;
             }
 
+            // Create the storage item or return null if it's not a LocalStorageItem.
             StorageItem storageItem = createStorageItem();
             if (!(storageItem instanceof LocalStorageItem)) {
                 return null;
             }
-            if (storageItem.getPath() == null) {
-                storageItem.setPath(UuidUtils.createSequentialUuid() + CACHED_FILE_EXTENSION);
-            }
+            storageItem.setPath(UuidUtils.createSequentialUuid() + CACHED_FILE_EXTENSION);
+
+            // Copy the response data into the storage item, gzipping it if requested.
             byte[] data = output.getBytes();
             if (DefaultRequestNormalizer.isGzippable(request) && response.getContentType().startsWith("text/")) {
                 ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
@@ -506,24 +583,30 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                     gzipOutput.write(data);
                 }
                 data = byteOutput.toByteArray();
-                headers.put("Content-Encoding", Collections.singleton("gzip"));
+                responseHeaders.put(CONTENT_ENCODING_RESPONSE_HEADER_NAME, Collections.singleton("gzip"));
             }
-            storageItem.getMetadata().put("length", data.length);
+            storageItem.getMetadata().put(CONTENT_LENGTH_METADATA_NAME, data.length);
             storageItem.setData(new ByteArrayInputStream(data));
             storageItem.save();
 
-            return new CachedResponse(response.getContentType(), headers, storageItem);
+            return new CachedResponse(response.getContentType(), responseHeaders, storageItem, requestReplayer);
         }
 
-        private CachedResponse(String contentType, Map<String, Collection<String>> headers, StorageItem storageItem) {
+        private CachedResponse(String contentType, Map<String, Collection<String>> headers, StorageItem storageItem, RequestReplayer requestReplayer) {
             this.headers = headers;
             this.storageItem = storageItem;
             this.contentType = contentType;
+            this.requestReplayer = requestReplayer;
         }
 
         /** @return never null. */
         public StorageItem getStorageItem() {
             return storageItem;
+        }
+
+        /** @return never null. */
+        public RequestReplayer getRequestReplayer() {
+            return requestReplayer;
         }
 
         /** Write cached headers and output to the response. */
@@ -546,7 +629,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                     storageItem.setData(null);
                 }
                 Integer length;
-                if ((length = (Integer) storageItem.getMetadata().get("length")) != null) {
+                if ((length = (Integer) storageItem.getMetadata().get(CONTENT_LENGTH_METADATA_NAME)) != null) {
                     response.setContentLength(length);
                 }
                 IoUtils.copy(cachedData, responseOut);
@@ -556,16 +639,10 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 return false;
             }
         }
-    }
 
-    /** Removes underlying file when cached item expires. */
-    private static class ResponseCacheRemovalListener implements RemovalListener<String, CachedResponse> {
-
-        @Override
-        public void onRemoval(RemovalNotification<String, CachedResponse> notification) {
-            CachedResponse cachedResponse = notification.getValue();
-            StorageItem item = cachedResponse != null ? cachedResponse.getStorageItem() : null;
-            if (item != null && item.getPath() != null) {
+        public void cleanup() {
+            StorageItem item = getStorageItem();
+            if (item.getPath() != null) {
                 // We could find the path to the file a different way, but the file:// requirement is to short-circuit things like ImageResizeStorageItemListener.
                 if (item instanceof LocalStorageItem && item.getPublicUrl().startsWith("file://")) {
                     try {
@@ -583,7 +660,75 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         }
     }
 
-    /** Finds files in StorageItem's rootPath that aren't referenced by anything in the cache and wipes them out. */
+    /** Removes underlying file when cached item expires. */
+    private static class ResponseCacheRemovalListener implements RemovalListener<String, CachedResponse> {
+
+        @Override
+        public void onRemoval(RemovalNotification<String, CachedResponse> notification) {
+            CachedResponse cachedResponse = notification.getValue();
+            if (cachedResponse != null) {
+                cachedResponse.cleanup();
+            }
+        }
+    }
+
+    /** Periodically (every 1 second) refreshes URLs that have previously timed out. */
+    protected static final class RequestRefreshingTask extends RepeatingTask {
+
+        @Override
+        protected DateTime calculateRunTime(DateTime currentTime) {
+            return currentTime;
+        }
+
+        @Override
+        protected void doRepeatingTask(DateTime runTime) throws Exception {
+            if (!isEnabled()) {
+                return;
+            }
+            for (String cacheKey : RESPONSE_OUTPUT_CACHE.asMap().keySet()) {
+                Long lastResponseTimeout = TIMED_OUT_RESPONSES.getIfPresent(cacheKey);
+                if (lastResponseTimeout != null) {
+                    CachedResponse response = RESPONSE_OUTPUT_CACHE.getIfPresent(cacheKey);
+                    if (response != null) {
+                        Long lastAccess =  CACHE_LAST_ACCESS.getIfPresent(cacheKey);
+                        Long lastRefresh = CACHE_LAST_REFRESH.getIfPresent(cacheKey);
+                        if (lastAccess != null &&
+                                (lastRefresh == null || lastRefresh < lastAccess)) {
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(String.format("Refreshing cached response %s; last access was %s; last refresh was %s; last response time was %d ms.",
+                                        cacheKey,
+                                        new Date(lastAccess).toString(),
+                                        (lastRefresh != null ? new Date(lastRefresh).toString() : "Never"),
+                                        lastResponseTimeout));
+                            }
+                            refresh(cacheKey, response);
+                            setProgressIndex(getProgressIndex() + 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void refresh(String cacheKey, CachedResponse response) {
+            RequestReplayer refresher = response.getRequestReplayer();
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try {
+                refresher.execute(output);
+                String outputString = output.toString(StringUtils.UTF_8.toString());
+                if (outputString.contains(X_RESPONSE_REFRESHED_HEADER_NAME)) {
+                    CACHE_LAST_REFRESH.put(cacheKey, System.currentTimeMillis());
+                }
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("Refresh response: " + outputString);
+                }
+
+            } catch (IOException e) {
+                LOGGER.error("Exception when refreshing " + cacheKey, e);
+            }
+        }
+    }
+
+    /** Periodically (every 1 hour) finds files in the configured StorageItem's rootPath that aren't referenced by anything in the cache and wipes them out. */
     protected static class ResponseCacheCleanupTask extends RepeatingTask {
 
         @Override
@@ -607,7 +752,6 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             }
 
             Set<String> knownFiles = allKnownFilenames();
-            setProgressTotal(directoryListing.length);
             for (File cachedFile : directoryListing) {
                 setProgressIndex(getProgressIndex() + 1);
                 String filename = cachedFile.getName();
