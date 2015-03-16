@@ -55,7 +55,7 @@ import com.google.common.cache.RemovalNotification;
  * Optional parameters and their default values:
  * <pre>
  * {@code
- * dari/responseCache/timeoutSeconds = 2
+ * dari/responseCache/globalTimeoutSeconds = -1 (disabled; 0 would ALWAYS cache everything!)
  * dari/responseCache/expireSeconds = 300
  * dari/responseCache/maximumSize = 1000
  * }
@@ -64,11 +64,17 @@ import com.google.common.cache.RemovalNotification;
  * Recommended settings for responseCache storage item:
  * <pre>
  * {@code
- * dari/storage/responseCache/class = LocalStorage.class
+ * dari/storage/responseCache/class = com.psddev.dari.util.LocalStorageItem
  * dari/storage/responseCache/rootPath = /tmp/responseCache/
  * dari/storage/responseCache/baseUrl = file:///tmp/responseCache/
  * }
  * </pre>
+ *
+ * To enable ResponseCache on a single request, add the attribute
+ * "responseCache.timeoutSeconds" to the request. Use a value of 0 to
+ * explicitly cache this request.
+ *
+ * {@see RequestNormalizer}.
  *
  */
 public class ResponseCacheFilter extends AbstractFilter implements AbstractFilter.Auto {
@@ -77,12 +83,12 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
     public static final String ENABLED_SUB_SETTING = "enabled";
     public static final String STORAGE_SUB_SETTING = "storage";
     public static final String MAXIMUM_SIZE_SUB_SETTING = "maximumSize";
-    public static final String TIMEOUT_SECONDS_SUB_SETTING = "timeoutSeconds";
+    public static final String GLOBAL_TIMEOUT_SECONDS_SUB_SETTING = "globalTimeoutSeconds";
     public static final String EXPIRE_SECONDS_SUB_SETTING = "expireSeconds";
     public static final String FORCE_RESPONSE_CACHE_PARAM = "_responseCache";
 
     private static final boolean DEFAULT_ENABLED = false;
-    private static final int DEFAULT_TIMEOUT_SECONDS = 2;
+    private static final int DEFAULT_GLOBAL_TIMEOUT_SECONDS = -1;
     private static final int DEFAULT_EXPIRE_SECONDS = 300;
     private static final int DEFAULT_MAXIMUM_SIZE = 1000;
     private static final int CACHE_CONCURRENCY_LEVEL = 20;
@@ -92,7 +98,10 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
     private static final Collection<String> ALLOWED_REQUEST_HEADERS = new HashSet<>();
     private static final Collection<String> STRIP_RESPONSE_HEADERS = new HashSet<>();
+
     private static final String CACHE_KEY_REQUEST_ATTRIBUTE_NAME = "responseCache.cacheKey";
+    public static final String TIMEOUT_SECONDS_REQUEST_ATTRIBUTE_NAME = "responseCache.timeoutSeconds";
+
     private static final String X_RESPONSE_CACHE_REASON_HEADER_NAME = "X-Response-Cache-Reason";
     private static final String X_RESPONSE_CACHE_KEY_HEADER_NAME = "X-Response-Cache-Key";
     private static final String X_REFRESH_REQUEST_HEADER_NAME = "X-Response-Cache-Refresh";
@@ -286,12 +295,21 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             HttpServletResponse response,
             FilterChain chain)
             throws IOException, ServletException {
-        ResponseTimer.startTimer(generateCacheKey(request), getTimeoutSeconds());
-        try {
-            chain.doFilter(request, response);
+        int globalTimeout = getGlobalTimeoutSeconds();
+        Integer requestTimeout = getRequestTimeoutSeconds(request);
+        int timeout = requestTimeout != null ? requestTimeout : globalTimeout;
 
-        } finally {
-            ResponseTimer.stopTimer();
+        if (timeout < 0) {
+            // Disabled.
+            chain.doFilter(request, response);
+        } else {
+            ResponseTimer.startTimer(generateCacheKey(request), timeout);
+            try {
+                chain.doFilter(request, response);
+
+            } finally {
+                ResponseTimer.stopTimer();
+            }
         }
     }
 
@@ -385,10 +403,14 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
     private static String stripQueryString(String queryString) {
         if (queryString != null && !queryString.isEmpty()) {
-            Matcher matcher = StringUtils.getPattern(FORCE_RESPONSE_CACHE_PARAM + "=([Ff][Aa][Ll][Ss][Ee]|[Tt][Rr][Uu][Ee]|[Rr][Ee][Ff][Rr][Ee][Ss][Hh])").matcher(queryString);
+            Matcher matcher = StringUtils.getPattern(FORCE_RESPONSE_CACHE_PARAM + "=([Ff][Aa][Ll][Ss][Ee]|[Tt][Rr][Uu][Ee])").matcher(queryString);
             queryString = matcher.replaceAll("");
         }
         return queryString;
+    }
+
+    private static Integer getRequestTimeoutSeconds(HttpServletRequest request) {
+        return ObjectUtils.to(Integer.class, request.getAttribute(TIMEOUT_SECONDS_REQUEST_ATTRIBUTE_NAME));
     }
 
     private static boolean isEnabled() {
@@ -399,8 +421,8 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         return Settings.getOrError(String.class, SETTINGS_PREFIX + '/' + STORAGE_SUB_SETTING, SETTINGS_PREFIX + '/' + STORAGE_SUB_SETTING + " must be specified in settings!");
     }
 
-    private static int getTimeoutSeconds() {
-        return Settings.getOrDefault(int.class, SETTINGS_PREFIX + '/' + TIMEOUT_SECONDS_SUB_SETTING, DEFAULT_TIMEOUT_SECONDS);
+    private static int getGlobalTimeoutSeconds() {
+        return Settings.getOrDefault(int.class, SETTINGS_PREFIX + '/' + GLOBAL_TIMEOUT_SECONDS_SUB_SETTING, DEFAULT_GLOBAL_TIMEOUT_SECONDS);
     }
 
     private static int getExpireSeconds() {
@@ -449,15 +471,19 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             }
         }
 
-        private static void reportTimeout(String responseCacheKey, Long elapsedTime, Long timeoutSeconds) {
+        private static void reportTimeout(String responseCacheKey, Long elapsedTime, Long timeoutMillis) {
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Response Timeout - " + responseCacheKey + " : " + elapsedTime + "ms > " + timeoutSeconds + 's');
+                LOGGER.debug("Response Timeout - " + responseCacheKey + " : " + elapsedTime + "ms >= " + timeoutMillis + "ms");
             }
             TIMED_OUT_RESPONSES.put(responseCacheKey, elapsedTime);
         }
 
         public static void startTimer(String cacheKey, int timeoutSeconds) {
-            RUNNING_THREADS.put(Thread.currentThread().getId(), new TimedResponse(cacheKey, timeoutSeconds));
+            if (timeoutSeconds == 0) {
+                reportTimeout(cacheKey, 0L, 0L);
+            } else {
+                RUNNING_THREADS.put(Thread.currentThread().getId(), new TimedResponse(cacheKey, timeoutSeconds));
+            }
         }
 
         public static void stopTimer() {
@@ -485,11 +511,11 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             }
 
             public long timeoutMillis() {
-                return timeoutSeconds;
+                return timeoutSeconds * 1000L;
             }
 
             public boolean isTimedOut() {
-                return elapsedTimeMillis() > (timeoutSeconds * 1000L);
+                return elapsedTimeMillis() >= timeoutMillis();
             }
 
             public long elapsedTimeMillis() {
@@ -503,11 +529,13 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
         private static final String CONTENT_ENCODING_RESPONSE_HEADER_NAME = "Content-Encoding";
         private static final String CONTENT_LENGTH_METADATA_NAME = "contentLength";
+        private static final String X_RESPONSE_CACHE_AGE_HEADER_NAME = "X-Response-Cache-Age";
 
         private final Map<String, Collection<String>> headers;
         private final String contentType;
         private final StorageItem storageItem;
         private final RequestReplayer requestReplayer;
+        private final long cacheDate;
 
         /** Creates the CachedResponse, including the underlying StorageItem */
         public static CachedResponse createInstanceOrNull(HttpServletRequest request, CapturingResponse response, Iterable<String> stripResponseHeaders) throws IOException {
@@ -597,6 +625,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
             this.storageItem = storageItem;
             this.contentType = contentType;
             this.requestReplayer = requestReplayer;
+            this.cacheDate = System.currentTimeMillis();
         }
 
         /** @return never null. */
@@ -621,6 +650,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                         }
                     }
                 }
+                response.addHeader(X_RESPONSE_CACHE_AGE_HEADER_NAME, getAgeMilliseconds() + "ms");
                 OutputStream responseOut = response.getOutputStream();
                 InputStream cachedData;
                 synchronized (storageItem) {
@@ -658,6 +688,10 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 }
             }
         }
+
+        public long getAgeMilliseconds() {
+            return System.currentTimeMillis() - cacheDate;
+        }
     }
 
     /** Removes underlying file when cached item expires. */
@@ -683,6 +717,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         @Override
         protected void doRepeatingTask(DateTime runTime) throws Exception {
             if (!isEnabled()) {
+                skipRunCount();
                 return;
             }
             for (String cacheKey : RESPONSE_OUTPUT_CACHE.asMap().keySet()) {
@@ -739,6 +774,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         @Override
         protected void doRepeatingTask(DateTime runTime) throws Exception {
             if (!isEnabled()) {
+                skipRunCount();
                 return;
             }
             StorageItem item = createStorageItem();
