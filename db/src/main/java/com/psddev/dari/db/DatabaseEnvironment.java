@@ -431,6 +431,13 @@ public class DatabaseEnvironment implements ObjectStruct {
             newPermanentTypes.changed.addAll(temporaryTypes.changed);
             newPermanentTypes.changed.addAll(permanentTypes.changed);
 
+            // If any types changed, clear all types' extras.
+            if (!temporaryTypes.changed.isEmpty()) {
+                for (ObjectType type : newPermanentTypes.byId.values()) {
+                    type.getState().getExtras().clear();
+                }
+            }
+
             permanentTypes = newPermanentTypes;
             lastTypesUpdate = new Date();
 

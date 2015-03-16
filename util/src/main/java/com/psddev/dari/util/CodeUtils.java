@@ -58,10 +58,10 @@ import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 
-import org.objectweb.asm.ClassAdapter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -538,14 +538,15 @@ public final class CodeUtils {
         }
     }
 
-    private static class SmapAdapter extends ClassAdapter {
+    private static class SmapAdapter extends ClassVisitor {
 
         private static final Pattern LINE_SECTION_PATTERN = Pattern.compile("(?s)(\\S+)\\s+\\*L\\s+(.*?)\\s*\\*E");
 
         private final String className;
 
         public SmapAdapter(ClassVisitor delegate, String initialClassName) {
-            super(delegate);
+            super(Opcodes.ASM5, delegate);
+
             className = initialClassName;
         }
 

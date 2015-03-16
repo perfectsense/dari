@@ -6,9 +6,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 
-import org.objectweb.asm.Opcodes;
-
 import com.psddev.dari.util.ObjectUtils;
+import com.psddev.dari.util.asm.Opcodes;
 import com.psddev.dari.util.sa.Jvm;
 import com.psddev.dari.util.sa.JvmAnalyzer;
 import com.psddev.dari.util.sa.JvmLogger;

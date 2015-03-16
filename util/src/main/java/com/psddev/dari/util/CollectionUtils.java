@@ -115,6 +115,8 @@ public final class CollectionUtils {
             Object srcValue = e.getValue();
             Object dstValue = destination.get(key);
             if (srcValue instanceof Map && dstValue instanceof Map) {
+                dstValue = new CompactMap<String, Object>((Map<String, Object>) dstValue);
+                destination.put(key, dstValue);
                 putAllRecursively((Map<String, Object>) dstValue,
                         (Map<String, Object>) srcValue);
             } else {

@@ -11,6 +11,9 @@ import java.awt.image.BufferedImage;
 import java.awt.image.BufferedImageOp;
 import java.awt.image.ConvolveOp;
 import java.awt.image.Kernel;
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.imgscalr.Scalr;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JavaImageEditor extends AbstractImageEditor {
 
@@ -26,6 +31,8 @@ public class JavaImageEditor extends AbstractImageEditor {
     private static final String ORIGINAL_WIDTH_METADATA_PATH = "image/originalWidth";
     private static final String ORIGINAL_HEIGHT_METADATA_PATH = "image/originalHeight";
     private static final List<String> EXTRA_CROPS = Arrays.asList(CROP_OPTION_CIRCLE, CROP_OPTION_STAR, CROP_OPTION_STARBURST);
+    private static final Logger LOGGER = LoggerFactory.getLogger(JavaImageEditor.class);
+    public static final long MEGA_BYTE = 1048576;
 
     /** Setting key for quality to use for the output images. */
     private static final String QUALITY_SETTING = "quality";
@@ -38,6 +45,9 @@ public class JavaImageEditor extends AbstractImageEditor {
     private String basePath;
     private String sharedSecret;
     private String errorImage;
+    private boolean disableCache;
+    private String cachePath;
+    private Long cacheLimitInMegaBytes = 500L;
 
     public Scalr.Method getQuality() {
         return quality;
@@ -80,6 +90,37 @@ public class JavaImageEditor extends AbstractImageEditor {
 
     public void setErrorImage(String errorImage) {
         this.errorImage = errorImage;
+    }
+
+    public boolean isDisableCache() {
+        return disableCache;
+    }
+
+    public void setDisableCache(boolean disableCache) {
+        this.disableCache = disableCache;
+    }
+
+    public String getCachePath() {
+        if (StringUtils.isBlank(cachePath)) {
+            String property = "java.io.tmpdir";
+            String tempDir = System.getProperty(property);
+            if (!StringUtils.isBlank(tempDir)) {
+                cachePath = tempDir;
+            }
+        }
+        return cachePath;
+    }
+
+    public void setCachePath(String cachePath) {
+        this.cachePath = cachePath;
+    }
+
+    public Long getCacheLimitInMegaBytes() {
+        return cacheLimitInMegaBytes;
+    }
+
+    public void setCacheLimitInMegaBytes(Long cacheLimitInMegaBytes) {
+        this.cacheLimitInMegaBytes = cacheLimitInMegaBytes;
     }
 
     @Override
@@ -328,6 +369,41 @@ public class JavaImageEditor extends AbstractImageEditor {
             setErrorImage(ObjectUtils.to(String.class, settings.get("errorImage")));
         }
 
+        if (!ObjectUtils.isBlank(settings.get("disableCache"))) {
+            setDisableCache(ObjectUtils.to(Boolean.class, settings.get("disableCache")));
+        }
+
+        if (!disableCache) {
+            if (!ObjectUtils.isBlank(settings.get("cachePath"))) {
+                setCachePath(ObjectUtils.to(String.class, settings.get("cachePath")));
+            }
+
+            if (!ObjectUtils.isBlank(settings.get("cacheLimitInMegaBytes"))) {
+                setCacheLimitInMegaBytes(ObjectUtils.to(Long.class, settings.get("cacheLimitInMegaBytes")));
+            }
+
+            initWatchService(getCacheLimitInMegaBytes() * MEGA_BYTE);
+
+        }
+
+    }
+
+    public void initWatchService(Long maximumCacheSizeInBytes) {
+
+        if (maximumCacheSizeInBytes == null) {
+            maximumCacheSizeInBytes = cacheLimitInMegaBytes * MEGA_BYTE;
+        }
+
+        WatchService watcher;
+        try {
+            watcher = FileSystems.getDefault().newWatchService();
+            JavaImageDirectoryWatch javaImageDirectoryWatch = new JavaImageDirectoryWatch(this, watcher, maximumCacheSizeInBytes);
+            Thread javaImageDirectoryWatchThread = new Thread(javaImageDirectoryWatch);
+            javaImageDirectoryWatchThread.start();
+
+        } catch (IOException ex) {
+            LOGGER.error("Unable to init Java Image Directory Watch", ex);
+        }
     }
 
     protected void setBaseUrlFromRequest(HttpServletRequest request) {

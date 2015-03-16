@@ -326,11 +326,18 @@ class MetricAccess {
             }
         }
         if (!immediateMethods.isEmpty()) {
-            Object obj = Query.fromAll().where("_id = ?", id).first();
+            Object obj = Query.fromAll().master().noCache().where("_id = ?", id).first();
             State state = State.getInstance(obj);
             if (state != null) {
-                for (ObjectMethod method : immediateMethods) {
-                    method.recalculate(state);
+                Database stateDb = state.getDatabase();
+                stateDb.beginIsolatedWrites();
+                try {
+                    for (ObjectMethod method : immediateMethods) {
+                        method.recalculate(state);
+                    }
+                    stateDb.commitWrites();
+                } finally {
+                    stateDb.endWrites();
                 }
             }
         }

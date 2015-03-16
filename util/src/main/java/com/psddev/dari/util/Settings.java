@@ -125,9 +125,10 @@ public final class Settings {
                             jndiErrorLogged = true;
 
                             LOGGER.info(
-                                    "Can't read from JNDI! [{}: {}]",
-                                    error.getClass().getName(),
-                                    error.getMessage());
+                                    String.format("Can't read from JNDI! [%s: %s]",
+                                            error.getClass().getName(),
+                                            error.getMessage()),
+                                    error);
                         }
                     }
 

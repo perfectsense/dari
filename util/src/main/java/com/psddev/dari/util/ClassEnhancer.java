@@ -8,10 +8,10 @@ import java.util.Set;
 
 import javax.tools.JavaFileObject;
 
-import org.objectweb.asm.ClassAdapter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Enhances an existing class by manipulating the Java bytecode.
@@ -19,10 +19,10 @@ import org.objectweb.asm.ClassWriter;
  * {@code visit*} methods. See the documentation on the
  * <a href="http://asm.ow2.org/">ASM</a> for more details.
  */
-public abstract class ClassEnhancer extends ClassAdapter {
+public abstract class ClassEnhancer extends ClassVisitor {
 
     protected ClassEnhancer() {
-        super(null);
+        super(Opcodes.ASM5);
     }
 
     /** Returns the delegate. */

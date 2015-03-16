@@ -38,6 +38,7 @@ import org.apache.solr.common.params.MoreLikeThisParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.Lazy;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
@@ -476,7 +477,26 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                 continue;
 
             } else if (Sorter.RELEVANT_OPERATOR.equals(operator)) {
-                Predicate sortPredicate = (Predicate) sorter.getOptions().get(1);
+
+                Predicate sortPredicate = null;
+
+                Object predicateObject = sorter.getOptions().get(1);
+                if (predicateObject instanceof Predicate) {
+                    sortPredicate = (Predicate) predicateObject;
+
+                } else {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> simpleValues = (Map<String, Object>) predicateObject;
+
+                    ObjectType type = ObjectType.getInstance(ObjectUtils.to(UUID.class, simpleValues.get(StateValueUtils.TYPE_KEY)));
+                    Object object = type.createObject(ObjectUtils.to(UUID.class, simpleValues.get(StateValueUtils.ID_KEY)));
+                    State state = State.getInstance(object);
+                    state.putAll(simpleValues);
+
+                    if (object instanceof Predicate) {
+                        sortPredicate = (Predicate) object;
+                    }
+                }
                 double boost = ObjectUtils.to(double.class, sorter.getOptions().get(0));
                 if (boost < 0.0) {
                     boost = -boost;
@@ -1487,7 +1507,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                         true,
                         method,
                         method.getUniqueName(),
-                        state.getByPath(method.getInternalName())
+                        Static.getStateMethodValue(state, method)
                         );
             }
 
@@ -1548,11 +1568,13 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     // Pass through distinct set of States to doSaves.
     @Override
     protected void doWriteRecalculations(SolrServer server, boolean isImmediate, Map<ObjectIndex, List<State>> recalculations) throws Exception {
-        Set<State> states = new HashSet<State>();
-        for (Map.Entry<ObjectIndex, List<State>> entry : recalculations.entrySet()) {
-            states.addAll(entry.getValue());
+        if (recalculations != null) {
+            Set<State> states = new HashSet<State>();
+            for (Map.Entry<ObjectIndex, List<State>> entry : recalculations.entrySet()) {
+                states.addAll(entry.getValue());
+            }
+            doSaves(server, isImmediate, new ArrayList<State>(states));
         }
-        doSaves(server, isImmediate, new ArrayList<State>(states));
     }
 
     // Pass through to doWriteRecalculations.
@@ -1577,8 +1599,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
             return;
         }
 
-        if (value instanceof List) {
-            for (Object item : (List<?>) value) {
+        if (value instanceof Iterable) {
+            for (Object item : (Iterable<?>) value) {
                 addDocumentValues(document, allBuilder, includeInAny, field, name, item);
             }
             return;
@@ -1623,6 +1645,12 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                         ObjectType valueType = getEnvironment().getTypeById(valueTypeId);
 
                         if (valueType != null) {
+                            State valueState = null;
+                            if (!valueType.getMethods().isEmpty()) {
+                                valueState = new State();
+                                valueState.setType(valueType);
+                                valueState.setId(ObjectUtils.to(UUID.class, valueMap.get(StateValueUtils.ID_KEY)));
+                            }
                             for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
                                 String subName = entry.getKey().toString();
                                 ObjectField subField = valueType.getField(subName);
@@ -1635,6 +1663,21 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                                             subField,
                                             name + "/" + subName,
                                             entry.getValue());
+                                }
+                                if (valueState != null) {
+                                    valueState.putByPath(subName, entry.getValue());
+                                }
+                            }
+                            if (valueState != null) {
+                                for (ObjectMethod method : valueType.getMethods()) {
+                                    addDocumentValues(
+                                            document,
+                                            allBuilder,
+                                            includeInAny,
+                                            method,
+                                            name + "/" + method.getInternalName(),
+                                            Static.getStateMethodValue(valueState, method)
+                                    );
                                 }
                             }
                         }
@@ -1773,6 +1816,38 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
          */
         public static Float getNormalizedScore(Object object) {
             return (Float) State.getInstance(object).getExtra(NORMALIZED_SCORE_EXTRA);
+        }
+
+        /**
+         * Execute an ObjectMethod on the given State and return the result as a value or reference.
+         */
+        private static Object getStateMethodValue(State state, ObjectMethod method) {
+            Object methodResult = state.getByPath(method.getInternalName());
+
+            if (ObjectField.RECORD_TYPE.equals(method.getInternalItemType()) && !method.isEmbedded()) {
+                if (methodResult instanceof Iterable) {
+                    List<Map<String, UUID>> refs = new ArrayList<Map<String, UUID>>();
+                    for (Object methodResultElement : (Iterable) methodResult) {
+                        State methodResultState = State.getInstance(methodResultElement);
+                        if (methodResultState != null) {
+                            Map<String, UUID> ref = new CompactMap<String, UUID>();
+                            ref.put(StateValueUtils.REFERENCE_KEY, methodResultState.getId());
+                            ref.put(StateValueUtils.TYPE_KEY, methodResultState.getTypeId());
+                            refs.add(ref);
+                        }
+                    }
+                    methodResult = refs;
+                } else {
+                    State methodResultState = State.getInstance(methodResult);
+                    Map<String, UUID> ref = new CompactMap<String, UUID>();
+                    if (methodResultState != null) {
+                        ref.put(StateValueUtils.REFERENCE_KEY, methodResultState.getId());
+                        ref.put(StateValueUtils.TYPE_KEY, methodResultState.getTypeId());
+                    }
+                    methodResult = ref;
+                }
+            }
+            return methodResult;
         }
     }
 

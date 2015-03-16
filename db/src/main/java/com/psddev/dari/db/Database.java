@@ -28,6 +28,7 @@ public interface Database extends SettingsBackedObject {
     public static final String DEFAULT_DATABASE_SETTING = "dari/defaultDatabase";
     public static final int MAXIMUM_LIMIT = Integer.MAX_VALUE - 1;
     public static final String SETTING_PREFIX = "dari/database";
+    public static final String DISABLE_FUNNEL_CACHE_QUERY_OPTION = "db.disableFunnelCache";
 
     /** Returns the name. */
     public String getName();

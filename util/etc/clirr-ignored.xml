@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<differences>
+
+    <!-- Caused by upgrade from ASM version 3 to 5. -->
+    <difference>
+        <className>com/psddev/dari/util/ClassEnhancer</className>
+        <differenceType>4001</differenceType>
+        <to>org/objectweb/asm/ClassVisitor</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/util/ClassEnhancer</className>
+        <differenceType>5001</differenceType>
+        <to>org/objectweb/asm/ClassAdapter</to>
+    </difference>
+</differences>

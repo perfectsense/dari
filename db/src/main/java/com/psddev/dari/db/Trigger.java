@@ -14,4 +14,11 @@ public interface Trigger {
      * @param object Can't be {@code null}.
      */
     public void execute(Object object);
+
+    /**
+     * @return true if the trigger is definitely missing on a class and its modifications, false if unsure.
+     */
+    public default boolean isMissing(Class<?> cls) {
+        return false;
+    }
 }

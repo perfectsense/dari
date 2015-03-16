@@ -251,12 +251,14 @@ public class SettingsDebugServlet extends HttpServlet {
         }
     }
 
-    private static class CV implements ClassVisitor {
+    private static class CV extends ClassVisitor {
 
         private final List<Usage> usages;
         private final String className;
 
         public CV(List<Usage> usages, String className) {
+            super(Opcodes.ASM5);
+
             this.usages = usages;
             this.className = className;
         }
@@ -307,7 +309,7 @@ public class SettingsDebugServlet extends HttpServlet {
         }
     }
 
-    private static class MV implements MethodVisitor {
+    private static class MV extends MethodVisitor {
 
         private final List<Usage> usages;
         private final String className;
@@ -320,6 +322,8 @@ public class SettingsDebugServlet extends HttpServlet {
                 List<Usage> usages,
                 String className,
                 String methodName) {
+
+            super(Opcodes.ASM5);
 
             this.usages = usages;
             this.className = className;

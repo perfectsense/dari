@@ -6,10 +6,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
+import com.psddev.dari.util.Settings;
 
 /**
  * Caches the results of read operations.
@@ -34,15 +38,24 @@ PaginatedResult<Article> result = Query.from(Article.class).using(caching).selec
  */
 public class CachingDatabase extends ForwardingDatabase {
 
+    private static final String CACHE_SIZE_SETTING = "dari/cachingDatabaseMaximumSize";
+    private static final long DEFAULT_CACHE_SIZE = 1000L;
+
     private static final Object MISSING = new Object();
 
-    private final ConcurrentMap<UUID, Object> objectCache = new ConcurrentHashMap<UUID, Object>();
-    private final ConcurrentMap<UUID, Object> referenceCache = new ConcurrentHashMap<UUID, Object>();
-    private final ConcurrentMap<Query<?>, List<?>> readAllCache = new ConcurrentHashMap<Query<?>, List<?>>();
-    private final ConcurrentMap<Query<?>, Long> readCountCache = new ConcurrentHashMap<Query<?>, Long>();
-    private final ConcurrentMap<Query<?>, Object> readFirstCache = new ConcurrentHashMap<Query<?>, Object>();
-    private final ConcurrentMap<Query<?>, Map<Range, PaginatedResult<?>>> readPartialCache = new ConcurrentHashMap<Query<?>, Map<Range, PaginatedResult<?>>>();
-    private final ConcurrentMap<UUID, Boolean> idOnlyQueryIds = new ConcurrentHashMap<UUID, Boolean>();
+    private final Cache<UUID, Object> objectCache = CacheBuilder.newBuilder().maximumSize(getCacheSize()).build();
+    private final Cache<UUID, Object> referenceCache = CacheBuilder.newBuilder().maximumSize(getCacheSize()).build();
+    private final Cache<Query<?>, List<?>> readAllCache = CacheBuilder.newBuilder().maximumSize(getCacheSize()).build();
+    private final Cache<Query<?>, Long> readCountCache = CacheBuilder.newBuilder().maximumSize(getCacheSize()).build();
+    private final Cache<Query<?>, Object> readFirstCache = CacheBuilder.newBuilder().maximumSize(getCacheSize()).build();
+    private final LoadingCache<Query<?>, Map<Range, PaginatedResult<?>>> readPartialCache = CacheBuilder.newBuilder().maximumSize(getCacheSize()).build(
+            new CacheLoader<Query<?>, Map<Range, PaginatedResult<?>>>() {
+                @Override
+                public Map<Range, PaginatedResult<?>> load(Query<?> key) throws Exception {
+                    return new ConcurrentHashMap<>();
+                }
+            });
+    private final Cache<UUID, Boolean> idOnlyQueryIds = CacheBuilder.newBuilder().maximumSize(getCacheSize()).build();
 
     private static class Range {
 
@@ -81,7 +94,7 @@ public class CachingDatabase extends ForwardingDatabase {
      * @return Never {@code null}. Mutable. Thread-safe.
      */
     public Set<UUID> getIdOnlyQueryIds() {
-        return idOnlyQueryIds.keySet();
+        return idOnlyQueryIds.asMap().keySet();
     }
 
     /**
@@ -90,7 +103,7 @@ public class CachingDatabase extends ForwardingDatabase {
      * @return Never {@code null}. Mutable. Thread-safe.
      */
     public Map<UUID, Object> getObjectCache() {
-        return objectCache;
+        return objectCache.asMap();
     }
 
     /**
@@ -99,10 +112,14 @@ public class CachingDatabase extends ForwardingDatabase {
      * @return Never {@code null}. Mutable. Thread-safe.
      */
     public Map<UUID, Object> getReferenceCache() {
-        return referenceCache;
+        return referenceCache.asMap();
     }
 
     // --- ForwardingDatabase support ---
+
+    private long getCacheSize() {
+        return Settings.getOrDefault(long.class, CACHE_SIZE_SETTING, DEFAULT_CACHE_SIZE);
+    }
 
     private boolean isCacheDisabled(Query<?> query) {
         if (query.isCache()) {
@@ -113,10 +130,10 @@ public class CachingDatabase extends ForwardingDatabase {
     }
 
     private Object findCachedObject(UUID id, Query<?> query) {
-        Object object = objectCache.get(id);
+        Object object = objectCache.getIfPresent(id);
 
         if (object == null && query.isReferenceOnly()) {
-            object = referenceCache != null ? referenceCache.get(id) : null;
+            object = referenceCache != null ? referenceCache.getIfPresent(id) : null;
         }
 
         if (object != null) {
@@ -182,7 +199,7 @@ public class CachingDatabase extends ForwardingDatabase {
             }
         }
 
-        List<?> list = readAllCache.get(query);
+        List<?> list = readAllCache.getIfPresent(query);
 
         if (list == null) {
             list = super.readAll(query);
@@ -203,12 +220,12 @@ public class CachingDatabase extends ForwardingDatabase {
             return super.readCount(query);
         }
 
-        Long count = readCountCache.get(query);
+        Long count = readCountCache.getIfPresent(query);
 
         if (count == null) {
             COUNT: {
                 if (readAllCache != null) {
-                    List<?> list = readAllCache.get(query);
+                    List<?> list = readAllCache.getIfPresent(query);
 
                     if (list != null) {
                         count = (long) list.size();
@@ -217,7 +234,7 @@ public class CachingDatabase extends ForwardingDatabase {
                 }
 
                 if (readPartialCache != null) {
-                    Map<Range, PaginatedResult<?>> subCache = readPartialCache.get(query);
+                    Map<Range, PaginatedResult<?>> subCache = readPartialCache.getIfPresent(query);
 
                     if (subCache != null && !subCache.isEmpty()) {
                         count = subCache.values().iterator().next().getCount();
@@ -258,7 +275,7 @@ public class CachingDatabase extends ForwardingDatabase {
             }
         }
 
-        Object first = readFirstCache.get(query);
+        Object first = readFirstCache.getIfPresent(query);
 
         if (first == null) {
             first = super.readFirst(query);
@@ -280,16 +297,7 @@ public class CachingDatabase extends ForwardingDatabase {
             return super.readPartial(query, offset, limit);
         }
 
-        Map<Range, PaginatedResult<?>> subCache = readPartialCache.get(query);
-
-        if (subCache == null) {
-            Map<Range, PaginatedResult<?>> newSubCache = new ConcurrentHashMap<Range, PaginatedResult<?>>();
-            subCache = readPartialCache.putIfAbsent(query, newSubCache);
-
-            if (subCache == null) {
-                subCache = newSubCache;
-            }
-        }
+        Map<Range, PaginatedResult<?>> subCache = readPartialCache.getUnchecked(query);
 
         Range range = new Range(offset, limit);
         PaginatedResult<?> result = subCache.get(range);
@@ -316,12 +324,12 @@ public class CachingDatabase extends ForwardingDatabase {
      * Flush the entire cache. This is executed after every .save() to avoid inconsistent results.
      */
     protected void flush() {
-        objectCache.clear();
-        referenceCache.clear();
-        readAllCache.clear();
-        readCountCache.clear();
-        readFirstCache.clear();
-        readPartialCache.clear();
+        objectCache.invalidateAll();
+        referenceCache.invalidateAll();
+        readAllCache.invalidateAll();
+        readCountCache.invalidateAll();
+        readFirstCache.invalidateAll();
+        readPartialCache.invalidateAll();
     }
 
     /**

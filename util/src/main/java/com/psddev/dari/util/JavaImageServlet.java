@@ -1,6 +1,10 @@
 package com.psddev.dari.util;
 
 import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -65,6 +69,7 @@ public class JavaImageServlet extends HttpServlet {
             }
 
             //Verify key
+            boolean cacheImage = !StringUtils.isBlank(javaImageEditor.getCachePath());
             if (!StringUtils.isBlank(javaImageEditor.getSharedSecret())) {
                 StringBuilder commandsBuilder = new StringBuilder();
                 for (int i = 2; i < parameters.length; i++) {
@@ -80,12 +85,68 @@ public class JavaImageServlet extends HttpServlet {
 
                 if (!parameters[0].equals(requestSig) || !parameters[1].equals(expireTs.toString())) {
                     if (!StringUtils.isBlank(javaImageEditor.getErrorImage())) {
+                        cacheImage = false;
                         imageUrl = javaImageEditor.getErrorImage();
                         response.setStatus(500);
                     } else {
                         response.sendError(404);
                         return;
                     }
+                }
+            }
+
+            //Local Cache
+            File file = null;
+            if (cacheImage) {
+                String cachePath = javaImageEditor.getCachePath();
+                if (!cachePath.endsWith("/")) {
+                    cachePath += "/";
+                }
+
+                String requestUrl = request.getQueryString() != null ? request.getServletPath() + "?" + request.getQueryString() : request.getServletPath();
+                String md5Hex = StringUtils.hex(StringUtils.md5(requestUrl));
+                String baseDir = cachePath + md5Hex.substring(0, 2);
+                String imageDir = baseDir + "/" + md5Hex.substring(2, 6);
+
+                File baseFolder = new File(baseDir);
+                if (!baseFolder.exists()) {
+                    if (!baseFolder.mkdir()) {
+                        throw new IOException(String.format("Unable to create folder %s", baseDir));
+                    }
+                }
+
+                File imageFolder = new File(imageDir);
+                if (!imageFolder.exists()) {
+                    if (!imageFolder.mkdir()) {
+                        throw new IOException(String.format("Unable to create folder %s", imageFolder));
+                    }
+                }
+
+                String filePath = StringUtils.encodeUri(requestUrl);
+                if (filePath.length() > 255) {
+                    String hashCode = StringUtils.hex(StringUtils.md5(filePath));
+                    filePath = hashCode + filePath.substring(filePath.length() - 255 + hashCode.length());
+                }
+
+                filePath = imageFolder + "/" + filePath;
+                file = new File(filePath);
+                if (file.exists() && !file.isDirectory()) {
+                    ServletOutputStream out = response.getOutputStream();
+
+                    response.setHeader("Content-Type", "image/" + imageType);
+                    response.setContentLength((int) file.length());
+
+                    BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(file));
+
+                    int b;
+                    while ((b = inputStream.read()) != -1) {
+                        out.write(b);
+                    }
+
+                    inputStream.close();
+                    out.close();
+
+                    return;
                 }
             }
 
@@ -391,6 +452,11 @@ public class JavaImageServlet extends HttpServlet {
                 response.setHeader("ETag", eTag.toString());
             } catch (NoSuchAlgorithmException ex) {
                 //No Such Algorithm Exception don't write eTag
+            }
+
+            if (cacheImage) {
+                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                ImageIO.write(bufferedImage, imageType, fileOutputStream);
             }
 
             out.close();

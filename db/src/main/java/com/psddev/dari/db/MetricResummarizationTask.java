@@ -1,5 +1,7 @@
 package com.psddev.dari.db;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +28,8 @@ import com.psddev.dari.util.TypeReference;
  * <Environment name="dari/metricResummarize/analyticsDaily/beforeDays" type="java.lang.Integer" value="180" />
  * <!-- Collapse it from Hourly (the default) to Daily -->
  * <Environment name="dari/metricResummarize/analyticsDaily/intervalClass" type="java.lang.String" value="com.psddev.dari.db.MetricInterval$Daily" />
+ * <!-- Only run on a single host (optional) -->
+ * <Environment name="dari/metricResummarize/analyticsDaily/hostname" type="java.lang.String" value="task.host.com" />
  * }
  * </pre>
  *
@@ -65,6 +69,7 @@ public class MetricResummarizationTask extends RepeatingTask {
     private static final String CONFIG_BEFORE_DAYS = "beforeDays";
     private static final String CONFIG_INTERVAL_CLASS = "intervalClass";
     private static final String CONFIG_DATABASE = "database";
+    private static final String CONFIG_HOSTNAME = "hostname";
     private static final Map<String, Map<String, Object>> CONFIG = Settings.get(new TypeReference<Map<String, Map<String, Object>>>() { }, CONFIG_PREFIX);
 
     @Override
@@ -111,13 +116,30 @@ public class MetricResummarizationTask extends RepeatingTask {
                     continue;
                 }
             }
+            String hostname = ObjectUtils.to(String.class, settings.get(CONFIG_HOSTNAME));
+            if (!isTaskHost(hostname)) {
+                continue;
+            }
 
             try {
                 Static.submitResummarizationTask(this, database, key, fieldSpecs, beforeDays, intervalClassName);
             } catch (ResummarizationSettingsException e) {
                 LOGGER.warn(e.getMessage());
             }
+        }
+    }
 
+    private static boolean isTaskHost(String hostname) {
+        if (hostname == null || "localhost".equals(hostname)) {
+            return true;
+        }
+        try {
+            InetAddress allowed = InetAddress.getByName(hostname);
+            InetAddress local = InetAddress.getLocalHost();
+            return local.getHostAddress().equals(allowed.getHostAddress());
+        } catch (UnknownHostException e) {
+            LOGGER.error("Unknown host exception during Metric Resummarization", e);
+            return false;
         }
     }
 
@@ -138,7 +160,6 @@ public class MetricResummarizationTask extends RepeatingTask {
         public String getMessage() {
             return "Metric Resummarization: " + CONFIG_PREFIX + "/" + key + (subkey != null ? ("/" + subkey) : "") + " " + note;
         }
-
     }
 
     public static class LastResummarization extends Record {
@@ -183,7 +204,6 @@ public class MetricResummarizationTask extends RepeatingTask {
         public void setKey(String key) {
             this.key = key;
         }
-
     }
 
     public static final class Static {
@@ -204,11 +224,6 @@ public class MetricResummarizationTask extends RepeatingTask {
 
             if (fields.isEmpty()) {
                 throw new ResummarizationSettingsException(key, null, " specifies no valid fields to resummarize; aborting.");
-            }
-
-            Set<String> debugFieldNames = new HashSet<String>();
-            for (ObjectField field : fields) {
-                debugFieldNames.add(field.getUniqueName());
             }
 
             MetricInterval interval;
@@ -258,7 +273,6 @@ public class MetricResummarizationTask extends RepeatingTask {
                     }
                 } while (parentTask == null || parentTask.shouldContinue());
             }
-
         }
 
         private static Set<ObjectField> resolveFieldSpecs(Database database, String key, String[] fieldSpecs) throws ResummarizationSettingsException {
@@ -275,6 +289,7 @@ public class MetricResummarizationTask extends RepeatingTask {
                                 fields.add(field);
                             }
                         }
+
                     } else {
                         ObjectField field = database.getEnvironment().getField(fieldSpec);
                         if (field == null || !field.isMetric()) {
@@ -282,6 +297,7 @@ public class MetricResummarizationTask extends RepeatingTask {
                         }
                         fields.add(field);
                     }
+
                 } else if (parts.length == 2) {
                     // looking for a type field
                     String typeName = parts[0];
@@ -290,6 +306,7 @@ public class MetricResummarizationTask extends RepeatingTask {
                     if (type == null) {
                         throw new ResummarizationSettingsException(key, CONFIG_FIELDS, ": " + fieldSpec + " specifies an invalid type.");
                     }
+
                     if (typeFieldSpec.endsWith("*")) {
                         String typeFieldPrefix = typeFieldSpec.substring(0, typeFieldSpec.length() - 1);
                         for (ObjectField field : type.getFields()) {
@@ -297,6 +314,7 @@ public class MetricResummarizationTask extends RepeatingTask {
                                 fields.add(field);
                             }
                         }
+
                     } else {
                         ObjectField field = type.getField(typeFieldSpec);
                         if (field == null || !field.isMetric()) {
@@ -308,12 +326,8 @@ public class MetricResummarizationTask extends RepeatingTask {
                 } else {
                     throw new ResummarizationSettingsException(key, CONFIG_FIELDS, ": " + fieldSpec + " specifies an invalid field.");
                 }
-
             }
-
             return fields;
         }
-
     }
-
 }

@@ -454,6 +454,7 @@ try {
                                     <goal>check-no-fork</goal>
                                 </goals>
                                 <configuration>
+                                    <ignoredDifferencesFile>etc/clirr-ignored.xml</ignoredDifferencesFile>
                                     <logResults>true</logResults>
                                 </configuration>
                             </execution>

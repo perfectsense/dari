@@ -19,7 +19,7 @@ import org.objectweb.asm.Type;
 import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ObjectUtils;
 
-class JvmRunner implements MethodVisitor {
+class JvmRunner extends MethodVisitor {
 
     private int callingMethodLine;
     private int instructionIndex;
@@ -29,12 +29,16 @@ class JvmRunner implements MethodVisitor {
     private final Deque<JvmObject> stack;
 
     public JvmRunner(JvmMethodVisitor parent) {
+        super(Opcodes.ASM5);
+
         this.locals = new CompactMap<Integer, JvmObject>();
         this.parent = parent;
         this.stack = new ArrayDeque<JvmObject>();
     }
 
     public JvmRunner(JvmRunner runner, int instructionIndex) {
+        super(Opcodes.ASM5);
+
         this.instructionIndex = instructionIndex;
         this.lastLine = runner.lastLine;
         this.locals = runner.locals;

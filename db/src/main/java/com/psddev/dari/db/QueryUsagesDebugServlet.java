@@ -15,8 +15,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.objectweb.asm.Opcodes;
-
 import com.psddev.dari.util.ClassFinder;
 import com.psddev.dari.util.CodeUtils;
 import com.psddev.dari.util.CompactMap;
@@ -25,6 +23,7 @@ import com.psddev.dari.util.HtmlObject;
 import com.psddev.dari.util.HtmlWriter;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.WebPageContext;
+import com.psddev.dari.util.asm.Opcodes;
 import com.psddev.dari.util.sa.Jvm;
 import com.psddev.dari.util.sa.JvmMethodListener;
 import com.psddev.dari.util.sa.JvmObject;

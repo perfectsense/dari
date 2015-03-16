@@ -330,17 +330,39 @@ public class DimsImageEditor extends AbstractImageEditor {
         }
     }
 
+    /**
+     * Returns the appropriate DIMS base URL for the {@code imageUrl}. If the
+     * {@code imageUrl} is already a DIMS URL, then the DIMS base URL matching
+     * the base URL of the {@code imageUrl} is returned. Otherwise, the
+     * {@code imageUrl} is hashed and a DIMS base URL is picked from the pool.
+     *
+     * @param imageUrl the image URL to check.
+     * @return the base DIMS URL.
+     */
     private String getBaseUrlForImageUrl(String imageUrl) {
-        List<String> baseUrls = getBaseUrls();
 
         String baseUrl = getBaseUrl();
-        if (baseUrls.size() > 0) {
-            int bucketIndex = imageUrl.hashCode() % baseUrls.size();
-            if (bucketIndex < 0) {
-                bucketIndex *= -1;
+
+        List<String> baseUrls = getBaseUrls();
+        if (!baseUrls.isEmpty()) {
+
+            boolean isDimsUrl = false;
+            for (String baseUrlItem : baseUrls) {
+                if (imageUrl.startsWith(StringUtils.removeEnd(baseUrlItem, "/"))) {
+                    isDimsUrl = true;
+                    baseUrl = baseUrlItem;
+                    break;
+                }
             }
 
-            baseUrl = baseUrls.get(bucketIndex);
+            if (!isDimsUrl) {
+                int bucketIndex = imageUrl.hashCode() % baseUrls.size();
+                if (bucketIndex < 0) {
+                    bucketIndex *= -1;
+                }
+
+                baseUrl = baseUrls.get(bucketIndex);
+            }
         }
 
         return baseUrl;

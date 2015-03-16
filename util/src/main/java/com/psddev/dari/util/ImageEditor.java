@@ -80,6 +80,7 @@ public interface ImageEditor extends SettingsBackedObject {
                     instance = Settings.newInstance(ImageEditor.class, settingsName);
                 } else if (name.equals(JAVA_IMAGE_EDITOR_NAME)) {
                     instance = new JavaImageEditor();
+                    ((JavaImageEditor) instance).initWatchService(null);
                 }
 
                 instance.setName(name);

@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.common.base.Charsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,7 +103,12 @@ class MySQLBinaryLogEventListener implements EventListener {
             if (eventType == EventType.UPDATE_ROWS || eventType == EventType.EXT_UPDATE_ROWS) {
                 for (Map.Entry<Serializable[], Serializable[]> row : ((UpdateRowsEventData) eventData).getRows()) {
                     Serializable[] newValue = row.getValue();
-                    updateCache((byte[]) newValue[0], (byte[]) newValue[1], (byte[]) newValue[2]);
+                    byte[] data =
+                            newValue[2] instanceof byte[] ? (byte[]) newValue[2] :
+                            newValue[2] instanceof String ? ((String) newValue[2]).getBytes(Charsets.UTF_8) :
+                            null;
+
+                    updateCache((byte[]) newValue[0], (byte[]) newValue[1], data);
                     LOGGER.debug("UpdateRow HEX [{}][{}]", StringUtils.hex((byte[]) newValue[0]), ((byte[]) newValue[0]).length);
                 }
             } else if (eventType == EventType.DELETE_ROWS || eventType == EventType.EXT_DELETE_ROWS) {

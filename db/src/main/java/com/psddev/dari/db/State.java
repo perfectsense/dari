@@ -22,7 +22,6 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.psddev.dari.util.CompactMap;
@@ -1344,14 +1343,32 @@ public class State implements Map<String, Object> {
     @SuppressWarnings("unchecked")
     public void fireTrigger(Trigger trigger, boolean recursive) {
 
-        // Global modifications.
-        for (ObjectType modType : getDatabase().getEnvironment().getTypesByGroup(Modification.class.getName())) {
-            if (modType.isAbstract()) {
-                continue;
+        List<Class<?>> triggerGlobalModifications = getType() == null ? null : (List<Class<?>>) getType().getState().getExtra("trigger.globalModifications." + trigger.getClass().getName());
+
+        if (triggerGlobalModifications == null) {
+            triggerGlobalModifications = new ArrayList<Class<?>>();
+            for (ObjectType modType : getDatabase().getEnvironment().getTypesByGroup(Modification.class.getName())) {
+                if (modType.isAbstract()) {
+                    continue;
+                }
+
+                Class<?> modClass = modType.getObjectClass();
+
+                if (modClass != null &&
+                        Modification.class.isAssignableFrom(modClass) &&
+                        Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class) &&
+                        !trigger.isMissing(modClass)) {
+                    triggerGlobalModifications.add(modClass);
+                }
             }
+            if (getType() != null) {
+                synchronized (getType().getState().getExtras()) {
+                    getType().getState().getExtras().put("trigger.globalModifications." + trigger.getClass().getName(), triggerGlobalModifications);
+                }
+            }
+        }
 
-            Class<?> modClass = modType.getObjectClass();
-
+        for (Class<?> modClass : triggerGlobalModifications) {
             if (modClass != null &&
                     Modification.class.isAssignableFrom(modClass) &&
                     Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)) {
@@ -1368,18 +1385,28 @@ public class State implements Map<String, Object> {
 
         // Type-specific modifications.
         TYPE_CHANGE: while (true) {
-            for (String modClassName : type.getModificationClassNames()) {
-                Class<?> modClass = ObjectUtils.getClassByName(modClassName);
+            List<Class<?>> triggerTypeModifications = (List<Class<?>>) type.getState().getExtra("trigger.typeModifications." + trigger.getClass().getName());
+            if (triggerTypeModifications == null) {
+                triggerTypeModifications = new ArrayList<Class<?>>();
+                for (String modClassName : type.getModificationClassNames()) {
+                    Class<?> modClass = ObjectUtils.getClassByName(modClassName);
 
-                if (modClass != null) {
-                    fireModificationTrigger(trigger, modClass);
-
-                    ObjectType newType = getType();
-
-                    if (!type.equals(newType)) {
-                        type = newType;
-                        continue TYPE_CHANGE;
+                    if (modClass != null && !trigger.isMissing(modClass)) {
+                        triggerTypeModifications.add(modClass);
                     }
+                }
+                synchronized (type.getState().getExtras()) {
+                    type.getState().getExtras().put("trigger.typeModifications." + trigger.getClass().getName(), triggerTypeModifications);
+                }
+            }
+            for (Class<?> modClass : triggerTypeModifications) {
+                fireModificationTrigger(trigger, modClass);
+
+                ObjectType newType = getType();
+
+                if (!type.equals(newType)) {
+                    type = newType;
+                    continue TYPE_CHANGE;
                 }
             }
 
@@ -1388,13 +1415,31 @@ public class State implements Map<String, Object> {
 
         // Embedded objects.
         if (recursive) {
-            for (ObjectField field : type.getFields()) {
-                fireValueTrigger(trigger, get(field.getInternalName()), field.isEmbedded());
+            List<ObjectField> recordFields = (List<ObjectField>) type.getState().getExtra("trigger.recordFields");
+            if (recordFields == null) {
+                recordFields = new ArrayList<ObjectField>();
+                for (ObjectField field : type.getFields()) {
+                    if (ObjectField.RECORD_TYPE.equals(field.getInternalItemType())) {
+                        recordFields.add(field);
+                    }
+                }
+                synchronized (type.getState().getExtras()) {
+                    type.getState().getExtras().put("trigger.recordFields", recordFields);
+                }
+            }
+            for (ObjectField field : recordFields) {
+                Object value = get(field.getInternalName());
+                if (value != null) {
+                    fireValueTrigger(trigger, value, field.isEmbedded());
+                }
             }
         }
     }
 
     private void fireModificationTrigger(Trigger trigger, Class<?> modClass) {
+        if (trigger.isMissing(modClass)) {
+            return;
+        }
         Object modObject;
 
         try {
@@ -1404,10 +1449,11 @@ public class State implements Map<String, Object> {
             return;
         }
 
-        LOGGER.debug(
-                "Firing trigger [{}] from [{}] on [{}]",
-                new Object[] { trigger, modClass.getName(), State.getInstance(modObject) });
-
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(
+                    "Firing trigger [{}] from [{}] on [{}]",
+                    new Object[] { trigger, modClass.getName(), State.getInstance(modObject) });
+        }
         trigger.execute(modObject);
     }
 
@@ -1423,6 +1469,11 @@ public class State implements Map<String, Object> {
 
         } else if (value instanceof Recordable) {
             State valueState = ((Recordable) value).getState();
+
+            Class<?> valueClass = valueState.getType() != null ? valueState.getType().getObjectClass() : null;
+            if (valueClass == null || trigger.isMissing(valueClass)) {
+                return;
+            }
 
             if (embedded) {
                 valueState.fireTrigger(trigger);

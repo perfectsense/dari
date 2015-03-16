@@ -243,7 +243,7 @@ public class ObjectIndex {
     private Object getValue(State state, String field) {
         int index = field.indexOf('/');
         if (index != -1) {
-            Object value = state.get(field.substring(0, index));
+            Object value = state.getByPath(field.substring(0, index));
 
             if (value instanceof Iterable || value instanceof Map) {
                 Iterable<?> iterable;
@@ -272,7 +272,7 @@ public class ObjectIndex {
                 return null;
             }
         } else {
-            return state.get(field);
+            return state.getByPath(field);
         }
     }
 
@@ -285,7 +285,7 @@ public class ObjectIndex {
         for (int i = 0; i < fieldsSize; ++ i) {
             String fieldName = fields.get(i);
             ObjectField field = getParent().getField(fieldName);
-            Object value = state.get(fieldName);
+            Object value = state.getByPath(fieldName);
 
             if (!ObjectUtils.isBlank(value)) {
                 Set<Object> values = new HashSet<Object>();

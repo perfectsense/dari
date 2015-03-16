@@ -1082,7 +1082,7 @@ public class ObjectField extends Record {
 
                             if (index < currentArgs.length) {
                                 setGenericArgumentIndex(index);
-                                return translateType(environment, objectClass, currentArgs[index], index);
+                                return translateType(environment, objectClass, currentArgs[index], javaTypeIndex < 0 ? -1 : index);
                             }
                         }
 
