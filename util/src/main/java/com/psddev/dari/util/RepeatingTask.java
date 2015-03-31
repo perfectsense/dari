@@ -22,7 +22,8 @@ public abstract class RepeatingTask extends Task {
 
     protected DateTime every(DateTime currentTime, DateTimeFieldType unit, int offset, int interval) {
         DateTime d = currentTime.property(unit).roundFloorCopy();
-        return d.withField(unit, ((d.get(unit) + offset) / interval) * interval);
+        d = d.withFieldAdded(unit.getDurationType(), offset);
+        return d.withField(unit, (d.get(unit) / interval) * interval);
     }
 
     protected DateTime everyMinute(DateTime currentTime) {
