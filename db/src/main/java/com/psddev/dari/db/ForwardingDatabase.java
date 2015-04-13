@@ -174,6 +174,11 @@ public abstract class ForwardingDatabase implements Database {
         getDelegate().deleteByQuery(filterQuery(query));
     }
 
+    @Override
+    public long now() {
+        return getDelegate().now();
+    }
+
     // --- Object support ---
 
     @Override

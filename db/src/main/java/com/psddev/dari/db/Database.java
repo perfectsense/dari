@@ -149,6 +149,11 @@ public interface Database extends SettingsBackedObject {
         // no default implementation.
     }
 
+    /** Returns the database's current time, falling back to the local current time. */
+    public default long now() {
+        return System.currentTimeMillis();
+    }
+
     /** Ensures that given {@code index} is up-to-date across all states. */
     public void indexAll(ObjectIndex index);
 

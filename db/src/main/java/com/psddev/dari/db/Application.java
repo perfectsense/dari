@@ -56,6 +56,7 @@ public class Application extends Record {
      * {@code logger}. By default, this method does nothing, so the
      * subclasses are expected to override it to provide the desired behavior.
      */
+    @Deprecated
     public void initialize(Logger logger) throws Exception {
     }
 

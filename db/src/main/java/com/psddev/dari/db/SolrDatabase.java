@@ -38,7 +38,6 @@ import org.apache.solr.common.params.MoreLikeThisParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.Lazy;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
@@ -1823,31 +1822,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
          */
         private static Object getStateMethodValue(State state, ObjectMethod method) {
             Object methodResult = state.getByPath(method.getInternalName());
-
-            if (ObjectField.RECORD_TYPE.equals(method.getInternalItemType()) && !method.isEmbedded()) {
-                if (methodResult instanceof Iterable) {
-                    List<Map<String, UUID>> refs = new ArrayList<Map<String, UUID>>();
-                    for (Object methodResultElement : (Iterable) methodResult) {
-                        State methodResultState = State.getInstance(methodResultElement);
-                        if (methodResultState != null) {
-                            Map<String, UUID> ref = new CompactMap<String, UUID>();
-                            ref.put(StateValueUtils.REFERENCE_KEY, methodResultState.getId());
-                            ref.put(StateValueUtils.TYPE_KEY, methodResultState.getTypeId());
-                            refs.add(ref);
-                        }
-                    }
-                    methodResult = refs;
-                } else {
-                    State methodResultState = State.getInstance(methodResult);
-                    Map<String, UUID> ref = new CompactMap<String, UUID>();
-                    if (methodResultState != null) {
-                        ref.put(StateValueUtils.REFERENCE_KEY, methodResultState.getId());
-                        ref.put(StateValueUtils.TYPE_KEY, methodResultState.getTypeId());
-                    }
-                    methodResult = ref;
-                }
-            }
-            return methodResult;
+            return State.toSimpleValue(methodResult, method.isEmbedded(), false);
         }
     }
 

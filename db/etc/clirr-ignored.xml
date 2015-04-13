@@ -47,4 +47,10 @@
         <differenceType>7012</differenceType>
         <method>boolean isMissing(java.lang.Class)</method>
     </difference>
+
+    <difference>
+        <className>com/psddev/dari/db/Database</className>
+        <differenceType>7012</differenceType>
+        <method>long now()</method>
+    </difference>
 </differences>

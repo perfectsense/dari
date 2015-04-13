@@ -370,6 +370,11 @@ public class AggregateDatabase implements Database, Iterable<Database> {
     }
 
     @Override
+    public long now() {
+        return getDefaultDelegate().now();
+    }
+
+    @Override
     public void delete(State state) {
         DELETE.execute(this, state);
     }

@@ -122,10 +122,15 @@ public class JavaImageServlet extends HttpServlet {
                     }
                 }
 
-                String filePath = StringUtils.encodeUri(requestUrl);
-                if (filePath.length() > 255) {
-                    String hashCode = StringUtils.hex(StringUtils.md5(filePath));
-                    filePath = hashCode + filePath.substring(filePath.length() - 255 + hashCode.length());
+                String filePath;
+                if (Settings.getOrDefault(Boolean.class, "dari/imageEditor/_java/disableLongCacheFileName", false)) {
+                    filePath = StringUtils.hex(StringUtils.md5(requestUrl));
+                } else {
+                    filePath = StringUtils.encodeUri(requestUrl);
+                    if (filePath.length() > 255) {
+                        String hashCode = StringUtils.hex(StringUtils.md5(filePath));
+                        filePath = hashCode + filePath.substring(filePath.length() - 255 + hashCode.length());
+                    }
                 }
 
                 filePath = imageFolder + "/" + filePath;
