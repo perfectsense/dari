@@ -18,13 +18,19 @@ import javax.servlet.http.HttpServletRequestWrapper;
  *
  *  These values are suitable to construct a cache key, so requests with different normalized headers can be cached separately.
  *
+ *  If any CacheableResponse returns shouldCacheResponse = false, the response will not be cached.
+ *
  */
-public interface RequestNormalizer {
+public interface CacheableResponse {
 
-    void normalizeRequest(NormalizingRequest request);
+    default void normalizeRequest(NormalizingRequest request) { }
+
+    default boolean shouldCacheResponse(HttpServletRequest request) {
+        return true;
+    }
 
     /** Implementations marked with Global will be found and executed automatically. */
-    interface Global extends RequestNormalizer { }
+    interface Global extends CacheableResponse { }
 
     class NormalizingRequest extends HttpServletRequestWrapper {
 
@@ -201,9 +207,9 @@ public interface RequestNormalizer {
             return request.getAttribute(NormalizingRequest.NORMALIZED_HEADERS_ATTRIBUTE_NAME) != null && request.getAttribute(NormalizingRequest.ACCESSED_HEADER_NAMES_ATTRIBUTE_NAME) != null;
         }
 
-        public static Collection<RequestNormalizer> findGlobalInstances() {
-            Collection<RequestNormalizer> requestNormalizers = new ArrayList<RequestNormalizer>();
-            for (Class<? extends RequestNormalizer> requestNormalizerClass : ClassFinder.Static.findClasses(RequestNormalizer.Global.class)) {
+        public static Collection<CacheableResponse> findGlobalInstances() {
+            Collection<CacheableResponse> requestNormalizers = new ArrayList<CacheableResponse>();
+            for (Class<? extends CacheableResponse> requestNormalizerClass : ClassFinder.Static.findClasses(CacheableResponse.Global.class)) {
                 requestNormalizers.add(TypeDefinition.getInstance(requestNormalizerClass).newInstance());
             }
             return requestNormalizers;

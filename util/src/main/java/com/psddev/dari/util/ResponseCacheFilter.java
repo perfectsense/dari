@@ -141,14 +141,14 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         STRIP_RESPONSE_HEADERS.add("Set-Cookie");
     }
 
-    private final Collection<RequestNormalizer> requestNormalizers = new ArrayList<>();
+    private final Collection<CacheableResponse> requestNormalizers = new ArrayList<>();
 
     // --- AbstractFilter support ---
     @Override
     protected void doInit() throws Exception {
         super.doInit();
         requestNormalizers.clear();
-        requestNormalizers.addAll(RequestNormalizer.Static.findGlobalInstances());
+        requestNormalizers.addAll(CacheableResponse.Static.findGlobalInstances());
     }
 
     @Override
@@ -192,7 +192,11 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
                 Long responseTime = TIMED_OUT_RESPONSES.getIfPresent(cacheKey);
                 if (responseTime != null) {
                     cache = true;
-                    response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "response time " + responseTime + "ms");
+                    if (responseTime == 0L) {
+                        response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "always");
+                    } else {
+                        response.setHeader(X_RESPONSE_CACHE_REASON_HEADER_NAME, "response time " + responseTime + "ms");
+                    }
                     if (!Settings.isProduction()) {
                         response.setHeader(X_RESPONSE_CACHE_KEY_HEADER_NAME, cacheKey);
                     }
@@ -322,23 +326,23 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
     private Map<String, Collection<String>> getNormalizedHeaders(HttpServletRequest request) {
         ensureRequestNormalizersExecuteOnce(request);
-        return RequestNormalizer.Static.getNormalizedHeaders(request);
+        return CacheableResponse.Static.getNormalizedHeaders(request);
     }
 
     private Collection<String> getAccessedHeaders(HttpServletRequest request) {
         ensureRequestNormalizersExecuteOnce(request);
-        return RequestNormalizer.Static.getAccessedHeaderNames(request);
+        return CacheableResponse.Static.getAccessedHeaderNames(request);
     }
 
     private Cookie[] getNormalizedCookies(HttpServletRequest request) {
         ensureRequestNormalizersExecuteOnce(request);
-        return RequestNormalizer.Static.getNormalizedCookies(request);
+        return CacheableResponse.Static.getNormalizedCookies(request);
     }
 
     private void ensureRequestNormalizersExecuteOnce(HttpServletRequest request) {
-        if (!RequestNormalizer.Static.hasExecuted(request)) {
-            RequestNormalizer.NormalizingRequest req = new RequestNormalizer.NormalizingRequest(request);
-            for (RequestNormalizer requestNormalizer : requestNormalizers) {
+        if (!CacheableResponse.Static.hasExecuted(request)) {
+            CacheableResponse.NormalizingRequest req = new CacheableResponse.NormalizingRequest(request);
+            for (CacheableResponse requestNormalizer : requestNormalizers) {
                 requestNormalizer.normalizeRequest(req);
             }
         }
@@ -388,13 +392,18 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
         return cacheKey;
     }
 
-    private static boolean ableToCache(HttpServletRequest request) {
+    private boolean ableToCache(HttpServletRequest request) {
         if (!"GET".equalsIgnoreCase(request.getMethod()) || !"http".equalsIgnoreCase(request.getScheme())) {
             return false;
         }
         String cacheControlHeader = request.getHeader("Cache-Control");
         if (cacheControlHeader != null) {
             if (cacheControlHeader.toLowerCase(Locale.ENGLISH).contains("no-cache")) {
+                return false;
+            }
+        }
+        for (CacheableResponse requestNormalizer : requestNormalizers) {
+            if (!requestNormalizer.shouldCacheResponse(request)) {
                 return false;
             }
         }
@@ -539,10 +548,6 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
         /** Creates the CachedResponse, including the underlying StorageItem */
         public static CachedResponse createInstanceOrNull(HttpServletRequest request, CapturingResponse response, Iterable<String> stripResponseHeaders) throws IOException {
-            if (!ableToCache(request)) {
-                // We shouldn't even be here. . .
-                return null;
-            }
 
             // Check status: 0 or 200 only, otherwise null.
             int statusCode = response.getStatus();
@@ -605,7 +610,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
 
             // Copy the response data into the storage item, gzipping it if requested.
             byte[] data = output.getBytes();
-            if (DefaultRequestNormalizer.isGzippable(request) && response.getContentType().startsWith("text/")) {
+            if (DefaultGlobalCacheableResponse.isGzippable(request) && response.getContentType().startsWith("text/")) {
                 ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
                 try (GZIPOutputStream gzipOutput = new GZIPOutputStream(byteOutput)) {
                     gzipOutput.write(data);
@@ -816,7 +821,7 @@ public class ResponseCacheFilter extends AbstractFilter implements AbstractFilte
      *
      * The default request normalizer passes through the ALLOWED_REQUEST_HEADERS untouched and varies on Accept-Encoding contains gzip.
      */
-    protected static class DefaultRequestNormalizer implements RequestNormalizer.Global {
+    protected static class DefaultGlobalCacheableResponse implements CacheableResponse.Global {
 
         private static final String ACCEPT_ENCODING_HEADER_NAME = "Accept-Encoding";
         private static final String GZIP = "gzip";
