@@ -91,6 +91,13 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     private static final String COMMIT_PROFILER_EVENT = SHORT_NAME + " " + COMMIT_STATS_OPERATION;
     private static final String DELETE_PROFILER_EVENT = SHORT_NAME + " " + DELETE_STATS_OPERATION;
     private static final String QUERY_PROFILER_EVENT = SHORT_NAME + " " + QUERY_STATS_OPERATION;
+    private static final int MAX_BINARY_FIELD_LENGTH = 32766;
+    private static final Set<String> TRUNCATE_FIELD_PREFIXES = new HashSet<>();
+
+    static {
+        TRUNCATE_FIELD_PREFIXES.add("_sl_");
+        TRUNCATE_FIELD_PREFIXES.add("_ss_");
+    }
 
     private volatile SolrServer server;
     private volatile SolrServer readServer;
@@ -1599,12 +1606,19 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
             value = ((String) value).trim().toLowerCase(Locale.ENGLISH);
         }
 
+        Object truncatedValue = value;
+        if (value instanceof String) {
+            if (((String) value).length() > MAX_BINARY_FIELD_LENGTH) {
+                truncatedValue = ((String) value).substring(0, MAX_BINARY_FIELD_LENGTH);
+            }
+        }
+
         SolrField solrField = getSolrField(field.getInternalItemType());
         for (String prefix : solrField.addPrefixes) {
-            document.addField(prefix + name, value);
+            document.addField(prefix + name, TRUNCATE_FIELD_PREFIXES.contains(prefix) ? truncatedValue : value);
         }
         for (String prefix : solrField.setPrefixes) {
-            document.setField(prefix + name, value);
+            document.setField(prefix + name, TRUNCATE_FIELD_PREFIXES.contains(prefix) ? truncatedValue : value);
         }
     }
 
