@@ -158,6 +158,11 @@
                                             <method>java.lang.String prepareUpdateStatement(com.psddev.dari.db.SqlDatabase, java.sql.Connection, com.psddev.dari.db.ObjectIndex)</method>
                                             <differenceType>7012</differenceType>
                                         </difference>
+                                        <difference>
+                                            <className>com/psddev/dari/db/Database</className>
+                                            <method>void saveWithOptions(com.psddev.dari.db.State, com.psddev.dari.db.SaveOptions)</method>
+                                            <differenceType>7012</differenceType>
+                                        </difference>
                                     </ignored>
 
                                     <logResults>true</logResults>

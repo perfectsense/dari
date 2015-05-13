@@ -2152,6 +2152,16 @@ public class State implements Map<String, Object> {
     }
 
     /**
+     * {@linkplain Database#saveWithOptions Saves} this state to the
+     * {@linkplain #getDatabase originating database} using the
+     * {@linkplain SaveOptions options} provided.
+     * @param options May be {@code null}.
+     */
+    public void saveWithOptions(SaveOptions options) {
+        getDatabase().saveWithOptions(this, options);
+    }
+
+    /**
      * Saves this state {@linkplain Database#beginIsolatedWrites immediately}
      * to the {@linkplain #getDatabase originating database}.
      */
