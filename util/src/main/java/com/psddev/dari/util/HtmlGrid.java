@@ -389,8 +389,13 @@ public class HtmlGrid {
         private static List<String> findGridPaths(ServletContext context) throws IOException {
             List<String> gridPaths = null;
 
-            gridPaths = (List<String>) context.getAttribute(RESTRICT_GRID_PATHS_ATTRIBUTE);
-            if (gridPaths != null) {
+            List<String> restrictGridPaths = (List<String>) context.getAttribute(RESTRICT_GRID_PATHS_ATTRIBUTE);
+            if (restrictGridPaths != null) {
+                gridPaths = new ArrayList<String>();
+                for (String path : restrictGridPaths) {
+                    URLConnection cssConnection = CodeUtils.getResource(context, path).openConnection();
+                    parseGridCss(context, path, gridPaths, cssConnection);
+                }
                 context.setAttribute(GRID_PATHS_ATTRIBUTE, gridPaths);
             }
 
