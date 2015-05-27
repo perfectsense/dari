@@ -498,13 +498,39 @@ abstract class StateValueUtils {
 
                 } else {
                     ReferentialText text = new ReferentialText();
+
                     if (value instanceof Iterable) {
-                        for (Object item : (Iterable<?>) value) {
-                            text.add(item);
+                        boolean isFirst = false;
+
+                        try {
+                            Map<UUID, Object> circularReferences = StateValueUtils.CIRCULAR_REFERENCES.get();
+
+                            if (circularReferences == null) {
+                                isFirst = true;
+                                circularReferences = new HashMap<UUID, Object>();
+                                StateValueUtils.CIRCULAR_REFERENCES.set(circularReferences);
+                            }
+
+                            if (object != null) {
+                                State objectState = State.getInstance(object);
+
+                                circularReferences.put(objectState.getId(), object);
+                            }
+
+                            for (Object item : (Iterable<?>) value) {
+                                text.add(item);
+                            }
+
+                        } finally {
+                            if (isFirst) {
+                                StateValueUtils.CIRCULAR_REFERENCES.remove();
+                            }
                         }
+
                     } else {
                         text.add(value.toString());
                     }
+
                     return text;
                 }
             }

@@ -753,22 +753,15 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
 
     /**
      * Maintains a cache of Querys to SQL select statements.
-     *
-     * This cache sets the Database of the Query to null to
-     * avoid keeping a reference to the CachingDatabase, so
-     * only call it with a clone of your query with a null Database.
      */
     private final LoadingCache<Query<?>, String> sqlQueryCache = CacheBuilder.
             newBuilder().
             maximumSize(5000).
             concurrencyLevel(20).
-            weakKeys().
             build(new CacheLoader<Query<?>, String>() {
                 @Override
                 public String load(Query<?> query) throws Exception {
-                    String sql = new SqlQuery(SqlDatabase.this, query).selectStatement();
-                    query.setDatabase(null);
-                    return sql;
+                    return new SqlQuery(SqlDatabase.this, query).selectStatement();
                 }
             });
 
@@ -779,7 +772,8 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
     public String buildSelectStatement(Query<?> query) {
         try {
             Query<?> strippedQuery = query.clone();
-            strippedQuery.setDatabase(null);
+            // Remove any possibility that multiple CachingDatabases will be cached in the sqlQueryCache.
+            strippedQuery.setDatabase(this);
             return sqlQueryCache.getUnchecked(strippedQuery);
         } catch (UncheckedExecutionException e) {
             Throwable cause = e.getCause();
