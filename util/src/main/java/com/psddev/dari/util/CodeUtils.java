@@ -664,13 +664,23 @@ public final class CodeUtils {
                     }
                 }
 
+                if (vm == null) {
+                    vm = vmClass.getMethod("attach", String.class).invoke(null, pid);
+                }
+
                 // Create a temporary instrumentation agent JAR.
                 String agentName = Agent.class.getName();
                 File agentDir = new File(System.getProperty("user.home"), ".dari");
+                File agentFile;
 
-                IoUtils.createDirectories(agentDir);
+                try {
+                    IoUtils.createDirectories(agentDir);
+                    agentFile = new File(agentDir, agentName + ".jar");
 
-                File agentFile = new File(agentDir, agentName + ".jar");
+                } catch (IOException e) {
+                    agentFile = File.createTempFile(agentName + "-", ".jar");
+                }
+
                 Manifest manifest = new Manifest();
                 Attributes attributes = manifest.getMainAttributes();
 
