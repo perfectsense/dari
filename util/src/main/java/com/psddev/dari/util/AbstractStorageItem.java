@@ -131,6 +131,9 @@ public abstract class AbstractStorageItem implements StorageItem {
     /** Returns the list of available base URLs that can be used to construct
      *  the {@linkplain #getSecurePublicUrl secure public URL}. */
     public List<String> getSecureBaseUrls() {
+        if (secureBaseUrls == null) {
+            secureBaseUrls = new ArrayList<>();
+        }
         return secureBaseUrls;
     }
 

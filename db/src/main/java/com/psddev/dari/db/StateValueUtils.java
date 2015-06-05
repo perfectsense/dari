@@ -662,6 +662,22 @@ abstract class StateValueUtils {
             }
         });
 
+        m.put(ObjectField.ANY_TYPE, new Converter() {
+            @Override
+            public Object toJavaValue(
+                    Database database,
+                    Object object,
+                    ObjectField field,
+                    String subType,
+                    Object value) {
+
+                if (Query.SERIALIZED_MISSING_VALUE.equals(value)) {
+                    return Query.MISSING_VALUE;
+                }
+                return value;
+            }
+        });
+
         CONVERTERS = m;
     }
 }

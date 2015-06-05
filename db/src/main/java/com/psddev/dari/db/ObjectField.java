@@ -103,6 +103,7 @@ public class ObjectField extends Record {
         CLASS_TO_TYPE.put(URL.class, URL_TYPE);
         CLASS_TO_TYPE.put(UUID.class, UUID_TYPE);
         CLASS_TO_TYPE.put(Locale.class, LOCALE_TYPE);
+        CLASS_TO_TYPE.put(Object.class, ANY_TYPE);
 
         for (Map.Entry<Class<?>, String> e : CLASS_TO_TYPE.entrySet()) {
             Class<?> type = e.getKey();

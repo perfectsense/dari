@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableMap;
 import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.HtmlWriter;
 import com.psddev.dari.util.ObjectUtils;
@@ -115,6 +116,8 @@ public class Query<E> extends Record {
             return "missing";
         }
     };
+
+    public static final Map<String, Boolean> SERIALIZED_MISSING_VALUE = ImmutableMap.of("_missing", Boolean.TRUE);
 
     public static final String ID_KEY = "_id";
     public static final String TYPE_KEY = "_type";

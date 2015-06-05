@@ -550,6 +550,9 @@ public class State implements Map<String, Object> {
         } else if (value instanceof Locale) {
             return LocaleUtils.toLanguageTag((Locale) value);
 
+        } else if (Query.MISSING_VALUE.equals(value)) {
+            return Query.SERIALIZED_MISSING_VALUE;
+
         } else {
             return toSimpleValue(ObjectUtils.to(Map.class, value), isEmbedded, withTypeNames);
         }
