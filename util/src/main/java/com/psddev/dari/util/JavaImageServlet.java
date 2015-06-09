@@ -158,6 +158,10 @@ public class JavaImageServlet extends HttpServlet {
             BufferedImage bufferedImage;
 
             try {
+                if (!imageUrl.startsWith("http")) {
+                    imageUrl = JspUtils.getAbsoluteUrl(request, imageUrl);
+                }
+
                 URL url = new URL(imageUrl);
                 URI uri = new URI(url.getProtocol(), url.getAuthority(), url.getPath(), url.getQuery(), url.getRef());
 
