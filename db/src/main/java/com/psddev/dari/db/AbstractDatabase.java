@@ -202,7 +202,7 @@ public abstract class AbstractDatabase<C> implements Database {
                                 }
 
                                 if (save) {
-                                    if(!saves.contains(itemState)) {
+                                    if (!saves.contains(itemState)) {
                                         itemState.save();
                                     }
                                 }
@@ -214,7 +214,7 @@ public abstract class AbstractDatabase<C> implements Database {
                         State itemState = State.getInstance(item);
 
                         itemState.remove(junctionField);
-                        if(!saves.contains(itemState)) {
+                        if (!saves.contains(itemState)) {
                             itemState.save();
                         }
                     }
