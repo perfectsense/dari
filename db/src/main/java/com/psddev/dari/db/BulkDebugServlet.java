@@ -62,6 +62,8 @@ public class BulkDebugServlet extends HttpServlet {
                         fromType(selectedType).
                         resolveToReferenceOnly();
 
+                query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
+
                 new AsyncDatabaseReader<Object>(
                         executor, queue, selectedDatabase, query).
                         submit();
@@ -84,8 +86,9 @@ public class BulkDebugServlet extends HttpServlet {
                         fromType(selectedType).
                         resolveToReferenceOnly();
 
+                query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
+
                 if (wp.param(boolean.class, "isResumable") && source instanceof SqlDatabase) {
-                    query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
                     String resumeIdStr = wp.param(String.class, "resumeId");
                     if (!StringUtils.isEmpty(resumeIdStr)) {
                         UUID resumeId = UuidUtils.fromString(resumeIdStr);

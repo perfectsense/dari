@@ -63,12 +63,6 @@ public abstract class ForwardingDatabase implements Database {
         return getDelegate().readAll(filterQuery(query));
     }
 
-    @Deprecated
-    @Override
-    public <T> List<T> readList(Query<T> query) {
-        return getDelegate().readList(filterQuery(query));
-    }
-
     @Override
     public <T> List<Grouping<T>> readAllGrouped(Query<T> query, String... fields) {
         return getDelegate().readAllGrouped(filterQuery(query), fields);
@@ -102,12 +96,6 @@ public abstract class ForwardingDatabase implements Database {
     @Override
     public <T> PaginatedResult<Grouping<T>> readPartialGrouped(Query<T> query, long offset, int limit, String... fields) {
         return getDelegate().readPartialGrouped(filterQuery(query), offset, limit, fields);
-    }
-
-    @Deprecated
-    @Override
-    public Map<Object, Long> readGroupedCount(Query<?> query, String field) {
-        return getDelegate().readGroupedCount(filterQuery(query), field);
     }
 
     @Override

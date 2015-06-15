@@ -419,12 +419,6 @@ public abstract class AbstractDatabase<C> implements Database {
         return readPartialGrouped(query, 0L, MAXIMUM_LIMIT, fields).getItems();
     }
 
-    @Deprecated
-    @Override
-    public <T> List<T> readList(Query<T> query) {
-        return readAll(query);
-    }
-
     @Override
     public long readCount(Query<?> query) {
         return readPartial(query, 0L, 1).getCount();
@@ -680,16 +674,6 @@ public abstract class AbstractDatabase<C> implements Database {
         public long getCount() {
             return count;
         }
-    }
-
-    @Deprecated
-    @Override
-    public Map<Object, Long> readGroupedCount(Query<?> query, String field) {
-        Map<Object, Long> counts = new CompactMap<Object, Long>();
-        for (Grouping<?> grouping : readAllGrouped(query, field)) {
-            counts.put(grouping.getKeys().get(0), grouping.getCount());
-        }
-        return counts;
     }
 
     private final Deque<Writes> getOrCreateWritesQueue() {

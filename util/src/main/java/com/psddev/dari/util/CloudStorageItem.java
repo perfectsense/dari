@@ -14,6 +14,7 @@ import org.jclouds.blobstore.BlobStoreContext;
 import org.jclouds.blobstore.domain.Blob;
 import org.jclouds.blobstore.domain.BlobBuilder;
 import org.jclouds.blobstore.options.CreateContainerOptions;
+import org.jclouds.openstack.swift.v1.blobstore.RegionScopedBlobStoreContext;
 
 /**
  * {@link StorageItem} stored in the cloud.
@@ -43,10 +44,14 @@ public class CloudStorageItem extends AbstractStorageItem {
     /** Setting key for container. */
     public static final String CONTAINER_SETTING = "container";
 
+    /** Setting key for region. */
+    public static final String REGION_SETTING = "region";
+
     private transient String provider;
     private transient String identity;
     private transient String credential;
     private transient String container;
+    private transient String region;
 
     /** Returns the storage provider. */
     public String getProvider() {
@@ -88,6 +93,16 @@ public class CloudStorageItem extends AbstractStorageItem {
         container = newContainer;
     }
 
+    /** Returns the region. */
+    public String getRegion() {
+        return region;
+    }
+
+    /** Sets the region. */
+    public void setRegion(String region) {
+        this.region = region;
+    }
+
     // --- AbstractStorageItem support ---
 
     @Override
@@ -121,13 +136,42 @@ public class CloudStorageItem extends AbstractStorageItem {
         } else {
             setContainer(container);
         }
+
+        String region = ObjectUtils.to(String.class, settings.get(REGION_SETTING));
+        if (!ObjectUtils.isBlank(region)) {
+            setRegion(region);
+        }
     }
 
     private BlobStoreContext createContext() {
+        if (!ObjectUtils.isBlank(getRegion())) {
+            return createRegionContext();
+        }
+
         return ContextBuilder.
                 newBuilder(getProvider()).
                 credentials(getIdentity(), getCredential()).
                 buildView(BlobStoreContext.class);
+    }
+
+    private RegionScopedBlobStoreContext createRegionContext() {
+        return ContextBuilder.
+                newBuilder(getProvider()).
+                credentials(getIdentity(), getCredential()).
+                buildView(RegionScopedBlobStoreContext.class);
+    }
+
+    private BlobStore createBlobStore(BlobStoreContext context) {
+        BlobStore blobStore = null;
+
+        if (!ObjectUtils.isBlank(getRegion()) && context instanceof RegionScopedBlobStoreContext) {
+            RegionScopedBlobStoreContext regionContext = (RegionScopedBlobStoreContext) context;
+            blobStore = regionContext.getBlobStore(getRegion());
+        } else {
+            blobStore = context.getBlobStore();
+        }
+
+        return blobStore;
     }
 
     @Override
@@ -135,7 +179,8 @@ public class CloudStorageItem extends AbstractStorageItem {
         BlobStoreContext context = createContext();
 
         try {
-            BlobStore store = context.getBlobStore();
+            BlobStore store = createBlobStore(context);
+
             Blob blob = store.getBlob(getContainer(), getPath());
             return blob.getPayload().getInput();
 
@@ -148,7 +193,7 @@ public class CloudStorageItem extends AbstractStorageItem {
         BlobStoreContext context = createContext();
 
         try {
-            BlobStore store = context.getBlobStore();
+            BlobStore store = createBlobStore(context);
             if (!store.containerExists(getContainer())) {
                 store.createContainerInLocation(null, getContainer(), new CreateContainerOptions().publicRead());
             }
@@ -247,7 +292,7 @@ public class CloudStorageItem extends AbstractStorageItem {
         BlobStoreContext context = createContext();
 
         try {
-            BlobStore store = context.getBlobStore();
+            BlobStore store = createBlobStore(context);
             return store.blobExists(getContainer(), getPath());
 
         } finally {

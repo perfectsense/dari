@@ -252,21 +252,4 @@ public class ProfilingDatabase extends ForwardingDatabase {
             Profiler.Static.stopThreadEvent();
         }
     }
-
-    // --- Deprecated ---
-
-    @Deprecated
-    @Override
-    public <T> List<T> readList(Query<T> query) {
-        List<T> result = null;
-
-        try {
-            startQueryEvent(READ_ALL_EVENT_NAME, query);
-            result = super.readList(query);
-            return result;
-
-        } finally {
-            Profiler.Static.stopThreadEvent(result);
-        }
-    }
 }

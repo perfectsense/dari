@@ -216,9 +216,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.jclouds</groupId>
+                <groupId>org.apache.jclouds</groupId>
                 <artifactId>jclouds-all</artifactId>
-                <version>1.6.0</version>
+                <version>1.9.0</version>
             </dependency>
 
             <dependency>

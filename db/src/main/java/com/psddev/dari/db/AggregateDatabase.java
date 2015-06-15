@@ -510,14 +510,6 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         }
     };
 
-    private static final ReadOperation READ_GROUPED_COUNT = new ReadOperation() {
-        @Override
-        @SuppressWarnings("deprecation")
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readGroupedCount(query, (String) arguments[0]);
-        }
-    };
-
     private static final ReadOperation READ_FIRST = new ReadOperation() {
         @Override
         protected Object read(Database delegate, Query<?> query, Object... arguments) {
@@ -679,29 +671,5 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         }
 
         return sb.toString();
-    }
-
-    // --- Deprecated ---
-
-    @Deprecated
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> List<T> readList(Query<T> query) {
-        return (List<T>) READ_LIST.execute(this, query);
-    }
-
-    private static final ReadOperation READ_LIST = new ReadOperation() {
-        @Override
-        @SuppressWarnings("deprecation")
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readList(query);
-        }
-    };
-
-    @Deprecated
-    @Override
-    @SuppressWarnings("unchecked")
-    public Map<Object, Long> readGroupedCount(Query<?> query, String field) {
-        return (Map<Object, Long>) READ_GROUPED_COUNT.execute(this, query, field);
     }
 }

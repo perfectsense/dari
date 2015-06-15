@@ -14,6 +14,7 @@ import java.util.UUID;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ErrorUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
@@ -488,11 +489,26 @@ public interface Database extends SettingsBackedObject {
 
     // --- Deprecated ---
 
-    /** @deprecated Use {@link #readAll} instead. */
+    /**
+     * @deprecated Use {@link #readAll} instead.
+     */
     @Deprecated
-    public <T> List<T> readList(Query<T> query);
+    default <T> List<T> readList(Query<T> query) {
+        return readAll(query);
+    }
 
-    /** @deprecated Use {@link #readAllGrouped} or {@link #readPartialGrouped} instead. */
+    /**
+     * @deprecated Use {@link #readAllGrouped} or {@link #readPartialGrouped}
+     * instead.
+     */
     @Deprecated
-    public Map<Object, Long> readGroupedCount(Query<?> query, String field);
+    default Map<Object, Long> readGroupedCount(Query<?> query, String field) {
+        Map<Object, Long> counts = new CompactMap<>();
+
+        for (Grouping<?> grouping : readAllGrouped(query, field)) {
+            counts.put(grouping.getKeys().get(0), grouping.getCount());
+        }
+
+        return counts;
+    }
 }
