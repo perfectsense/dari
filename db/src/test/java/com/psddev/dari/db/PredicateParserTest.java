@@ -3,23 +3,70 @@ package com.psddev.dari.db;
 import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Queue;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PredicateParserTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PredicateParserTest.class);
+
+    private static final String REFLECTIVE_IDENTITY_SYNTAX_STANDARD = "?";
+    private static final String REFLECTIVE_IDENTITY_DELIMITED_SYNTAX = "?/";
+    private static final String REFLECTIVE_IDENTITY_REDUNDANT_SYNTAX = "?_id";
+    private static final String REFLECTIVE_IDENTITY_DELIMITED_REDUNDANT_SYNTAX = "?/_id";
+    private static final String REFLECTIVE_IDENTITY_INDEXED_SYNTAX = "?0";
+    private static final String REFLECTIVE_IDENTITY_INDEXED_DELIMITED_SYNTAX = "?0/";
+    private static final String REFLECTIVE_IDENTITY_INDEXED_REDUNDANT_SYNTAX = "?0_id";
+    private static final String REFLECTIVE_IDENTITY_INDEXED_DELIMITED_REDUNDANT_SYNTAX = "?0/_id";
+
+    private static List<TestDatabase> TEST_DATABASES;
+    private static List<Database> DATABASES;
+
 	PredicateParser parser = new PredicateParser();
 	static final Queue<Object> EMPTY_OBJECT_QUEUE = new ArrayDeque<Object>();
 	static final Queue<String> EMPTY_STRING_QUEUE = new ArrayDeque<String>();
 
+    @BeforeClass
+    public static void beforeClass() {
+
+        TEST_DATABASES = DatabaseTestUtils.getNewDefaultTestDatabaseInstances();
+        DATABASES = new ArrayList<Database>();
+
+        for (TestDatabase testDb : TEST_DATABASES) {
+            Database db = testDb.get();
+            DATABASES.add(db);
+        }
+
+        LOGGER.info("Running tests against " + TEST_DATABASES.size() + " databases.");
+    }
+
+    @AfterClass
+    public static void afterClass() {
+        if (TEST_DATABASES != null) for (TestDatabase testDb : TEST_DATABASES) {
+            testDb.close();
+        }
+    }
+
     @Before
-    public void before() {}
+    public void before() {
+
+    }
 
     @After
-    public void after() {}
+    public void after() {
+
+    }
 
     /**
      * public Predicate parse(String predicateString, Object... parameters)
@@ -204,6 +251,210 @@ public class PredicateParserTest {
     @Test (expected=IllegalArgumentException.class)
     public void parse_parens_empty() {
     	assertEquals(null, parser.parse(" ( ) "));
+    }
+
+    /**
+     * Utility method for testing different identity syntax formats.
+     * @param identitySyntax the format string to test
+     */
+    private void parse_identity_syntax_recordable(String identitySyntax) {
+
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+
+            Predicate predicate = parser.parse("record = " + identitySyntax, current);
+            Predicate expect = new ComparisonPredicate(PredicateParser.EQUALS_ANY_OPERATOR, false, "record", Arrays.asList(current.getId()));
+            assertEquals(expect, predicate);
+        }
+    }
+
+    /**
+     * Utility method for testing unsupported identity syntax formats.
+     * @param identitySyntax the format string to test
+     */
+    private void illegal_identity_syntax_recordable(String identitySyntax) {
+
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+            parser.parse("record = " + identitySyntax, current);
+        }
+    }
+
+    /**
+     * Utility method for testing unsupported identity syntax formats in parsing predicates with field expressions.
+     * @param identitySyntax the format string to test
+     */
+    private void illegal_identity_with_field_syntax_recordable(String identitySyntax) {
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+            current.setName("testName");
+            parser.parse("record = " + identitySyntax + "name", current);
+        }
+    }
+
+    /**
+     * Utility method for testing different identity syntax formats in parsing predicates with field expressions.
+     * @param identitySyntax the format string to test
+     */
+    private void parse_identity_with_field_syntax_recordable(String identitySyntax) {
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+            current.setName("testName");
+
+            Predicate predicate = parser.parse("record = " + identitySyntax + "name", current);
+            Predicate expect = new ComparisonPredicate(PredicateParser.EQUALS_ANY_OPERATOR, false, "record", Arrays.asList(current.getName()));
+            assertEquals(expect, predicate);
+        }
+    }
+
+    /**
+     * Test the reduction of a {@link State} to a UUID in {@link ComparisonPredicate}
+     */
+    @Test
+    public void parse_identity_state() {
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+
+            Predicate predicate = parser.parse("record = ?", current.getState());
+            Predicate expect = new ComparisonPredicate(PredicateParser.EQUALS_ANY_OPERATOR, false, "record", Arrays.asList(current.getId()));
+            assertEquals(expect, predicate);
+        }
+    }
+
+    /**
+     * Test reduction of a {@link Recordable} to a String field value in {@link ComparisonPredicate}
+     */
+    @Test
+    public void parse_name_spaced_field_recordable() {
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+            current.setName("testName");
+
+            Predicate predicate = parser.parse("record = ?/" + TestRecord.class.getName() + "/name", current);
+            Predicate expect = new ComparisonPredicate(PredicateParser.EQUALS_ANY_OPERATOR, false, "record", Arrays.asList(current.getName()));
+            assertEquals(expect, predicate);
+        }
+    }
+
+    /** Supported Syntax Tests **/
+
+    /** Test reduction of a Recordable to a UUID using the identity syntax "?" **/
+    @Test
+    public void parse_identity_standard_syntax() {
+
+        parse_identity_syntax_recordable(REFLECTIVE_IDENTITY_SYNTAX_STANDARD);
+    }
+
+    /** Test reduction of a Recordable to a UUID using the identity syntax "?/" **/
+    @Test
+    public void parse_identity_delimited_syntax() {
+
+        parse_identity_syntax_recordable(REFLECTIVE_IDENTITY_DELIMITED_SYNTAX);
+    }
+
+    /** Test reduction of a Recordable to a String field value using the syntax "?/field" **/
+    @Test
+    public void parse_identity_delimited_syntax_with_field() {
+        parse_identity_with_field_syntax_recordable(REFLECTIVE_IDENTITY_DELIMITED_SYNTAX);
+    }
+
+    /** Test reduction of a Recordable to a UUID using the identity syntax "?/_id" **/
+    @Test
+    public void parse_identity_delimited_redundant_syntax() {
+
+        parse_identity_syntax_recordable(REFLECTIVE_IDENTITY_DELIMITED_REDUNDANT_SYNTAX);
+    }
+
+    /** Test reduction of a Recordable to a UUID using the identity syntax "?0" **/
+    @Test
+    public void parse_identity_indexed_syntax() {
+
+        parse_identity_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_SYNTAX);
+    }
+
+    /** Test reduction of a Recordable to a UUID using the identity syntax "?0/" **/
+    @Test
+    public void parse_identity_indexed_delimited_syntax() {
+
+        parse_identity_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_DELIMITED_SYNTAX);
+    }
+
+    /** Test reduction of a Recordable to a String field value using the syntax "?0/field" **/
+    @Test
+    public void parse_identity_indexed_delimited_syntax_with_field() {
+        parse_identity_with_field_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_DELIMITED_SYNTAX);
+    }
+
+    /** Test reduction of a Recordable to a UUID using the identity syntax "?0/_id" **/
+    @Test
+    public void parse_identity_indexed_delimited_redundant_syntax() {
+
+        parse_identity_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_DELIMITED_REDUNDANT_SYNTAX);
+    }
+
+    /** Illegal Syntax Tests, Expected Failures **/
+
+    /** Fail reduction of a Recordable to a String field value using the syntax "?field" **/
+    @Test(expected=IllegalArgumentException.class)
+    public void illegal_identity_standard_syntax_with_field() {
+        illegal_identity_with_field_syntax_recordable(REFLECTIVE_IDENTITY_SYNTAX_STANDARD);
+    }
+
+    /** Fail reduction of a Recordable to a UUID using the identity syntax "?_id" **/
+    @Test(expected=IllegalArgumentException.class)
+    public void illegal_identity_redundant_syntax() {
+
+        illegal_identity_syntax_recordable(REFLECTIVE_IDENTITY_REDUNDANT_SYNTAX);
+    }
+
+    /** Fail reduction of a Recordable to a String field value using the syntax "?0field" **/
+    @Test(expected=IllegalArgumentException.class)
+    public void illegal_identity_indexed_syntax_with_field() {
+        illegal_identity_with_field_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_SYNTAX);
+    }
+
+    /** Fail reduction of a Recordable to a UUID using the identity syntax "?0_id" **/
+    @Test(expected=IllegalArgumentException.class)
+    public void illegal_identity_indexed_redundant_syntax() {
+
+        illegal_identity_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_REDUNDANT_SYNTAX);
+    }
+
+    /** Test Record type for parser identity syntax tests **/
+    public static class TestRecord extends Record {
+
+        public static TestRecord getInstance(Database database) {
+
+            TestRecord object = new TestRecord();
+            object.getState().setDatabase(database);
+            return object;
+        }
+
+        private String name;
+
+        private TestRecord other;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public TestRecord getOther() {
+            return other;
+        }
+
+        public void setOther(TestRecord other) {
+            this.other = other;
+        }
     }
 
     /*

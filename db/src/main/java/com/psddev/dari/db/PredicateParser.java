@@ -380,29 +380,43 @@ public class PredicateParser {
 
                 } else {
                     String path = valueString.substring(1);
-                    int slashAt = path.indexOf('/');
-                    String splitIndex;
-                    String splitPath;
 
-                    if (slashAt > -1) {
-                        splitIndex = path.substring(0, slashAt);
-                        splitPath = path.substring(slashAt + 1);
-                    } else {
-                        splitIndex = path;
-                        splitPath = "";
+                    // Parse a leading integer as a parameter index.
+                    String indexString = "";
+                    for (char c : path.toCharArray()) {
+
+                        int digit = Character.digit(c, 10);
+
+                        if (digit == -1) {
+                            break;
+
+                        }
+
+                        indexString += c;
                     }
 
-                    Integer index = ObjectUtils.to(Integer.class, splitIndex);
+                    // Default index to 0 if indexString is empty.
+                    int index = ObjectUtils.to(int.class, indexString);
 
-                    if (index == null) {
-                        index = 0;
-                    } else {
-                        path = splitPath;
+                    // Remove an optional leading parameter index.
+                    path = path.substring(indexString.length());
+
+                    // Remove an optional leading forward slash.
+                    if (path.indexOf('/') == 0) {
+                        path = path.substring(1);
+                    } else if (path.length() > 0) {
+                        throw new IllegalArgumentException(String.format(
+                                "Missing [/] between [%s] and [%s]!",
+                                valueString.substring(0, 1 + indexString.length()),
+                                valueString.substring(1 + indexString.length())));
                     }
 
+                    // Obtain parameter from the specified ParameterList using the parameter index.
                     value = index < parameters.size() ? parameters.get(index) : null;
 
                     if (value != null && path.length() > 0) {
+
+                        // Produce a value using the specified parameter and path.
                         if (value instanceof State) {
                             value = ((State) value).getByPath(path);
                         } else if (value instanceof Recordable) {

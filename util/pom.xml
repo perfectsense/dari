@@ -156,6 +156,51 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>library</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>clirr-maven-plugin</artifactId>
+                        <version>2.6.1</version>
+                        <executions>
+                            <execution>
+                                <id>verify-api</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <ignored>
+                                        <difference>
+                                            <className>com/psddev/dari/util/BrightcoveStorageItem</className>
+                                            <differenceType>8001</differenceType>
+                                        </difference>
+                                        <difference>
+                                            <className>com/psddev/dari/util/BrightcoveStorageItem$Economics</className>
+                                            <differenceType>8001</differenceType>
+                                        </difference>
+                                        <difference>
+                                            <className>com/psddev/dari/util/BrightcoveStorageItem$Encoding</className>
+                                            <differenceType>8001</differenceType>
+                                        </difference>
+                                        <difference>
+                                            <className>com/psddev/dari/util/BrightcoveStorageItem$ItemState</className>
+                                            <differenceType>8001</differenceType>
+                                        </difference>
+                                    </ignored>
+                                    <logResults>true</logResults>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
     <build>
         <plugins>
             <plugin>
