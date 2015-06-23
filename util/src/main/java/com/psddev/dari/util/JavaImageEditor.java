@@ -308,11 +308,9 @@ public class JavaImageEditor extends AbstractImageEditor {
                 .append(imageUrl);
 
         UrlStorageItem newStorageItem = StorageItem.Static.createUrl(storageItemUrlBuilder.toString());
-        String format = DEFAULT_IMAGE_FORMAT;
         String contentType = DEFAULT_IMAGE_CONTENT_TYPE;
         if (storageItem.getContentType() != null && storageItem.getContentType().contains("/")) {
             contentType = storageItem.getContentType();
-            format = storageItem.getContentType().split("/")[1];
         }
 
         newStorageItem.setContentType(contentType);

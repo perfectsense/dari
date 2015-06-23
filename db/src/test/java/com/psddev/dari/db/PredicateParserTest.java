@@ -1,10 +1,12 @@
 package com.psddev.dari.db;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Queue;
 
@@ -424,6 +426,66 @@ public class PredicateParserTest {
     public void illegal_identity_indexed_redundant_syntax() {
 
         illegal_identity_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_REDUNDANT_SYNTAX);
+    }
+
+    /**
+     * Utility method for testing different identity syntax formats in parsing predicates with field expressions.
+     */
+    @Test
+    public void evaluate_any_syntax_hysteresis() {
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+            current.setName("testName");
+
+            HysteresisTestRecord other = HysteresisTestRecord.getInstance(database);
+            other.setIndexedDate(new Date());
+            other.setIndexedName("testName");
+
+            Predicate predicate = parser.parse("_any matches ?/name", current);
+            Predicate expected = new ComparisonPredicate(PredicateParser.MATCHES_ANY_OPERATOR, false, Query.ANY_KEY, Arrays.asList(current.getName()));
+
+            assertEquals(predicate, expected);
+
+            assertTrue(PredicateParser.Static.evaluate(other, predicate));
+        }
+    }
+
+    /**
+     * For use in testing {@link PredicateParser.Static#evaluate} against hysteresis
+     * effects of evaluating successive incompatibly-typed fields.
+     */
+    public static class HysteresisTestRecord extends Record {
+
+        public static HysteresisTestRecord getInstance(Database database) {
+
+            HysteresisTestRecord object = new HysteresisTestRecord();
+            object.getState().setDatabase(database);
+            return object;
+        }
+
+        // indexedDate MUST be defined before indexedName
+        @Indexed
+        private Date indexedDate;
+
+        @Indexed
+        private String indexedName;
+
+        public Date getIndexedDate() {
+            return indexedDate;
+        }
+
+        public void setIndexedDate(Date indexedDate) {
+            this.indexedDate = indexedDate;
+        }
+
+        public String getIndexedName() {
+            return indexedName;
+        }
+
+        public void setIndexedName(String indexedName) {
+            this.indexedName = indexedName;
+        }
     }
 
     /** Test Record type for parser identity syntax tests **/

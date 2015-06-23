@@ -560,7 +560,8 @@ public class PredicateParser {
 
             } else if (keyValue instanceof Iterable) {
                 for (Object item : (Iterable<?>) keyValue) {
-                    if (evaluateOne(state, item, values)) {
+                    List<Object> valuesCopy = new ArrayList<>(values);
+                    if (evaluateOne(state, item, valuesCopy)) {
                         return true;
                     }
                 }
@@ -572,7 +573,7 @@ public class PredicateParser {
         }
 
         private boolean evaluateOne(State state, Object keyValue, List<Object> values) {
-            if (!(keyValue instanceof Recordable || keyValue instanceof UUID)) {
+            if (!(keyValue instanceof Recordable || keyValue instanceof UUID) && keyValue != null) {
                 Class<?> keyValueClass = keyValue.getClass();
                 for (ListIterator<Object> i = values.listIterator(); i.hasNext();) {
                     i.set(ObjectUtils.to(keyValueClass, i.next()));

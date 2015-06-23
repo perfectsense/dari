@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Settings;
 import com.psddev.dari.util.SettingsException;
+import com.psddev.dari.util.StringUtils;
 
 /** Represents an application. */
 @Record.Abstract
@@ -29,6 +30,17 @@ public class Application extends Record implements Singleton {
     /** Sets the name. */
     public void setName(String name) {
         this.name = name;
+    }
+
+    @Override
+    protected void beforeSave() {
+        super.beforeSave();
+
+        if (StringUtils.isBlank(getName())) {
+            // To avoid {@link com.psddev.dari.db.ValidationException} error as it implements {@link Singleton}.
+            ObjectType objectType = ObjectType.getInstance(getClass());
+            setName(objectType.getDisplayName());
+        }
     }
 
     /**
