@@ -192,8 +192,8 @@ public class HtmlWriter extends Writer {
             }
         }
 
-        if (selfClosing &&
-                ObjectUtils.firstNonNull(getSelfClosing(), Settings.get(boolean.class, "dari/selfClosingElements"))) {
+        if (selfClosing
+                && ObjectUtils.firstNonNull(getSelfClosing(), Settings.get(boolean.class, "dari/selfClosingElements"))) {
             delegate.write('/');
         }
 
@@ -408,7 +408,10 @@ public class HtmlWriter extends Writer {
 
     /**
      * Writes CSS common to all grids.
+     *
+     * @deprecated No replacement.
      */
+    @Deprecated
     public HtmlWriter writeCommonGridCss() throws IOException {
         writeCss("._da",
                 "-moz-box-sizing", "content-box",
@@ -459,7 +462,10 @@ public class HtmlWriter extends Writer {
 
     /**
      * Writes grid CSS for the given {@code selector} and {@code grid}.
+     *
+     * @deprecated No replacement.
      */
+    @Deprecated
     public HtmlWriter writeGridCss(String selector, HtmlGrid grid) throws IOException {
         StringBuilder cssSuffix = new StringBuilder();
 
@@ -546,7 +552,10 @@ public class HtmlWriter extends Writer {
 
     /**
      * Writes all grid CSS found within the given {@code context}.
+     *
+     * @deprecated No replacement.
      */
+    @Deprecated
     public HtmlWriter writeAllGridCss(ServletContext context, HttpServletRequest request) throws IOException {
         writeCommonGridCss();
 
@@ -588,7 +597,10 @@ public class HtmlWriter extends Writer {
 
     /**
      * Writes all grid JavaScript found within the given {@code context}.
+     *
+     * @deprecated No replacement.
      */
+    @Deprecated
     public HtmlWriter writeAllGridJavaScript(ServletContext context, HttpServletRequest request) throws IOException {
         Map<String, Map<String, HtmlGrid>> gridsByMedia = new CompactMap<String, Map<String, HtmlGrid>>();
 
@@ -694,7 +706,9 @@ public class HtmlWriter extends Writer {
      * given {@code grid}.
      *
      * @see <a href="http://dev.w3.org/csswg/css3-grid-layout/">CSS Grid Layout</a>
+     * @deprecated No replacement.
      */
+    @Deprecated
     public HtmlWriter writeGrid(Object object, HtmlGrid grid) throws IOException {
         Map<String, Area> areas = createAreas(grid);
         boolean debug = isGridDebug();
@@ -804,6 +818,7 @@ public class HtmlWriter extends Writer {
         return this;
     }
 
+    @Deprecated
     private Map<String, Area> createAreas(HtmlGrid grid) {
         List<CssUnit> columns = grid.getColumns();
         List<CssUnit> rows = grid.getRows();
@@ -999,11 +1014,14 @@ public class HtmlWriter extends Writer {
      * grid rules as specified by the given parameters.
      *
      * @see #grid(Object, HtmlGrid)
+     * @deprecated No replacement.
      */
+    @Deprecated
     public HtmlWriter writeGrid(Object object, String columns, String rows, String... template) throws IOException {
         return writeGrid(object, new HtmlGrid(columns, rows, template));
     }
 
+    @Deprecated
     private static class Area {
 
         public final String name;
@@ -1032,6 +1050,7 @@ public class HtmlWriter extends Writer {
         }
     }
 
+    @Deprecated
     private static class Adjustment {
 
         public double left;
@@ -1049,9 +1068,9 @@ public class HtmlWriter extends Writer {
                 r += 30000;
             }
 
-            return new CssUnit(top, unit) + " " +
-                    new CssUnit(r, unit) + " 0 " +
-                    new CssUnit(l, unit);
+            return new CssUnit(top, unit) + " "
+                    + new CssUnit(r, unit) + " 0 "
+                    + new CssUnit(l, unit);
         }
     }
 

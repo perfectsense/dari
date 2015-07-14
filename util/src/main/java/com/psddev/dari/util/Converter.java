@@ -101,16 +101,16 @@ public class Converter {
         }
     }
 
-    private final LoadingCache<FunctionCacheKey, ConversionFunction<?, ?>> functionCache = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<FunctionCacheKey, ConversionFunction<?, ?>>() {
+    private final LoadingCache<FunctionCacheKey, ConversionFunction<?, ?>> functionCache = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<FunctionCacheKey, ConversionFunction<?, ?>>() {
 
         @Override
         @SuppressWarnings("all")
         public ConversionFunction<?, ?> load(FunctionCacheKey cacheKey) {
-            List<Class<?>> fromAssignables = cacheKey.fromClass != null ?
-                    (List) TypeDefinition.getInstance(cacheKey.fromClass).getAssignableClasses() :
-                    Collections.<Class<?>>singletonList(null);
+            List<Class<?>> fromAssignables = cacheKey.fromClass != null
+                    ? (List) TypeDefinition.getInstance(cacheKey.fromClass).getAssignableClasses()
+                    : Collections.<Class<?>>singletonList(null);
 
             Map<? extends Type, ConversionFunction<?, ?>> functions;
             ConversionFunction<?, ?> function;
@@ -388,9 +388,9 @@ public class Converter {
     private static class ObjectToByte implements ConversionFunction<Object, Byte> {
         @Override
         public Byte convert(Converter converter, Type returnType, Object object) {
-            return object instanceof Number ?
-                    Byte.valueOf(((Number) object).byteValue()) :
-                    Byte.valueOf(object.toString().trim());
+            return object instanceof Number
+                    ? Byte.valueOf(((Number) object).byteValue())
+                    : Byte.valueOf(object.toString().trim());
         }
     }
 
@@ -412,45 +412,45 @@ public class Converter {
     private static class ObjectToDouble implements ConversionFunction<Object, Double> {
         @Override
         public Double convert(Converter converter, Type returnType, Object object) {
-            return object instanceof Number ?
-                    Double.valueOf(((Number) object).doubleValue()) :
-                    Double.valueOf(object.toString().trim());
+            return object instanceof Number
+                    ? Double.valueOf(((Number) object).doubleValue())
+                    : Double.valueOf(object.toString().trim());
         }
     }
 
     private static class ObjectToFloat implements ConversionFunction<Object, Float> {
         @Override
         public Float convert(Converter converter, Type returnType, Object object) {
-            return object instanceof Number ?
-                    Float.valueOf(((Number) object).floatValue()) :
-                    Float.valueOf(object.toString().trim());
+            return object instanceof Number
+                    ? Float.valueOf(((Number) object).floatValue())
+                    : Float.valueOf(object.toString().trim());
         }
     }
 
     private static class ObjectToInteger implements ConversionFunction<Object, Integer> {
         @Override
         public Integer convert(Converter converter, Type returnType, Object object) {
-            return object instanceof Number ?
-                    Integer.valueOf(((Number) object).intValue()) :
-                    Integer.valueOf(object.toString().trim());
+            return object instanceof Number
+                    ? Integer.valueOf(((Number) object).intValue())
+                    : Integer.valueOf(object.toString().trim());
         }
     }
 
     private static class ObjectToLong implements ConversionFunction<Object, Long> {
         @Override
         public Long convert(Converter converter, Type returnType, Object object) {
-            return object instanceof Number ?
-                    Long.valueOf(((Number) object).longValue()) :
-                    Long.valueOf(object.toString().trim());
+            return object instanceof Number
+                    ? Long.valueOf(((Number) object).longValue())
+                    : Long.valueOf(object.toString().trim());
         }
     }
 
     private static class ObjectToShort implements ConversionFunction<Object, Short> {
         @Override
         public Short convert(Converter converter, Type returnType, Object object) {
-            return object instanceof Number ?
-                    Short.valueOf(((Number) object).shortValue()) :
-                    Short.valueOf(object.toString().trim());
+            return object instanceof Number
+                    ? Short.valueOf(((Number) object).shortValue())
+                    : Short.valueOf(object.toString().trim());
         }
     }
 
@@ -466,18 +466,18 @@ public class Converter {
 
         private static final Pattern TIME_ZONE_PATTERN = Pattern.compile("^\\(([^)]+)\\)\\s*(.+)$");
 
-        private static final LoadingCache<String, DateTimeFormatter> FORMATTERS = CacheBuilder.
-                newBuilder().
-                build(new CacheLoader<String, DateTimeFormatter>() {
+        private static final LoadingCache<String, DateTimeFormatter> FORMATTERS = CacheBuilder
+                .newBuilder()
+                .build(new CacheLoader<String, DateTimeFormatter>() {
 
             @Override
             public DateTimeFormatter load(String format) {
                 Matcher timeZoneMatcher = TIME_ZONE_PATTERN.matcher(format);
 
                 if (timeZoneMatcher.matches()) {
-                    return DateTimeFormat.
-                            forPattern(timeZoneMatcher.group(2)).
-                            withZone(DateTimeZone.forID(timeZoneMatcher.group(1)));
+                    return DateTimeFormat
+                            .forPattern(timeZoneMatcher.group(2))
+                            .withZone(DateTimeZone.forID(timeZoneMatcher.group(1)));
 
                 } else {
                     return DateTimeFormat.forPattern(format);
@@ -550,9 +550,9 @@ public class Converter {
 
         @Override
         public UUID convert(Converter converter, Type returnType, Object object) {
-            return object instanceof byte[] ?
-                    UuidUtils.fromBytes((byte[]) object) :
-                    UuidUtils.fromString(object.toString().trim());
+            return object instanceof byte[]
+                    ? UuidUtils.fromBytes((byte[]) object)
+                    : UuidUtils.fromString(object.toString().trim());
         }
     }
 
@@ -579,8 +579,8 @@ public class Converter {
                 if (constants != null) {
                     String objectString = object.toString();
                     for (Enum<?> constant : constants) {
-                        if (objectString.equalsIgnoreCase(constant.name()) ||
-                                objectString.equalsIgnoreCase(constant.toString())) {
+                        if (objectString.equalsIgnoreCase(constant.name())
+                                || objectString.equalsIgnoreCase(constant.toString())) {
                             return constant;
                         }
                     }
@@ -632,19 +632,19 @@ public class Converter {
             }
 
             throw new ConversionException(String.format(
-                    "Can't find a constructor or a factory method that" +
-                    " takes [%s] class as a parameter to create an" +
-                    " instance of [%s] type!",
+                    "Can't find a constructor or a factory method that"
+                            + " takes [%s] class as a parameter to create an"
+                            + " instance of [%s] type!",
                     objectClass, returnType), null);
         }
 
         private Method getFactoryMethod(TypeDefinition<?> typeDefinition, Class<?> parameterClass) {
             for (Method method : typeDefinition.getAllMethods()) {
-                if (Modifier.isStatic(method.getModifiers()) &&
-                        typeDefinition.getObjectClass().isAssignableFrom(method.getReturnType())) {
+                if (Modifier.isStatic(method.getModifiers())
+                        && typeDefinition.getObjectClass().isAssignableFrom(method.getReturnType())) {
                     Class<?>[] parameterTypes = method.getParameterTypes();
-                    if (parameterTypes.length == 1 &&
-                            parameterTypes[0].isAssignableFrom(parameterClass)) {
+                    if (parameterTypes.length == 1
+                            && parameterTypes[0].isAssignableFrom(parameterClass)) {
                         return method;
                     }
                 }

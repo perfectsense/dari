@@ -16,6 +16,7 @@ import java.util.concurrent.CountDownLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// CHECKSTYLE:OFF
 /**
  * Read-only map that can produce many values at once on demand.
  *

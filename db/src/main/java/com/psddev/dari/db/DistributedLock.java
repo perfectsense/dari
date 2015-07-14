@@ -92,13 +92,13 @@ public class DistributedLock implements Lock {
         }
 
         synchronized (holderRef) {
-            State key = State.getInstance(Query.
-                    from(Object.class).
-                    where("_id = ?", keyId).
-                    using(database).
-                    noCache().
-                    master().
-                    first());
+            State key = State.getInstance(Query
+                    .from(Object.class)
+                    .where("_id = ?", keyId)
+                    .using(database)
+                    .noCache()
+                    .master()
+                    .first());
 
             if (key == null) {
                 key = new State();
@@ -178,13 +178,13 @@ public class DistributedLock implements Lock {
             try {
                 LOGGER.debug("Releasing [{}]", this);
 
-                State key = State.getInstance(Query.
-                        from(Object.class).
-                        where("_id = ?", keyId).
-                        using(database).
-                        noCache().
-                        master().
-                        first());
+                State key = State.getInstance(Query
+                        .from(Object.class)
+                        .where("_id = ?", keyId)
+                        .using(database)
+                        .noCache()
+                        .master()
+                        .first());
 
                 if (key != null && lockId.equals(key.get("lockId"))) {
                     key.deleteImmediately();
@@ -205,8 +205,8 @@ public class DistributedLock implements Lock {
 
         } else if (other instanceof DistributedLock) {
             DistributedLock otherLock = (DistributedLock) other;
-            return database.equals(otherLock.database) &&
-                    keyId.equals(otherLock.keyId);
+            return database.equals(otherLock.database)
+                    && keyId.equals(otherLock.keyId);
 
         } else {
             return false;

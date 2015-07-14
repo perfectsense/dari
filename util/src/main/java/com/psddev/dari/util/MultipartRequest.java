@@ -1,6 +1,7 @@
 package com.psddev.dari.util;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,7 +50,7 @@ public class MultipartRequest extends HttpServletRequestWrapper {
                 try {
                     ServletFileUpload upload = new ServletFileUpload(new DiskFileItemFactory());
 
-                    upload.setHeaderEncoding(StringUtils.UTF_8.name());
+                    upload.setHeaderEncoding(StandardCharsets.UTF_8.name());
 
                     @SuppressWarnings("unchecked")
                     List<FileItem> items = (List<FileItem>) upload.parseRequest(request);
@@ -127,7 +128,7 @@ public class MultipartRequest extends HttpServletRequestWrapper {
 
         if (item.isFormField()) {
             try {
-                return item.getString(StringUtils.UTF_8.name());
+                return item.getString(StandardCharsets.UTF_8.name());
 
             } catch (UnsupportedEncodingException error) {
                 throw new IllegalStateException(error);
@@ -187,7 +188,7 @@ public class MultipartRequest extends HttpServletRequestWrapper {
         for (FileItem item : items) {
             if (item.isFormField()) {
                 try {
-                    valuesList.add(item.getString(StringUtils.UTF_8.name()));
+                    valuesList.add(item.getString(StandardCharsets.UTF_8.name()));
 
                 } catch (UnsupportedEncodingException ex) {
                     valuesList.add(item.getFieldName());

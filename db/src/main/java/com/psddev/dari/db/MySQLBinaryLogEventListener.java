@@ -103,10 +103,9 @@ class MySQLBinaryLogEventListener implements EventListener {
             if (eventType == EventType.UPDATE_ROWS || eventType == EventType.EXT_UPDATE_ROWS) {
                 for (Map.Entry<Serializable[], Serializable[]> row : ((UpdateRowsEventData) eventData).getRows()) {
                     Serializable[] newValue = row.getValue();
-                    byte[] data =
-                            newValue[2] instanceof byte[] ? (byte[]) newValue[2] :
-                            newValue[2] instanceof String ? ((String) newValue[2]).getBytes(Charsets.UTF_8) :
-                            null;
+                    byte[] data = newValue[2] instanceof byte[] ? (byte[]) newValue[2]
+                            : newValue[2] instanceof String ? ((String) newValue[2]).getBytes(Charsets.UTF_8)
+                            : null;
 
                     updateCache((byte[]) newValue[0], (byte[]) newValue[1], data);
                     LOGGER.debug("UpdateRow HEX [{}][{}]", StringUtils.hex((byte[]) newValue[0]), ((byte[]) newValue[0]).length);
@@ -190,8 +189,8 @@ class MySQLBinaryLogEventListener implements EventListener {
             int len = hex.length();
             target = new byte[len / 2];
             for (int i = 0; i < len; i += 2) {
-                target[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4) +
-                        Character.digit(hex.charAt(i + 1), 16));
+                target[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                        + Character.digit(hex.charAt(i + 1), 16));
             }
 
         } else {
@@ -209,19 +208,19 @@ class MySQLBinaryLogEventListener implements EventListener {
             // TODO: parse sql statement to handle full syntax such as [LOW_PRIORITY | DELAYED | HIGH_PRIORITY] [IGNORE] [INTO]
             String[] statementParts = sql.split("`?\\s+`?", 4);
             String table = null;
-            if (statementParts[0].equalsIgnoreCase("UPDATE") ||
-                    statementParts[0].equalsIgnoreCase("HANDLER")) {
+            if (statementParts[0].equalsIgnoreCase("UPDATE")
+                    || statementParts[0].equalsIgnoreCase("HANDLER")) {
                 table = statementParts[1];
-            } else if (statementParts[0].equalsIgnoreCase("DELETE") ||
-                    statementParts[0].equalsIgnoreCase("INSERT") ||
-                    statementParts[0].equalsIgnoreCase("REPLACE")) {
+            } else if (statementParts[0].equalsIgnoreCase("DELETE")
+                    || statementParts[0].equalsIgnoreCase("INSERT")
+                    || statementParts[0].equalsIgnoreCase("REPLACE")) {
                 table = statementParts[2];
-            } else if ((statementParts[0].equalsIgnoreCase("ALTER") ||
-                    statementParts[0].equalsIgnoreCase("CREATE") ||
-                    statementParts[0].equalsIgnoreCase("RENAME") ||
-                    statementParts[0].equalsIgnoreCase("TRUNCATE") ||
-                    statementParts[0].equalsIgnoreCase("DROP")) &&
-                    statementParts[1].equalsIgnoreCase("TABLE")) {
+            } else if ((statementParts[0].equalsIgnoreCase("ALTER")
+                    || statementParts[0].equalsIgnoreCase("CREATE")
+                    || statementParts[0].equalsIgnoreCase("RENAME")
+                    || statementParts[0].equalsIgnoreCase("TRUNCATE")
+                    || statementParts[0].equalsIgnoreCase("DROP"))
+                    && statementParts[1].equalsIgnoreCase("TABLE")) {
                 table = statementParts[2];
             }
             if (SqlDatabase.RECORD_TABLE.equalsIgnoreCase(table)) {
@@ -272,8 +271,8 @@ class MySQLBinaryLogEventListener implements EventListener {
         LOGGER.debug("TYPE: {}", eventType);
 
         if (transactionBegin) {
-            if ((eventType == EventType.QUERY && ((DariQueryEventData) eventData).getSql().equalsIgnoreCase("COMMIT")) ||
-                    (eventType == EventType.XID)) {
+            if ((eventType == EventType.QUERY && ((DariQueryEventData) eventData).getSql().equalsIgnoreCase("COMMIT"))
+                    || (eventType == EventType.XID)) {
                 LOGGER.debug("[DEBUG] QUERY EVENT TRANSACTION COMMIT: [{}]", events.size());
                 try {
                     if (isFlushCache) {

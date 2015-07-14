@@ -19,9 +19,9 @@ public final class CollectionUtils {
      */
     public static Object getByPath(Object object, String path) {
         if (path == null) {
-            return object instanceof Map ?
-                    ((Map<?, ?>) object).get(null) :
-                    null;
+            return object instanceof Map
+                    ? ((Map<?, ?>) object).get(null)
+                    : null;
         }
 
         for (String key; path != null;) {

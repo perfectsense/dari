@@ -65,13 +65,13 @@ public class Metric extends Record {
         }
         if (metricAccess == null) {
             throw new RuntimeException(
-                    "Metric field " +
-                    field.getUniqueName() +
-                    " cannot determine SQL database for database " +
-                    owner.getDatabase().getName() +
-                    " (" +
-                    owner.getDatabase().getClass().getName() +
-                    "), this Metric object is unusable!");
+                    "Metric field "
+                            + field.getUniqueName()
+                            + " cannot determine SQL database for database "
+                            + owner.getDatabase().getName()
+                            + " ("
+                            + owner.getDatabase().getClass().getName()
+                            + "), this Metric object is unusable!");
         }
         return metricAccess;
     }

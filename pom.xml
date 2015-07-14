@@ -9,13 +9,13 @@
     <parent>
         <groupId>com.psddev</groupId>
         <artifactId>dari-grandparent</artifactId>
-        <version>3.0-SNAPSHOT</version>
+        <version>3.1-SNAPSHOT</version>
         <relativePath>grandparent/pom.xml</relativePath>
     </parent>
 
     <groupId>com.psddev</groupId>
     <artifactId>dari</artifactId>
-    <version>3.0-SNAPSHOT</version>
+    <version>3.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Dari</name>
@@ -33,7 +33,6 @@
         <module>app-archetype</module>
         <module>db</module>
         <module>grandparent</module>
-        <module>maven</module>
         <module>parent</module>
         <module>reloader/tomcat6</module>
         <module>util</module>
@@ -98,7 +97,13 @@
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>14.0.1</version>
+                <version>18.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava-testlib</artifactId>
+                <version>18.0</version>
             </dependency>
 
             <dependency>
@@ -108,21 +113,21 @@
             </dependency>
 
             <dependency>
-                <groupId>com.jolbox</groupId>
-                <artifactId>bonecp</artifactId>
-                <version>0.7.1.RELEASE</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-db</artifactId>
-                <version>3.0-SNAPSHOT</version>
+                <version>3.1-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-util</artifactId>
-                <version>3.0-SNAPSHOT</version>
+                <version>3.1-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>2.3.8</version>
             </dependency>
 
             <dependency>

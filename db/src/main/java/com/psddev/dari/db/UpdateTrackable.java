@@ -42,12 +42,12 @@ public interface UpdateTrackable extends Recordable {
          * {@code time}.
          */
         public static boolean isUpdated(String name, long time) {
-            Tracker tracker = Query.
-                    from(Tracker.class).
-                    where("_id = ?", createTrackerId(name)).
-                    master().
-                    noCache().
-                    first();
+            Tracker tracker = Query
+                    .from(Tracker.class)
+                    .where("_id = ?", createTrackerId(name))
+                    .master()
+                    .noCache()
+                    .first();
 
             return tracker != null && tracker.getLastUpdate() > time;
         }

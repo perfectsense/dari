@@ -255,12 +255,12 @@ public class MetricResummarizationTask extends RepeatingTask {
             last.setEndDate(endDate);
             last.saveImmediately();
             for (ObjectField field : fields) {
-                LOGGER.info("Submitting Metric Resummarization task : " +
-                        "Database: " + database.getName() + ", " +
-                        "Field: " + (field != null ? field.getInternalName() : null) + ", " +
-                        "Interval: " + interval.getClass().getName() + ", " +
-                        "Start Date: " + startDate + ", " +
-                        "End Date: " + endDate);
+                LOGGER.info("Submitting Metric Resummarization task : "
+                        + "Database: " + database.getName() + ", "
+                        + "Field: " + (field != null ? field.getInternalName() : null) + ", "
+                        + "Interval: " + interval.getClass().getName() + ", "
+                        + "Start Date: " + startDate + ", "
+                        + "End Date: " + endDate);
                 Task task = Metric.Static.submitResummarizeAllBetweenTask(database, field.getParentType(), field, interval, startDate, endDate, 1, "Periodic Metric Resummarization", key + " (" + field.getUniqueName() + ")");
                 do {
                     try {

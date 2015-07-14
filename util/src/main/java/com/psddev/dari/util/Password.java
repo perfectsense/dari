@@ -149,9 +149,9 @@ public final class Password {
 
     @Override
     public boolean equals(Object other) {
-        return this == other ||
-                (other instanceof Password &&
-                data.equals(((Password) other).data));
+        return this == other
+                || (other instanceof Password
+                && data.equals(((Password) other).data));
     }
 
     @Override

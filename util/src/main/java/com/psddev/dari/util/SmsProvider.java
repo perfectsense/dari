@@ -31,8 +31,8 @@ public interface SmsProvider extends SettingsBackedObject {
      */
     public static final class Static {
 
-        private static final LoadingCache<String, SmsProvider> INSTANCES = CacheBuilder.newBuilder().
-                build(new CacheLoader<String, SmsProvider>() {
+        private static final LoadingCache<String, SmsProvider> INSTANCES = CacheBuilder.newBuilder()
+                .build(new CacheLoader<String, SmsProvider>() {
 
                     @Override
                     public SmsProvider load(String name) {

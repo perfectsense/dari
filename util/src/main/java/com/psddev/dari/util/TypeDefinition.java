@@ -29,9 +29,9 @@ public class TypeDefinition<T> {
         return INSTANCES.getUnchecked(type);
     }
 
-    private static final LoadingCache<Type, TypeDefinition<?>> INSTANCES = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<Type, TypeDefinition<?>>() {
+    private static final LoadingCache<Type, TypeDefinition<?>> INSTANCES = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<Type, TypeDefinition<?>>() {
 
         @Override
         public TypeDefinition<?> load(Type type) {
@@ -195,8 +195,8 @@ public class TypeDefinition<T> {
 
             for (Field field : objectClass.getDeclaredFields()) {
                 int mod = field.getModifiers();
-                if (!Modifier.isStatic(mod) &&
-                        !Modifier.isTransient(mod)) {
+                if (!Modifier.isStatic(mod)
+                        && !Modifier.isTransient(mod)) {
 
                     // Normalize common field name formats:
                     // _name, name_, fName or mName.
@@ -205,9 +205,9 @@ public class TypeDefinition<T> {
                         name = name.substring(1);
                     } else if (name.endsWith("_")) {
                         name = name.substring(0, name.length() - 1);
-                    } else if (name.length() > 2 &&
-                            (name.charAt(0) == 'f' || name.charAt(0) == 'm') &&
-                            Character.isUpperCase(name.charAt(1))) {
+                    } else if (name.length() > 2
+                            && (name.charAt(0) == 'f' || name.charAt(0) == 'm')
+                            && Character.isUpperCase(name.charAt(1))) {
                         name = Character.toLowerCase(name.charAt(1)) + name.substring(2);
                     }
 
@@ -319,9 +319,9 @@ public class TypeDefinition<T> {
             if (cause == null) {
                 cause = ex;
             }
-            throw cause instanceof RuntimeException ?
-                    (RuntimeException) cause :
-                    new RuntimeException(cause.getMessage(), cause);
+            throw cause instanceof RuntimeException
+                    ? (RuntimeException) cause
+                    : new RuntimeException(cause.getMessage(), cause);
         }
     }
 
@@ -374,19 +374,19 @@ public class TypeDefinition<T> {
                 if (method.getDeclaringClass() != Object.class) {
 
                     int mod = method.getModifiers();
-                    if (Modifier.isPublic(mod) &&
-                            !Modifier.isStatic(mod) &&
-                            method.getReturnType() != void.class &&
-                            method.getReturnType() != Void.class &&
-                            method.getParameterTypes().length == 0) {
+                    if (Modifier.isPublic(mod)
+                            && !Modifier.isStatic(mod)
+                            && method.getReturnType() != void.class
+                            && method.getReturnType() != Void.class
+                            && method.getParameterTypes().length == 0) {
 
                         String methodName = method.getName();
                         Matcher nameMatcher = StringUtils.getMatcher(methodName, "^(get|(is|has))([^a-z])(.*)$");
                         if (nameMatcher.matches()) {
 
-                            String name = ObjectUtils.isBlank(nameMatcher.group(2)) ?
-                                    nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4) :
-                                    methodName;
+                            String name = ObjectUtils.isBlank(nameMatcher.group(2))
+                                    ? nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4)
+                                    : methodName;
                             getters.put(name, method);
                         }
                     }
@@ -416,10 +416,10 @@ public class TypeDefinition<T> {
                 if (method.getDeclaringClass() != Object.class) {
 
                     int mod = method.getModifiers();
-                    if (Modifier.isPublic(mod) &&
-                            !Modifier.isStatic(mod) &&
-                            (method.getReturnType() == void.class || method.getReturnType() == Void.class) &&
-                            method.getParameterTypes().length == 1) {
+                    if (Modifier.isPublic(mod)
+                            && !Modifier.isStatic(mod)
+                            && (method.getReturnType() == void.class || method.getReturnType() == Void.class)
+                            && method.getParameterTypes().length == 1) {
 
                         String methodName = method.getName();
                         Matcher nameMatcher = StringUtils.getMatcher(methodName, "^set([^a-z])(.*)$");

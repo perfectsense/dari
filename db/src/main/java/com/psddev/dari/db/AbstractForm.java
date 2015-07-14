@@ -9,14 +9,11 @@ import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.psddev.dari.util.FormFilter;
-import com.psddev.dari.util.FormProcessor;
-
 /**
  * @deprecated No replacement.
  */
 @Deprecated
-public abstract class AbstractForm extends FormWriter implements FormProcessor {
+public abstract class AbstractForm extends FormWriter implements com.psddev.dari.util.FormProcessor {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractForm.class);
 
@@ -33,7 +30,7 @@ public abstract class AbstractForm extends FormWriter implements FormProcessor {
 
         State state = getState(request);
 
-        if (FormFilter.Static.isFormSubmitted(this, request)) {
+        if (com.psddev.dari.util.FormFilter.Static.isFormSubmitted(this, request)) {
             try {
                 InputTag.Static.updateObject(this, state, request);
 

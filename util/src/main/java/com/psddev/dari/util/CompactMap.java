@@ -1,6 +1,7 @@
 package com.psddev.dari.util;
 
 import java.util.AbstractCollection;
+import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
@@ -156,22 +157,17 @@ public class CompactMap<K, V> implements Map<K, V> {
             return new AbstractSet<Map.Entry<K, V>>() {
 
                 @Override
+                public void clear() {
+                    CompactMap.this.clear();
+                }
+
+                @Override
                 public Iterator<Map.Entry<K, V>> iterator() {
                     return new IndexedIterator<Map.Entry<K, V>>() {
 
                         @Override
                         protected Map.Entry<K, V> doNext(final int index) {
-                            return new Map.Entry<K, V>() {
-
-                                @Override
-                                public K getKey() {
-                                    return ((K[]) delegate)[index];
-                                }
-
-                                @Override
-                                public V getValue() {
-                                    return ((V[]) delegate)[ARRAY_SIZE + index];
-                                }
+                            return new AbstractMap.SimpleEntry<K, V>(((K[]) delegate)[index], ((V[]) delegate)[ARRAY_SIZE + index]) {
 
                                 @Override
                                 public V setValue(V value) {
@@ -179,38 +175,6 @@ public class CompactMap<K, V> implements Map<K, V> {
                                     ((V[]) delegate)[ARRAY_SIZE + index] = value;
 
                                     return oldValue;
-                                }
-
-                                @Override
-                                public boolean equals(Object other) {
-                                    if (this == other) {
-                                        return true;
-
-                                    } else if (other instanceof Map.Entry) {
-                                        Map.Entry<?, ?> otherEntry = (Map.Entry<?, ?>) other;
-
-                                        return ObjectUtils.equals(getKey(), otherEntry.getKey()) &&
-                                                ObjectUtils.equals(getValue(), otherEntry.getValue());
-
-                                    } else {
-                                        return false;
-                                    }
-                                }
-
-                                @Override
-                                public int hashCode() {
-                                    return ObjectUtils.hashCode(getKey());
-                                }
-
-                                @Override
-                                public String toString() {
-                                    StringBuilder string = new StringBuilder();
-
-                                    string.append(getKey());
-                                    string.append('=');
-                                    string.append(getValue());
-
-                                    return string.toString();
                                 }
                             };
                         }
@@ -256,6 +220,11 @@ public class CompactMap<K, V> implements Map<K, V> {
             return new AbstractSet<K>() {
 
                 @Override
+                public void clear() {
+                    CompactMap.this.clear();
+                }
+
+                @Override
                 public Iterator<K> iterator() {
                     return new IndexedIterator<K>() {
 
@@ -295,7 +264,7 @@ public class CompactMap<K, V> implements Map<K, V> {
             }
 
             if (size * 2 >= ((Object[]) delegate).length) {
-                delegate = new LinkedHashMap<K, V>(this);
+                delegate = new LinkedHashMap<>(this);
                 size = -1;
 
                 return put(key, value);
@@ -364,6 +333,11 @@ public class CompactMap<K, V> implements Map<K, V> {
             return new AbstractCollection<V>() {
 
                 @Override
+                public void clear() {
+                    CompactMap.this.clear();
+                }
+
+                @Override
                 public Iterator<V> iterator() {
                     return new IndexedIterator<V>() {
 
@@ -405,7 +379,7 @@ public class CompactMap<K, V> implements Map<K, V> {
     @Override
     public String toString() {
         if (size < 0) {
-            return ((Map<?, ?>) delegate).toString();
+            return delegate.toString();
 
         } else {
             StringBuilder string = new StringBuilder();
@@ -419,9 +393,10 @@ public class CompactMap<K, V> implements Map<K, V> {
                     string.append(delegateArray[i]);
                     string.append('=');
                     string.append(delegateArray[ARRAY_SIZE + i]);
-                    string.append(',');
+                    string.append(", ");
                 }
-                string.setLength(string.length() - 1);
+
+                string.setLength(string.length() - 2);
             }
 
             string.append('}');
@@ -461,7 +436,8 @@ public class CompactMap<K, V> implements Map<K, V> {
                 throw new IllegalStateException();
             }
 
-            removeByIndex(index - 1);
+            -- index;
+            removeByIndex(index);
             removeAvailable = false;
         }
     }

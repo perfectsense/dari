@@ -74,9 +74,9 @@ public class ReferentialText extends AbstractList<Object> {
                 element.unwrap();
 
             } else if (tagName.equals("span")) {
-                if (element.attributes().size() == 0 ||
-                        element.attr("class").contains("Mso") ||
-                        element.hasAttr("color")) {
+                if (element.attributes().size() == 0
+                        || element.attr("class").contains("Mso")
+                        || element.hasAttr("color")) {
                     element.unwrap();
                 }
             }
@@ -245,8 +245,8 @@ public class ReferentialText extends AbstractList<Object> {
 
                         break;
 
-                    } else if (previousNode instanceof TextNode &&
-                            !((TextNode) previousNode).isBlank()) {
+                    } else if (previousNode instanceof TextNode
+                            && !((TextNode) previousNode).isBlank()) {
                         break;
                     }
                 }
@@ -260,8 +260,8 @@ public class ReferentialText extends AbstractList<Object> {
                 for (Node previous = previousBr;
                         (previous = previous.previousSibling()) != null;
                         ) {
-                    if (previous instanceof Element &&
-                            ((Element) previous).isBlock()) {
+                    if (previous instanceof Element
+                            && ((Element) previous).isBlock()) {
                         break;
 
                     } else {
@@ -287,8 +287,8 @@ public class ReferentialText extends AbstractList<Object> {
                 Node next = body.childNode(0);
 
                 do {
-                    if (!(next instanceof TextNode &&
-                            ((TextNode) next).isBlank())) {
+                    if (!(next instanceof TextNode
+                            && ((TextNode) next).isBlank())) {
                         break;
                     }
                 } while ((next = next.nextSibling()) != null);
@@ -308,8 +308,8 @@ public class ReferentialText extends AbstractList<Object> {
                 Node next = paragraph;
 
                 while ((next = next.nextSibling()) != null) {
-                    if (!(next instanceof TextNode &&
-                            ((TextNode) next).isBlank())) {
+                    if (!(next instanceof TextNode
+                            && ((TextNode) next).isBlank())) {
                         break;
                     }
                 }
@@ -340,8 +340,8 @@ public class ReferentialText extends AbstractList<Object> {
                             continue DIV;
                         }
 
-                    } else if (child instanceof Element &&
-                            BR_TAG.equals(((Element) child).tag())) {
+                    } else if (child instanceof Element
+                            && BR_TAG.equals(((Element) child).tag())) {
                         if (sawBr) {
                             continue DIV;
 
@@ -413,9 +413,9 @@ public class ReferentialText extends AbstractList<Object> {
             if (child instanceof Element) {
                 Element childElement = (Element) child;
 
-                if (P_TAG.equals(childElement.tag()) &&
-                        !childElement.hasText() &&
-                        childElement.children().isEmpty()) {
+                if (P_TAG.equals(childElement.tag())
+                        && !childElement.hasText()
+                        && childElement.children().isEmpty()) {
                     continue;
                 }
             }
@@ -445,8 +445,8 @@ public class ReferentialText extends AbstractList<Object> {
 
                 break;
 
-            } else if (nextNode instanceof TextNode &&
-                    !((TextNode) nextNode).isBlank()) {
+            } else if (nextNode instanceof TextNode
+                    && !((TextNode) nextNode).isBlank()) {
                 break;
             }
         }
@@ -462,8 +462,8 @@ public class ReferentialText extends AbstractList<Object> {
         List<Node> paragraphChildren = new ArrayList<Node>();
 
         do {
-            if (next instanceof Element &&
-                    ((Element) next).isBlock()) {
+            if (next instanceof Element
+                    && ((Element) next).isBlock()) {
                 break;
 
             } else {

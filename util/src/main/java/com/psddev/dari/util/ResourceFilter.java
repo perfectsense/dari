@@ -36,8 +36,8 @@ public class ResourceFilter extends AbstractFilter {
             String internalPath = Settings.getOrDefault(
                     String.class,
                     INTERNAL_PATH_PREFIX_SETTING,
-                    DEFAULT_INTERNAL_PATH_PREFIX) +
-                    externalPath.substring(externalPathPrefix.length());
+                    DEFAULT_INTERNAL_PATH_PREFIX)
+                    + externalPath.substring(externalPathPrefix.length());
 
             ServletContext context = getServletContext();
             InputStream resourceStream = context.getResourceAsStream("/WEB-INF/" + internalPath);

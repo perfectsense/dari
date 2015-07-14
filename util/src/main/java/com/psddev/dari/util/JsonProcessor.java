@@ -37,7 +37,10 @@ public class JsonProcessor {
 
     private JsonFactory jsonFactory;
     private Converter converter;
+
+    @Deprecated
     private Transformer transformer;
+
     private boolean isIndentOutput;
 
     /** Returns the internal Jackson JSON factory. */
@@ -69,7 +72,10 @@ public class JsonProcessor {
     /**
      * Returns the transformer used to transform an object before it's
      * converted to a string.
+     *
+     * @deprecated No replacement.
      */
+    @Deprecated
     public Transformer getTransformer() {
         return transformer;
     }
@@ -77,7 +83,10 @@ public class JsonProcessor {
     /**
      * Sets the transformer used to transform an object before it's
      * converted to a string.
+     *
+     * @deprecated No replacement.
      */
+    @Deprecated
     public void setTransformer(Transformer transformer) {
         this.transformer = transformer;
     }
@@ -267,6 +276,7 @@ public class JsonProcessor {
             transformed = transformedCache.get(object);
 
         } else {
+            @SuppressWarnings("deprecation")
             Transformer transformer = getTransformer();
             transformed = transformer != null ? transformer.transform(object) : object;
             transformedCache.put(object, transformed);
@@ -275,9 +285,9 @@ public class JsonProcessor {
         if (transformed == null) {
             generator.writeNull();
 
-        } else if (transformed instanceof String ||
-                transformed instanceof Character ||
-                transformed instanceof CharSequence) {
+        } else if (transformed instanceof String
+                || transformed instanceof Character
+                || transformed instanceof CharSequence) {
             generator.writeString(transformed.toString());
 
         } else if (transformed instanceof Boolean) {
@@ -287,14 +297,14 @@ public class JsonProcessor {
             generator.writeNumber((Double) transformed);
 
         } else if (transformed instanceof Number) {
-            if (transformed instanceof Long ||
-                    transformed instanceof Integer ||
-                    transformed instanceof Short ||
-                    transformed instanceof Byte) {
+            if (transformed instanceof Long
+                    || transformed instanceof Integer
+                    || transformed instanceof Short
+                    || transformed instanceof Byte) {
                 generator.writeNumber(((Number) transformed).longValue());
 
-            } else if (transformed instanceof Double ||
-                    transformed instanceof Float) {
+            } else if (transformed instanceof Double
+                    || transformed instanceof Float) {
                 generator.writeNumber(((Number) transformed).doubleValue());
 
             } else {

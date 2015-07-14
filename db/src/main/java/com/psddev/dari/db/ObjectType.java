@@ -45,9 +45,9 @@ public class ObjectType extends Record implements ObjectStruct {
             LOGGER = LoggerFactory.getLogger(ObjectType.class);
 
     // Cache that contains type and field annotation processors.
-    private static final LoadingCache<Class<?>, Object> ANNOTATION_PROCESSORS = CacheBuilder.newBuilder().
-            weakKeys().
-            build(new CacheLoader<Class<?>, Object>() {
+    private static final LoadingCache<Class<?>, Object> ANNOTATION_PROCESSORS = CacheBuilder.newBuilder()
+            .weakKeys()
+            .build(new CacheLoader<Class<?>, Object>() {
 
                 @Override
                 public Object load(Class<?> processorClass) {
@@ -340,17 +340,17 @@ public class ObjectType extends Record implements ObjectStruct {
             if (javaMethod.getDeclaringClass() != Object.class) {
                 int mod = javaMethod.getModifiers();
                 Class<?>[] parameterTypes = javaMethod.getParameterTypes();
-                if (StringUtils.getMatcher(javaMethod.getName(), "^(get|(is|has))([^a-z])(.*)$").matches() &&
-                        Modifier.isPublic(mod) &&
-                        !Modifier.isStatic(mod) &&
-                        javaMethod.getReturnType() != void.class &&
-                        javaMethod.getReturnType() != Void.class &&
-                        (parameterTypes.length == 0 ||
-                            (parameterTypes.length == 1 &&
-                             ObjectMethod.class.equals(parameterTypes[0]))) &&
-                        (javaMethod.isAnnotationPresent(Indexed.class) ||
-                            (javaMethod.getAnnotation(Ignored.class) != null &&
-                             !javaMethod.getAnnotation(Ignored.class).value()))) {
+                if (StringUtils.getMatcher(javaMethod.getName(), "^(get|(is|has))([^a-z])(.*)$").matches()
+                        && Modifier.isPublic(mod)
+                        && !Modifier.isStatic(mod)
+                        && javaMethod.getReturnType() != void.class
+                        && javaMethod.getReturnType() != Void.class
+                        && (parameterTypes.length == 0
+                        || (parameterTypes.length == 1
+                        && ObjectMethod.class.equals(parameterTypes[0])))
+                        && (javaMethod.isAnnotationPresent(Indexed.class)
+                        || (javaMethod.getAnnotation(Ignored.class) != null
+                        && !javaMethod.getAnnotation(Ignored.class).value()))) {
 
                     methods.add(javaMethod);
 
@@ -366,8 +366,8 @@ public class ObjectType extends Record implements ObjectStruct {
      * the given {@code modificationClass}.
      */
     public static void modifyAll(Database database, Class<?> modificationClass) {
-        if (Modification.class.isAssignableFrom(modificationClass) &&
-                Modifier.isAbstract(modificationClass.getModifiers())) {
+        if (Modification.class.isAssignableFrom(modificationClass)
+                && Modifier.isAbstract(modificationClass.getModifiers())) {
             return;
         }
 
@@ -780,9 +780,9 @@ public class ObjectType extends Record implements ObjectStruct {
 
     /** Returns name of the class used to create objects of this type. */
     public String getObjectClassName() {
-        return "com.psddev.dari.db.RecordType".equals(objectClassName) ?
-                ObjectType.class.getName() :
-                objectClassName;
+        return "com.psddev.dari.db.RecordType".equals(objectClassName)
+                ? ObjectType.class.getName()
+                : objectClassName;
     }
 
     /** Sets name of the class used to create objects of this type. */
@@ -830,8 +830,8 @@ public class ObjectType extends Record implements ObjectStruct {
         } else {
             Class<?> dbClass = ObjectUtils.getClassByName(getSourceDatabaseClassName());
 
-            if (dbClass != null &&
-                    Database.class.isAssignableFrom(dbClass)) {
+            if (dbClass != null
+                    && Database.class.isAssignableFrom(dbClass)) {
                 return Database.Static.getFirst((Class<? extends Database>) dbClass);
             }
         }
@@ -894,8 +894,9 @@ public class ObjectType extends Record implements ObjectStruct {
 
     public boolean isLazyLoaded() {
         if (isLazyLoaded == null) {
-            isLazyLoaded = getObjectClass() == null ? false :
-                    getObjectClass().isAnnotationPresent(LazyLoad.class);
+            isLazyLoaded = getObjectClass() == null
+                    ? false
+                    : getObjectClass().isAnnotationPresent(LazyLoad.class);
         }
 
         return isLazyLoaded;
@@ -985,9 +986,9 @@ public class ObjectType extends Record implements ObjectStruct {
 
         // Set the abstract flag on non-Recordable classes (temporary),
         // interfaces, and abstract classes so that they cannot be saved.
-        setAbstract(!Recordable.class.isAssignableFrom(objectClass) ||
-                objectClass.isInterface() ||
-                Modifier.isAbstract(objectClass.getModifiers()));
+        setAbstract(!Recordable.class.isAssignableFrom(objectClass)
+                || objectClass.isInterface()
+                || Modifier.isAbstract(objectClass.getModifiers()));
 
         setEmbedded(false);
 
@@ -1037,10 +1038,10 @@ public class ObjectType extends Record implements ObjectStruct {
             for (ObjectField field : getFields()) {
                 ++ labelFieldIndex;
                 Class<?> fieldClass = ObjectUtils.getClassByName(field.getJavaDeclaringClassName());
-                if (fieldClass != null &&
-                        !Modification.class.isAssignableFrom(fieldClass) &&
-                        ObjectField.TEXT_TYPE.equals(field.getInternalType()) &&
-                        ObjectUtils.isBlank(field.getJavaEnumClassName())) {
+                if (fieldClass != null
+                        && !Modification.class.isAssignableFrom(fieldClass)
+                        && ObjectField.TEXT_TYPE.equals(field.getInternalType())
+                        && ObjectUtils.isBlank(field.getJavaEnumClassName())) {
                     getLabelFields().add(field.getInternalName());
                     break;
                 }
@@ -1069,14 +1070,14 @@ public class ObjectType extends Record implements ObjectStruct {
      */
     @SuppressWarnings("deprecation")
     public void modify(Class<?> modificationClass) {
-        if (Modification.class.isAssignableFrom(modificationClass) &&
-                Modifier.isAbstract(modificationClass.getModifiers())) {
+        if (Modification.class.isAssignableFrom(modificationClass)
+                && Modifier.isAbstract(modificationClass.getModifiers())) {
             return;
         }
 
         try {
-            if (!Modification.class.isAssignableFrom(getObjectClass()) &&
-                    modificationClass.getDeclaredMethod("afterCreate") != null) {
+            if (!Modification.class.isAssignableFrom(getObjectClass())
+                    && modificationClass.getDeclaredMethod("afterCreate") != null) {
                 Static.HAS_AFTER_CREATE.put(getObjectClass(), Boolean.TRUE);
             }
 
@@ -1148,9 +1149,9 @@ public class ObjectType extends Record implements ObjectStruct {
             ObjectField field = i.next();
             String declaringClassName = field.getJavaDeclaringClassName();
             if (!ObjectUtils.isBlank(declaringClassName)) {
-                if ((((isModification && modificationClass.getName().equals(declaringClassName))) ||
-                        (!isModification && assignableClassNames.contains(declaringClassName))) &&
-                        !fieldInternalNames.contains(field.getInternalName())) {
+                if ((((isModification && modificationClass.getName().equals(declaringClassName)))
+                        || (!isModification && assignableClassNames.contains(declaringClassName)))
+                        && !fieldInternalNames.contains(field.getInternalName())) {
                     i.remove();
                 }
             }
@@ -1160,9 +1161,9 @@ public class ObjectType extends Record implements ObjectStruct {
             ObjectIndex index = i.next();
             String declaringClassName = index.getJavaDeclaringClassName();
             if (!ObjectUtils.isBlank(declaringClassName)) {
-                if ((((isModification && modificationClass.getName().equals(declaringClassName))) ||
-                        (!isModification && assignableClassNames.contains(declaringClassName))) &&
-                        !fieldInternalNames.contains(index.getField())) {
+                if ((((isModification && modificationClass.getName().equals(declaringClassName)))
+                        || (!isModification && assignableClassNames.contains(declaringClassName)))
+                        && !fieldInternalNames.contains(index.getField())) {
                     i.remove();
                 }
             }

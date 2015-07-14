@@ -56,8 +56,8 @@ public class FrameTag extends BodyTagSupport implements DynamicAttributes {
     // --- TagSupport support ---
 
     private boolean isRenderingFrame(HttpServletRequest request) {
-        return request.getParameter(FrameFilter.PATH_PARAMETER) != null &&
-                name.equals(request.getParameter(FrameFilter.NAME_PARAMETER));
+        return request.getParameter(FrameFilter.PATH_PARAMETER) != null
+                && name.equals(request.getParameter(FrameFilter.NAME_PARAMETER));
     }
 
     private void startFrame(HttpServletRequest request, HtmlWriter writer, String... classNames) throws IOException {
@@ -80,8 +80,8 @@ public class FrameTag extends BodyTagSupport implements DynamicAttributes {
                 "name", name,
                 "data-insertion-mode", mode != null ? mode : InsertionMode.replace,
                 "data-extra-form-data",
-                        FrameFilter.PATH_PARAMETER + "=" + StringUtils.encodeUri(FrameFilter.encodePath(JspUtils.getCurrentServletPath(request))) + "&" +
-                        FrameFilter.NAME_PARAMETER + "=" + StringUtils.encodeUri(name));
+                        FrameFilter.PATH_PARAMETER + "=" + StringUtils.encodeUri(FrameFilter.encodePath(JspUtils.getCurrentServletPath(request))) + "&"
+                                + FrameFilter.NAME_PARAMETER + "=" + StringUtils.encodeUri(name));
     }
 
     @Override
@@ -145,9 +145,9 @@ public class FrameTag extends BodyTagSupport implements DynamicAttributes {
                 writer.writeEnd();
             }
 
-            if (!lazy ||
-                    isRenderingFrame(request) ||
-                    Boolean.FALSE.equals(ObjectUtils.to(Boolean.class, request.getParameter(FrameFilter.LAZY_PARAMETER)))) {
+            if (!lazy
+                    || isRenderingFrame(request)
+                    || Boolean.FALSE.equals(ObjectUtils.to(Boolean.class, request.getParameter(FrameFilter.LAZY_PARAMETER)))) {
                 return EVAL_BODY_BUFFERED;
 
             } else {

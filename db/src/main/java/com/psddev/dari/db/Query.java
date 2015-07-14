@@ -449,9 +449,9 @@ public class Query<E> extends Record {
     public Query<E> and(Predicate predicate) {
         if (predicate != null) {
             Predicate lastPredicate = getPredicate();
-            setPredicate(lastPredicate != null ?
-                    CompoundPredicate.combine(PredicateParser.AND_OPERATOR, lastPredicate, predicate) :
-                    predicate);
+            setPredicate(lastPredicate != null
+                    ? CompoundPredicate.combine(PredicateParser.AND_OPERATOR, lastPredicate, predicate)
+                    : predicate);
         }
         return this;
     }
@@ -483,9 +483,9 @@ public class Query<E> extends Record {
     public Query<E> or(Predicate predicate) {
         if (predicate != null) {
             Predicate lastPredicate = getPredicate();
-            setPredicate(lastPredicate != null ?
-                    CompoundPredicate.combine(PredicateParser.OR_OPERATOR, lastPredicate, predicate) :
-                    predicate);
+            setPredicate(lastPredicate != null
+                    ? CompoundPredicate.combine(PredicateParser.OR_OPERATOR, lastPredicate, predicate)
+                    : predicate);
         }
         return this;
     }
@@ -508,9 +508,9 @@ public class Query<E> extends Record {
         if (predicate != null) {
             predicate = new CompoundPredicate(PredicateParser.NOT_OPERATOR, Arrays.asList(predicate));
             Predicate lastPredicate = getPredicate();
-            setPredicate(lastPredicate != null ?
-                    CompoundPredicate.combine(PredicateParser.AND_OPERATOR, lastPredicate, predicate) :
-                    predicate);
+            setPredicate(lastPredicate != null
+                    ? CompoundPredicate.combine(PredicateParser.AND_OPERATOR, lastPredicate, predicate)
+                    : predicate);
         }
         return this;
     }
@@ -670,9 +670,9 @@ public class Query<E> extends Record {
             if (!type.isConcrete()) {
                 i.remove();
 
-            } else if (queryObjectClass != null &&
-                    (typeObjectClass == null ||
-                    !queryObjectClass.isAssignableFrom(typeObjectClass))) {
+            } else if (queryObjectClass != null
+                    && (typeObjectClass == null
+                    || !queryObjectClass.isAssignableFrom(typeObjectClass))) {
                 i.remove();
             }
         }
@@ -709,9 +709,9 @@ public class Query<E> extends Record {
             if (predicate instanceof ComparisonPredicate) {
                 ComparisonPredicate comparison = (ComparisonPredicate) predicate;
 
-                if (ID_KEY.equals(comparison.getKey()) &&
-                        PredicateParser.EQUALS_ANY_OPERATOR.equals(comparison.getOperator()) &&
-                        comparison.findValueQuery() == null) {
+                if (ID_KEY.equals(comparison.getKey())
+                        && PredicateParser.EQUALS_ANY_OPERATOR.equals(comparison.getOperator())
+                        && comparison.findValueQuery() == null) {
                     return comparison.getValues();
                 }
             }
@@ -781,9 +781,9 @@ public class Query<E> extends Record {
 
         } else {
             ObjectType initialType = environment.getTypeByName(getGroup());
-            fieldTypes = initialType != null ?
-                    Collections.singleton(initialType) :
-                    Collections.<ObjectType>emptySet();
+            fieldTypes = initialType != null
+                    ? Collections.singleton(initialType)
+                    : Collections.<ObjectType>emptySet();
         }
 
         boolean hasMore = true;
@@ -1406,14 +1406,14 @@ public class Query<E> extends Record {
 
         } else if (other instanceof Query) {
             Query<?> otherQuery = (Query<?>) other;
-            return ObjectUtils.equals(group, otherQuery.group) &&
-                    ObjectUtils.equals(objectClass, otherQuery.objectClass) &&
-                    ObjectUtils.equals(predicate, otherQuery.predicate) &&
-                    ObjectUtils.equals(getSorters(), otherQuery.getSorters()) &&
-                    ObjectUtils.equals(getDatabase(), otherQuery.getDatabase()) &&
-                    ObjectUtils.equals(getFields(), otherQuery.getFields()) &&
-                    isResolveToReferenceOnly == otherQuery.isResolveToReferenceOnly &&
-                    ObjectUtils.equals(timeout, otherQuery.timeout);
+            return ObjectUtils.equals(group, otherQuery.group)
+                    && ObjectUtils.equals(objectClass, otherQuery.objectClass)
+                    && ObjectUtils.equals(predicate, otherQuery.predicate)
+                    && ObjectUtils.equals(getSorters(), otherQuery.getSorters())
+                    && ObjectUtils.equals(getDatabase(), otherQuery.getDatabase())
+                    && ObjectUtils.equals(getFields(), otherQuery.getFields())
+                    && isResolveToReferenceOnly == otherQuery.isResolveToReferenceOnly
+                    && ObjectUtils.equals(timeout, otherQuery.timeout);
 
         } else {
             return false;

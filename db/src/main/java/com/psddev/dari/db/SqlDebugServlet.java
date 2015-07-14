@@ -1,6 +1,7 @@
 package com.psddev.dari.db;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -15,7 +16,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.psddev.dari.util.DebugFilter;
 import com.psddev.dari.util.ObjectUtils;
-import com.psddev.dari.util.StringUtils;
 
 @DebugFilter.Path("db-sql")
 @SuppressWarnings("serial")
@@ -115,7 +115,7 @@ public class SqlDebugServlet extends HttpServlet {
                                                     for (int i = 1; i <= count; ++ i) {
                                                         Object value = result.getObject(i);
                                                         if (value instanceof byte[]) {
-                                                            value = new String(result.getBytes(i), StringUtils.UTF_8);
+                                                            value = new String(result.getBytes(i), StandardCharsets.UTF_8);
                                                         }
                                                         writeStart("td");
                                                             writeObject(value);

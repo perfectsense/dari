@@ -8,17 +8,17 @@ public class JvmObjectConstant extends JvmObject {
 
     public JvmObjectConstant(Object constant) {
         super(
-                constant == null ? null :
-                constant instanceof Integer ? Type.INT_TYPE :
-                constant instanceof Long ? Type.LONG_TYPE :
-                constant instanceof Float ? Type.FLOAT_TYPE :
-                constant instanceof Double ? Type.DOUBLE_TYPE :
-                constant instanceof Byte ? Type.BYTE_TYPE :
-                constant instanceof Short ? Type.SHORT_TYPE :
-                constant instanceof Character ? Type.CHAR_TYPE :
-                constant instanceof String ? Type.getType(String.class) :
-                constant instanceof Type ? Type.getType(Class.class) :
-                null);
+                constant == null ? null
+                : constant instanceof Integer ? Type.INT_TYPE
+                : constant instanceof Long ? Type.LONG_TYPE
+                : constant instanceof Float ? Type.FLOAT_TYPE
+                : constant instanceof Double ? Type.DOUBLE_TYPE
+                : constant instanceof Byte ? Type.BYTE_TYPE
+                : constant instanceof Short ? Type.SHORT_TYPE
+                : constant instanceof Character ? Type.CHAR_TYPE
+                : constant instanceof String ? Type.getType(String.class)
+                : constant instanceof Type ? Type.getType(Class.class)
+                : null);
 
         this.constant = constant;
     }

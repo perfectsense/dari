@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -143,7 +144,7 @@ public class CodeDebugServlet extends HttpServlet {
                     // Can't edit a directory.
 
                 } else {
-                    codeBuilder.append(IoUtils.toString(file, StringUtils.UTF_8));
+                    codeBuilder.append(IoUtils.toString(file, StandardCharsets.UTF_8));
                 }
 
             } else {
@@ -311,18 +312,18 @@ public class CodeDebugServlet extends HttpServlet {
                         writeStart("div",
                                 "class", "resultContainer",
                                 "style",
-                                        "background: rgba(255, 255, 255, 0.8);" +
-                                        "border-color: rgba(0, 0, 0, 0.2);" +
-                                        "border-style: solid;" +
-                                        "border-width: 0 0 0 1px;" +
-                                        "max-height: 45%;" +
-                                        "top: 55px;" +
-                                        "overflow: auto;" +
-                                        "padding: 0px 20px 5px 10px;" +
-                                        "position: fixed;" +
-                                        "z-index: 3;" +
-                                        "right: 0px;" +
-                                        "width: 35%;");
+                                        "background: rgba(255, 255, 255, 0.8);"
+                                        + "border-color: rgba(0, 0, 0, 0.2);"
+                                        + "border-style: solid;"
+                                        + "border-width: 0 0 0 1px;"
+                                        + "max-height: 45%;"
+                                        + "top: 55px;"
+                                        + "overflow: auto;"
+                                        + "padding: 0px 20px 5px 10px;"
+                                        + "position: fixed;"
+                                        + "z-index: 3;"
+                                        + "right: 0px;"
+                                        + "width: 35%;");
                             writeStart("h2").writeHtml("Result").writeEnd();
                             writeStart("div", "class", "frame", "name", "result");
                             writeEnd();
@@ -458,11 +459,14 @@ public class CodeDebugServlet extends HttpServlet {
 
     @SuppressWarnings("unchecked")
     private void addImports(Set<String> imports, int prefixLength, String path) {
-        for (String subPath : (Set<String>) getServletContext().getResourcePaths(path)) {
-            if (subPath.endsWith("/")) {
-                addImports(imports, prefixLength, subPath);
-            } else if (subPath.endsWith(".class")) {
-                imports.add(path.substring(prefixLength).replace('/', '.') + "*");
+        Set<String> resourcePaths = getServletContext().getResourcePaths(path);
+        if (resourcePaths != null) {
+            for (String subPath : resourcePaths) {
+                if (subPath.endsWith("/")) {
+                    addImports(imports, prefixLength, subPath);
+                } else if (subPath.endsWith(".class")) {
+                    imports.add(path.substring(prefixLength).replace('/', '.') + "*");
+                }
             }
         }
     }
@@ -505,9 +509,9 @@ public class CodeDebugServlet extends HttpServlet {
                                         for (Method method : ((Class<?>) item).getDeclaredMethods()) {
                                             Class<?>[] parameterClasses = method.getParameterTypes();
 
-                                            if (parameterClasses.length == 1 &&
-                                                    parameterClasses[0].isAssignableFrom(inputClass) &&
-                                                    method.getReturnType().isAssignableFrom(inputClass)) {
+                                            if (parameterClasses.length == 1
+                                                    && parameterClasses[0].isAssignableFrom(inputClass)
+                                                    && method.getReturnType().isAssignableFrom(inputClass)) {
                                                 Map<String, Object> inputMap = ObjectUtils.to(MAP_TYPE, input);
                                                 Map<String, Object> processedMap = ObjectUtils.to(MAP_TYPE, method.invoke(itemClass.newInstance(), input));
 

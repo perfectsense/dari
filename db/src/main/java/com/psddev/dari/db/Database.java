@@ -192,8 +192,8 @@ public interface Database extends SettingsBackedObject {
         private static final ThreadLocal<Deque<Database>> DEFAULT_OVERRIDES = new ThreadLocal<Deque<Database>>();
         private static final ThreadLocal<Boolean> IGNORE_READ_CONNECTION = new ThreadLocal<Boolean>();
 
-        private static final LoadingCache<String, Database> INSTANCES = CacheBuilder.newBuilder().
-                build(new CacheLoader<String, Database>() {
+        private static final LoadingCache<String, Database> INSTANCES = CacheBuilder.newBuilder()
+                .build(new CacheLoader<String, Database>() {
                     @Override
                     public Database load(String name) {
                         Database database = Settings.newInstance(Database.class, SETTING_PREFIX + "/" + name);

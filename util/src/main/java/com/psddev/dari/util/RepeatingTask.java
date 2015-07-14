@@ -46,9 +46,9 @@ public abstract class RepeatingTask extends Task {
         DateTime oldPrevious = previousRunTime.get();
         DateTime newPrevious = calculateRunTime(now);
 
-        if (!now.isBefore(newPrevious) &&
-                oldPrevious.isBefore(newPrevious) &&
-                previousRunTime.compareAndSet(oldPrevious, newPrevious)) {
+        if (!now.isBefore(newPrevious)
+                && oldPrevious.isBefore(newPrevious)
+                && previousRunTime.compareAndSet(oldPrevious, newPrevious)) {
             doRepeatingTask(newPrevious);
         } else {
             skipRunCount();

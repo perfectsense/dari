@@ -130,10 +130,10 @@ public class JavaImageEditor extends AbstractImageEditor {
             setBaseUrlFromRequest(PageContextFilter.Static.getRequest());
         }
 
-        if (ImageEditor.CROP_COMMAND.equals(command) &&
-                options != null &&
-                options.containsKey(ImageEditor.CROP_OPTION) &&
-                options.get(ImageEditor.CROP_OPTION).equals(ImageEditor.CROP_OPTION_NONE)) {
+        if (ImageEditor.CROP_COMMAND.equals(command)
+                && options != null
+                && options.containsKey(ImageEditor.CROP_OPTION)
+                && options.get(ImageEditor.CROP_OPTION).equals(ImageEditor.CROP_OPTION_NONE)) {
             return storageItem;
         }
 
@@ -180,11 +180,11 @@ public class JavaImageEditor extends AbstractImageEditor {
             originalDimension = new Dimension(originalWidth, originalHeight);
         }
 
-        if (ImageEditor.CROP_COMMAND.equals(command) &&
-                        (cropOption != null && cropOption.equals(CROP_OPTION_AUTOMATIC) ||
-                        (ObjectUtils.isBlank(arguments) || arguments.length < 2) ||
-                        (ObjectUtils.to(Integer.class, arguments[0]) == null  &&
-                        ObjectUtils.to(Integer.class, arguments[1]) == null))) {
+        if (ImageEditor.CROP_COMMAND.equals(command)
+                && (cropOption != null && cropOption.equals(CROP_OPTION_AUTOMATIC)
+                || (ObjectUtils.isBlank(arguments) || arguments.length < 2)
+                || (ObjectUtils.to(Integer.class, arguments[0]) == null
+                && ObjectUtils.to(Integer.class, arguments[1]) == null))) {
             commands.add(THUMBNAIL_COMMAND);
             command = RESIZE_COMMAND;
             if (arguments.length > 3) {
@@ -222,8 +222,8 @@ public class JavaImageEditor extends AbstractImageEditor {
             }
             Object resizeOption = options != null ? options.get(ImageEditor.RESIZE_OPTION) : null;
 
-            if (resizeOption != null &&
-                    (cropOption == null || !cropOption.equals(ImageEditor.CROP_OPTION_AUTOMATIC))) {
+            if (resizeOption != null
+                    && (cropOption == null || !cropOption.equals(ImageEditor.CROP_OPTION_AUTOMATIC))) {
                 if (resizeOption.equals(ImageEditor.RESIZE_OPTION_IGNORE_ASPECT_RATIO)) {
                     resizeBuilder.append("!");
                 } else if (resizeOption.equals(ImageEditor.RESIZE_OPTION_ONLY_SHRINK_LARGER)) {
@@ -252,9 +252,9 @@ public class JavaImageEditor extends AbstractImageEditor {
             }
 
             if (originalDimension != null) {
-                if (width != null && height != null && (resizeOption == null ||
-                        resizeOption.equals(ImageEditor.RESIZE_OPTION_IGNORE_ASPECT_RATIO) ||
-                        resizeOption.equals(ImageEditor.RESIZE_OPTION_FILL_AREA))) {
+                if (width != null && height != null && (resizeOption == null
+                        || resizeOption.equals(ImageEditor.RESIZE_OPTION_IGNORE_ASPECT_RATIO)
+                        || resizeOption.equals(ImageEditor.RESIZE_OPTION_FILL_AREA))) {
                     outputDimension = new Dimension(originalDimension.width != null ? Math.min(originalDimension.width, width) : width,
                                                     originalDimension.height != null ? Math.min(originalDimension.height, height) : height);
                 } else if (resizeOption == null) {
@@ -272,8 +272,8 @@ public class JavaImageEditor extends AbstractImageEditor {
             commands.add(ObjectUtils.to(String.class, arguments[0]));
         }
 
-        if (cropOption != null &&
-                EXTRA_CROPS.contains(cropOption)) {
+        if (cropOption != null
+                && EXTRA_CROPS.contains(cropOption)) {
             commands.add(ObjectUtils.to(String.class, cropOption));
         }
 
@@ -453,26 +453,26 @@ public class JavaImageEditor extends AbstractImageEditor {
             quality = this.quality;
         }
         if (width != null || height != null) {
-            if (!StringUtils.isBlank(option) &&
-                    option.equals(ImageEditor.RESIZE_OPTION_ONLY_SHRINK_LARGER)) {
-                if ((height == null && width >= bufferedImage.getWidth()) ||
-                            (width == null && height >= bufferedImage.getHeight()) ||
-                            (width != null && height != null && width >= bufferedImage.getWidth() && height >= bufferedImage.getHeight())) {
+            if (!StringUtils.isBlank(option)
+                    && option.equals(ImageEditor.RESIZE_OPTION_ONLY_SHRINK_LARGER)) {
+                if ((height == null && width >= bufferedImage.getWidth())
+                        || (width == null && height >= bufferedImage.getHeight())
+                        || (width != null && height != null && width >= bufferedImage.getWidth() && height >= bufferedImage.getHeight())) {
                     return bufferedImage;
                 }
 
-            } else if (!StringUtils.isBlank(option) &&
-                    option.equals(ImageEditor.RESIZE_OPTION_ONLY_ENLARGE_SMALLER)) {
-                if ((height == null && width <= bufferedImage.getWidth()) ||
-                            (width == null && height <= bufferedImage.getHeight()) ||
-                            (width != null && height != null && (width <= bufferedImage.getWidth() || height <= bufferedImage.getHeight()))) {
+            } else if (!StringUtils.isBlank(option)
+                    && option.equals(ImageEditor.RESIZE_OPTION_ONLY_ENLARGE_SMALLER)) {
+                if ((height == null && width <= bufferedImage.getWidth())
+                        || (width == null && height <= bufferedImage.getHeight())
+                        || (width != null && height != null && (width <= bufferedImage.getWidth() || height <= bufferedImage.getHeight()))) {
                     return bufferedImage;
                 }
             }
 
-            if (StringUtils.isBlank(option) ||
-                    option.equals(ImageEditor.RESIZE_OPTION_ONLY_SHRINK_LARGER) ||
-                    option.equals(ImageEditor.RESIZE_OPTION_ONLY_ENLARGE_SMALLER)) {
+            if (StringUtils.isBlank(option)
+                    || option.equals(ImageEditor.RESIZE_OPTION_ONLY_SHRINK_LARGER)
+                    || option.equals(ImageEditor.RESIZE_OPTION_ONLY_ENLARGE_SMALLER)) {
                 if (height == null) {
                     return Scalr.resize(bufferedImage, quality, Scalr.Mode.FIT_TO_WIDTH, width);
                 } else if (width == null) {
@@ -897,8 +897,8 @@ public class JavaImageEditor extends AbstractImageEditor {
         Integer actualWidth = null;
         Integer actualHeight = null;
 
-        if (originalWidth != null && originalHeight != null &&
-                (requestedWidth != null || requestedHeight != null)) {
+        if (originalWidth != null && originalHeight != null
+                && (requestedWidth != null || requestedHeight != null)) {
 
             float originalRatio = (float) originalWidth / (float) originalHeight;
             if (requestedWidth != null && requestedHeight != null) {
@@ -998,8 +998,8 @@ public class JavaImageEditor extends AbstractImageEditor {
         Integer actualWidth = null;
         Integer actualHeight = null;
 
-        if (originalWidth != null && originalHeight != null &&
-                (requestedWidth != null || requestedHeight != null)) {
+        if (originalWidth != null && originalHeight != null
+                && (requestedWidth != null || requestedHeight != null)) {
 
             float originalRatio = (float) originalWidth / (float) originalHeight;
             if (requestedWidth != null && requestedHeight != null) {

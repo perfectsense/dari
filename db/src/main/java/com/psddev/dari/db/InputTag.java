@@ -12,11 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.psddev.dari.util.ErrorUtils;
-import com.psddev.dari.util.FormProcessor;
-import com.psddev.dari.util.FormTag;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.TypeDefinition;
 
+// CHECKSTYLE:OFF
 /**
  * @deprecated No replacement.
  */
@@ -78,9 +77,9 @@ public class InputTag extends TagSupport {
 
                 } else {
                     // grab it from parent form tag
-                    FormTag formTag = getParentFormTag();
+                    com.psddev.dari.util.FormTag formTag = getParentFormTag();
                     if (formTag != null) {
-                        FormProcessor processor = formTag.getProcessorInstance();
+                        com.psddev.dari.util.FormProcessor processor = formTag.getProcessorInstance();
                         if (processor instanceof FormWriter) {
                             formWriter = (FormWriter) processor;
                         }
@@ -93,7 +92,7 @@ public class InputTag extends TagSupport {
 
                 } else {
                     // grab it from the parent form tag
-                    FormTag formTag = getParentFormTag();
+                    com.psddev.dari.util.FormTag formTag = getParentFormTag();
                     if (formTag != null) {
                         Object object = formTag.getResult();
                         state = State.getInstance(object);
@@ -118,7 +117,7 @@ public class InputTag extends TagSupport {
 
                 } else {
                     String formId = null;
-                    FormTag formTag = getParentFormTag();
+                    com.psddev.dari.util.FormTag formTag = getParentFormTag();
                     if (formTag != null) {
                         formId = formTag.getId();
                     }
@@ -138,12 +137,12 @@ public class InputTag extends TagSupport {
         return SKIP_BODY;
     }
 
-    private FormTag getParentFormTag() {
+    private com.psddev.dari.util.FormTag getParentFormTag() {
         Tag parent = getParent();
 
         while (parent != null) {
-            if (parent instanceof FormTag) {
-                return (FormTag) parent;
+            if (parent instanceof com.psddev.dari.util.FormTag) {
+                return (com.psddev.dari.util.FormTag) parent;
             }
             parent = parent.getParent();
         }

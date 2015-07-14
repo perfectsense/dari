@@ -58,22 +58,22 @@ public class BulkDebugServlet extends HttpServlet {
             if ("index".equals(action)) {
                 String executor = INDEXER_PREFIX + (selectedType != null ? selectedType.getInternalName() : "ALL");
                 AsyncQueue<Object> queue = new AsyncQueue<Object>();
-                Query<Object> query = Query.
-                        fromType(selectedType).
-                        resolveToReferenceOnly();
+                Query<Object> query = Query
+                        .fromType(selectedType)
+                        .resolveToReferenceOnly();
 
                 query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
 
                 new AsyncDatabaseReader<Object>(
-                        executor, queue, selectedDatabase, query).
-                        submit();
+                        executor, queue, selectedDatabase, query)
+                        .submit();
 
                 queue.closeAutomatically();
 
                 for (int i = 0; i < writersCount; ++ i) {
                     new AsyncDatabaseWriter<Object>(
-                            executor, queue, selectedDatabase, WriteOperation.INDEX, commitSize, true).
-                            submit();
+                            executor, queue, selectedDatabase, WriteOperation.INDEX, commitSize, true)
+                            .submit();
                 }
 
             } else if ("copy".equals(action)) {
@@ -82,9 +82,9 @@ public class BulkDebugServlet extends HttpServlet {
 
                 String executor = COPIER_PREFIX + " from " + source + " to " + destination;
                 AsyncQueue<Object> queue = new AsyncQueue<Object>();
-                Query<Object> query = Query.
-                        fromType(selectedType).
-                        resolveToReferenceOnly();
+                Query<Object> query = Query
+                        .fromType(selectedType)
+                        .resolveToReferenceOnly();
 
                 query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
 
@@ -118,8 +118,8 @@ public class BulkDebugServlet extends HttpServlet {
 
                 for (int i = 0; i < writersCount; ++ i) {
                     new AsyncDatabaseWriter<Object>(
-                            executor, queue, destination, WriteOperation.SAVE_UNSAFELY, commitSize, true).
-                            submit();
+                            executor, queue, destination, WriteOperation.SAVE_UNSAFELY, commitSize, true)
+                            .submit();
                 }
             }
 

@@ -8,6 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * @deprecated No replacement.
+ */
+@Deprecated
 public class Css {
 
     private final char[] css;

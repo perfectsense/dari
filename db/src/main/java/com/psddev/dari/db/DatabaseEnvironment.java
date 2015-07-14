@@ -175,33 +175,33 @@ public class DatabaseEnvironment implements ObjectStruct {
         public void doTask() {
             Database database = getDatabase();
 
-            Date newGlobalsUpdate = Query.
-                    from(Object.class).
-                    where("_id = ?", GLOBALS_ID).
-                    using(database).
-                    lastUpdate();
-            if (newGlobalsUpdate != null &&
-                    (lastGlobalsUpdate == null ||
-                    newGlobalsUpdate.after(lastGlobalsUpdate))) {
+            Date newGlobalsUpdate = Query
+                    .from(Object.class)
+                    .where("_id = ?", GLOBALS_ID)
+                    .using(database)
+                    .lastUpdate();
+            if (newGlobalsUpdate != null
+                    && (lastGlobalsUpdate == null
+                    || newGlobalsUpdate.after(lastGlobalsUpdate))) {
                 refreshGlobals();
             }
 
-            Date newTypesUpdate = Query.
-                    from(ObjectType.class).
-                    using(database).
-                    lastUpdate();
-            if (newTypesUpdate != null &&
-                    (lastTypesUpdate == null ||
-                    newTypesUpdate.after(lastTypesUpdate))) {
+            Date newTypesUpdate = Query
+                    .from(ObjectType.class)
+                    .using(database)
+                    .lastUpdate();
+            if (newTypesUpdate != null
+                    && (lastTypesUpdate == null
+                    || newTypesUpdate.after(lastTypesUpdate))) {
                 refreshTypes();
             }
         }
     };
 
     // Cache that contains ObjectType.PostProcessors.
-    private static final LoadingCache<Class<? extends ObjectType.PostProcessor>, ObjectType.PostProcessor> TYPE_POST_PROCESSORS = CacheBuilder.newBuilder().
-            weakKeys().
-            build(new CacheLoader<Class<? extends ObjectType.PostProcessor>, ObjectType.PostProcessor>() {
+    private static final LoadingCache<Class<? extends ObjectType.PostProcessor>, ObjectType.PostProcessor> TYPE_POST_PROCESSORS = CacheBuilder.newBuilder()
+            .weakKeys()
+            .build(new CacheLoader<Class<? extends ObjectType.PostProcessor>, ObjectType.PostProcessor>() {
 
                 @Override
                 public ObjectType.PostProcessor load(Class<? extends ObjectType.PostProcessor> processorClass) {
@@ -216,11 +216,11 @@ public class DatabaseEnvironment implements ObjectStruct {
         Database database = getDatabase();
         LOGGER.info("Loading globals from [{}]", database.getName());
 
-        Query<Object> globalsQuery = Query.
-                from(Object.class).
-                where("_id = ?", GLOBALS_ID).
-                using(database).
-                noCache();
+        Query<Object> globalsQuery = Query
+                .from(Object.class)
+                .where("_id = ?", GLOBALS_ID)
+                .using(database)
+                .noCache();
 
         State newGlobals = State.getInstance(globalsQuery.first());
 
@@ -255,10 +255,10 @@ public class DatabaseEnvironment implements ObjectStruct {
                 temporaryTypesLocal.set(temporaryTypes);
             }
 
-            List<ObjectType> types = Query.
-                    from(ObjectType.class).
-                    using(database).
-                    selectAll();
+            List<ObjectType> types = Query
+                    .from(ObjectType.class)
+                    .using(database)
+                    .selectAll();
             int typesSize = types.size();
             LOGGER.info("Loading [{}] types from [{}]", typesSize, database.getName());
 
@@ -449,12 +449,12 @@ public class DatabaseEnvironment implements ObjectStruct {
 
         if (singletonType != null) {
             for (ObjectType type : singletonType.findConcreteTypes()) {
-                if (!Query.
-                        fromType(type).
-                        where("_type = ?", type).
-                        master().
-                        noCache().
-                        hasMoreThan(0)) {
+                if (!Query
+                        .fromType(type)
+                        .where("_type = ?", type)
+                        .master()
+                        .noCache()
+                        .hasMoreThan(0)) {
                     try {
                         State.getInstance(type.createObject(null)).saveImmediately();
                     } catch (Exception error) {
@@ -559,9 +559,9 @@ public class DatabaseEnvironment implements ObjectStruct {
 
             return ObjectField.Static.convertDefinitionsToInstances(
                     DatabaseEnvironment.this,
-                    definitions instanceof List ?
-                            (List<Map<String, Object>>) definitions :
-                            null);
+                    definitions instanceof List
+                            ? (List<Map<String, Object>>) definitions
+                            : null);
         }
     };
 
@@ -655,9 +655,9 @@ public class DatabaseEnvironment implements ObjectStruct {
 
             return ObjectIndex.Static.convertDefinitionsToInstances(
                     DatabaseEnvironment.this,
-                    definitions instanceof List ?
-                            (List<Map<String, Object>>) definitions :
-                            null);
+                    definitions instanceof List
+                            ? (List<Map<String, Object>>) definitions
+                            : null);
         }
     };
 
@@ -688,9 +688,9 @@ public class DatabaseEnvironment implements ObjectStruct {
             UUID id = type.getId();
             if (classNames.contains(type.getObjectClassName())) {
                 TypesCache temporaryTypes = temporaryTypesLocal.get();
-                if ((temporaryTypes != null &&
-                        temporaryTypesLocal.get().changed.contains(id)) ||
-                        permanentTypes.changed.contains(id)) {
+                if ((temporaryTypes != null
+                        && temporaryTypesLocal.get().changed.contains(id))
+                        || permanentTypes.changed.contains(id)) {
                     type.save();
                 }
             }
@@ -778,9 +778,9 @@ public class DatabaseEnvironment implements ObjectStruct {
         Set<ObjectType> pTypes = permanentTypes.byGroup.get(group);
 
         if (tTypes == null) {
-            return pTypes == null ?
-                    new HashSet<ObjectType>() :
-                    new HashSet<ObjectType>(pTypes);
+            return pTypes == null
+                    ? new HashSet<ObjectType>()
+                    : new HashSet<ObjectType>(pTypes);
 
         } else {
             tTypes = new HashSet<ObjectType>(tTypes);
@@ -828,9 +828,9 @@ public class DatabaseEnvironment implements ObjectStruct {
             } else {
                 type = getTypeById(typeId);
                 if (type != null) {
-                    objectClass = type.isAbstract() ?
-                            Record.class :
-                            type.getObjectClass();
+                    objectClass = type.isAbstract()
+                            ? Record.class
+                            : type.getObjectClass();
                 }
             }
         }
@@ -871,8 +871,8 @@ public class DatabaseEnvironment implements ObjectStruct {
         return object;
     }
 
-    private final transient LoadingCache<String, Integer> beanPropertyIndexes = CacheBuilder.newBuilder().
-            build(new CacheLoader<String, Integer>() {
+    private final transient LoadingCache<String, Integer> beanPropertyIndexes = CacheBuilder.newBuilder()
+            .build(new CacheLoader<String, Integer>() {
 
                 private final Map<String, Integer> indexes = new HashMap<String, Integer>();
                 private int nextIndex = 0;
@@ -981,16 +981,16 @@ public class DatabaseEnvironment implements ObjectStruct {
         for (DynamicProperty property : dynamicProperties.get()) {
             boolean add = false;
 
-            if (type != null &&
-                    type.getModificationClassNames().contains(property.type.getObjectClassName())) {
+            if (type != null
+                    && type.getModificationClassNames().contains(property.type.getObjectClassName())) {
                 add = true;
 
             } else {
                 Class<?> modClass = property.type.getObjectClass();
 
-                if (modClass != null &&
-                        Modification.class.isAssignableFrom(modClass) &&
-                        Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)) {
+                if (modClass != null
+                        && Modification.class.isAssignableFrom(modClass)
+                        && Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)) {
                     add = true;
                 }
             }
@@ -1004,9 +1004,9 @@ public class DatabaseEnvironment implements ObjectStruct {
             }
         }
 
-        return beanInfos != null ?
-                beanInfos.toArray(new BeanInfo[beanInfos.size()]) :
-                null;
+        return beanInfos != null
+                ? beanInfos.toArray(new BeanInfo[beanInfos.size()])
+                : null;
     }
 
     /**

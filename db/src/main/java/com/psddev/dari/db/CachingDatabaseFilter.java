@@ -40,8 +40,8 @@ public class CachingDatabaseFilter extends AbstractFilter {
             FilterChain chain)
             throws IOException, ServletException {
 
-        if (Settings.getOrDefault(boolean.class, "dari/isCachingFilterEnabled", true) &&
-                !Boolean.FALSE.toString().equals(request.getParameter(CACHE_PARAMETER))) {
+        if (Settings.getOrDefault(boolean.class, "dari/isCachingFilterEnabled", true)
+                && !Boolean.FALSE.toString().equals(request.getParameter(CACHE_PARAMETER))) {
 
             CachingDatabase caching = new CachingDatabase();
 

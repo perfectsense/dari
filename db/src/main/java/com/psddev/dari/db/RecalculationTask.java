@@ -279,9 +279,9 @@ public class RecalculationTask extends RepeatingTask {
 
         for (ObjectType type : Database.Static.getDefault().getEnvironment().getTypes()) {
             for (ObjectMethod method : type.getMethods()) {
-                if (method.getJavaDeclaringClassName().equals(type.getObjectClassName()) &&
-                        !method.as(RecalculationFieldData.class).isImmediate() &&
-                        method.as(RecalculationFieldData.class).getRecalculationDelay() != null) {
+                if (method.getJavaDeclaringClassName().equals(type.getObjectClassName())
+                        && !method.as(RecalculationFieldData.class).isImmediate()
+                        && method.as(RecalculationFieldData.class).getRecalculationDelay() != null) {
 
                     TreeSet<String> groups = new TreeSet<String>();
                     Set<Class<?>> objectClasses = new HashSet<Class<?>>();
@@ -371,10 +371,10 @@ public class RecalculationTask extends RepeatingTask {
             }
 
             ObjectField metricField = getMetric();
-            return type.getInternalName() + " " +
-                StringUtils.join(groups.toArray(new String[groups.size()]), ",") + " " +
-                delay.getClass().getName() +
-                (metricField != null ? " " + metricField.getUniqueName() : "");
+            return type.getInternalName() + " "
+                    + StringUtils.join(groups.toArray(new String[groups.size()]), ",") + " "
+                    + delay.getClass().getName()
+                    + (metricField != null ? " " + metricField.getUniqueName() : "");
         }
     }
 }

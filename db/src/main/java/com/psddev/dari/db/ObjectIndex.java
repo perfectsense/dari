@@ -133,9 +133,9 @@ public class ObjectIndex {
 
             if (fields.size() == 1) {
                 ObjectField field = getParent().getField(fields.get(0));
-                return field != null &&
-                        (ObjectField.BOOLEAN_TYPE.equals(field.getInternalItemType()) ||
-                        !ObjectUtils.isBlank(field.getValues()));
+                return field != null
+                        && (ObjectField.BOOLEAN_TYPE.equals(field.getInternalItemType())
+                        || !ObjectUtils.isBlank(field.getValues()));
             }
         }
 
@@ -339,18 +339,18 @@ public class ObjectIndex {
         } else if (value instanceof Recordable) {
             State valueState = ((Recordable) value).getState();
             ObjectType valueType = valueState.getType();
-            if (!((valueType != null &&
-                    valueType.isEmbedded()) ||
-                    (field != null &&
-                    ObjectField.RECORD_TYPE.equals(field.getInternalItemType()) &&
-                    field.isEmbedded()))) {
+            if (!((valueType != null
+                    && valueType.isEmbedded())
+                    || (field != null
+                    && ObjectField.RECORD_TYPE.equals(field.getInternalItemType())
+                    && field.isEmbedded()))) {
                 values.add(valueState.getId());
             }
 
-        } else if (value instanceof Character ||
-                value instanceof CharSequence ||
-                value instanceof URI ||
-                value instanceof URL) {
+        } else if (value instanceof Character
+                || value instanceof CharSequence
+                || value instanceof URI
+                || value instanceof URL) {
             values.add(value.toString());
 
         } else if (value instanceof Date) {
@@ -378,13 +378,13 @@ public class ObjectIndex {
             Object value = getValue(state);
             if (!ObjectUtils.isBlank(value)) {
 
-                Object duplicate = Query.
-                        from(Object.class).
-                        where("id != ?", state.getId()).
-                        and(getUniqueName() + " = ?", value).
-                        using(state.getDatabase()).
-                        referenceOnly().
-                        first();
+                Object duplicate = Query
+                        .from(Object.class)
+                        .where("id != ?", state.getId())
+                        .and(getUniqueName() + " = ?", value)
+                        .using(state.getDatabase())
+                        .referenceOnly()
+                        .first();
 
                 if (duplicate != null) {
                     state.addError(state.getField(getField()), "Must be unique!");
@@ -433,8 +433,8 @@ public class ObjectIndex {
 
         } else if (other instanceof ObjectIndex) {
             ObjectIndex otherIndex = (ObjectIndex) other;
-            return ObjectUtils.equals(getParent(), otherIndex.getParent()) &&
-                    getFields().equals(otherIndex.getFields());
+            return ObjectUtils.equals(getParent(), otherIndex.getParent())
+                    && getFields().equals(otherIndex.getFields());
 
         } else {
             return false;

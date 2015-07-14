@@ -597,9 +597,9 @@ class CollectionMaximumProcessor implements ObjectField.AnnotationProcessor<Anno
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
         if (field.isInternalCollectionType()) {
-            field.setCollectionMaximum(annotation instanceof Recordable.FieldCollectionMaximum ?
-                    ((Recordable.FieldCollectionMaximum) annotation).value() :
-                    ((Recordable.CollectionMaximum) annotation).value());
+            field.setCollectionMaximum(annotation instanceof Recordable.FieldCollectionMaximum
+                    ? ((Recordable.FieldCollectionMaximum) annotation).value()
+                    : ((Recordable.CollectionMaximum) annotation).value());
         } else {
             throw new IllegalArgumentException(String.format(
                     "[%s] annotation cannot be applied to a non-collection field!",
@@ -613,9 +613,9 @@ class CollectionMinimumProcessor implements ObjectField.AnnotationProcessor<Anno
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
         if (field.isInternalCollectionType()) {
-            field.setCollectionMinimum(annotation instanceof Recordable.FieldCollectionMinimum ?
-                    ((Recordable.FieldCollectionMinimum) annotation).value() :
-                    ((Recordable.CollectionMinimum) annotation).value());
+            field.setCollectionMinimum(annotation instanceof Recordable.FieldCollectionMinimum
+                    ? ((Recordable.FieldCollectionMinimum) annotation).value()
+                    : ((Recordable.CollectionMinimum) annotation).value());
         } else {
             throw new IllegalArgumentException(String.format(
                     "[%s] annotation cannot be applied to a non-collection field!",
@@ -657,9 +657,9 @@ class DisplayNameProcessor implements
     @Override
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
-        field.setDisplayName(annotation instanceof Recordable.FieldDisplayName ?
-                ((Recordable.FieldDisplayName) annotation).value() :
-                ((Recordable.DisplayName) annotation).value());
+        field.setDisplayName(annotation instanceof Recordable.FieldDisplayName
+                ? ((Recordable.FieldDisplayName) annotation).value()
+                : ((Recordable.DisplayName) annotation).value());
     }
 
     @Override
@@ -682,9 +682,9 @@ class EmbeddedProcessor implements
     @Override
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
-        field.setEmbedded(annotation instanceof Recordable.FieldEmbedded ?
-                ((Recordable.FieldEmbedded) annotation).value() :
-                ((Recordable.Embedded) annotation).value());
+        field.setEmbedded(annotation instanceof Recordable.FieldEmbedded
+                ? ((Recordable.FieldEmbedded) annotation).value()
+                : ((Recordable.Embedded) annotation).value());
     }
 
     @Override
@@ -767,9 +767,9 @@ class MaximumProcessor implements ObjectField.AnnotationProcessor<Annotation> {
     @Override
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
-        field.setMaximum(annotation instanceof Recordable.FieldMaximum ?
-                ((Recordable.FieldMaximum) annotation).value() :
-                ((Recordable.Maximum) annotation).value());
+        field.setMaximum(annotation instanceof Recordable.FieldMaximum
+                ? ((Recordable.FieldMaximum) annotation).value()
+                : ((Recordable.Maximum) annotation).value());
     }
 }
 
@@ -801,9 +801,9 @@ class MinimumProcessor implements ObjectField.AnnotationProcessor<Annotation> {
     @Override
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
-        field.setMinimum(annotation instanceof Recordable.FieldMinimum ?
-                ((Recordable.FieldMinimum) annotation).value() :
-                ((Recordable.Minimum) annotation).value());
+        field.setMinimum(annotation instanceof Recordable.FieldMinimum
+                ? ((Recordable.FieldMinimum) annotation).value()
+                : ((Recordable.Minimum) annotation).value());
     }
 }
 
@@ -818,9 +818,9 @@ class RegexProcessor implements ObjectField.AnnotationProcessor<Annotation> {
     @Override
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
-        field.setPattern(annotation instanceof Recordable.FieldPattern ?
-                ((Recordable.FieldPattern) annotation).value() :
-                ((Recordable.Regex) annotation).value());
+        field.setPattern(annotation instanceof Recordable.FieldPattern
+                ? ((Recordable.FieldPattern) annotation).value()
+                : ((Recordable.Regex) annotation).value());
     }
 }
 
@@ -828,9 +828,9 @@ class RequiredProcessor implements ObjectField.AnnotationProcessor<Annotation> {
     @Override
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
-        field.setRequired(annotation instanceof Recordable.FieldRequired ?
-                ((Recordable.FieldRequired) annotation).value() :
-                ((Recordable.Required) annotation).value());
+        field.setRequired(annotation instanceof Recordable.FieldRequired
+                ? ((Recordable.FieldRequired) annotation).value()
+                : ((Recordable.Required) annotation).value());
     }
 }
 
@@ -852,9 +852,9 @@ class StepProcessor implements ObjectField.AnnotationProcessor<Annotation> {
     @Override
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
-        field.setStep(annotation instanceof Recordable.FieldStep ?
-                ((Recordable.FieldStep) annotation).value() :
-                ((Recordable.Step) annotation).value());
+        field.setStep(annotation instanceof Recordable.FieldStep
+                ? ((Recordable.FieldStep) annotation).value()
+                : ((Recordable.Step) annotation).value());
     }
 }
 
@@ -864,9 +864,9 @@ class TypesProcessor implements ObjectField.AnnotationProcessor<Annotation> {
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
         Set<ObjectType> types = new LinkedHashSet<ObjectType>();
         DatabaseEnvironment environment = field.getParent().getEnvironment();
-        for (Class<?> typeClass : annotation instanceof Recordable.FieldTypes ? ((Recordable.FieldTypes) annotation).value() :
-                annotation instanceof Recordable.FieldItemTypes ? ((Recordable.FieldItemTypes) annotation).value() :
-                ((Recordable.Types) annotation).value()) {
+        for (Class<?> typeClass : annotation instanceof Recordable.FieldTypes
+                ? ((Recordable.FieldTypes) annotation).value() : annotation instanceof Recordable.FieldItemTypes
+                ? ((Recordable.FieldItemTypes) annotation).value() : ((Recordable.Types) annotation).value()) {
             types.add(environment.getTypeByClass(typeClass));
         }
         field.setTypes(types);
@@ -878,9 +878,9 @@ class ValuesProcessor implements ObjectField.AnnotationProcessor<Annotation> {
     @SuppressWarnings({ "all", "deprecation" })
     public void process(ObjectType type, ObjectField field, Annotation annotation) {
         Set<ObjectField.Value> values = new LinkedHashSet<ObjectField.Value>();
-        for (String valueValue : annotation instanceof Recordable.FieldValues ?
-                ((Recordable.FieldValues) annotation).value() :
-                ((Recordable.Values) annotation).value()) {
+        for (String valueValue : annotation instanceof Recordable.FieldValues
+                ? ((Recordable.FieldValues) annotation).value()
+                : ((Recordable.Values) annotation).value()) {
             ObjectField.Value value = new ObjectField.Value();
             value.setValue(valueValue);
             values.add(value);

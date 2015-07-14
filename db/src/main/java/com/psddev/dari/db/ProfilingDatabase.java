@@ -64,9 +64,9 @@ public class ProfilingDatabase extends ForwardingDatabase {
                 String className = element.getClassName();
                 Class<?> c = ObjectUtils.getClassByName(className);
 
-                if (c == null ||
-                        !(Database.class.isAssignableFrom(c) ||
-                        Query.class.isAssignableFrom(c))) {
+                if (c == null
+                        || !(Database.class.isAssignableFrom(c)
+                        || Query.class.isAssignableFrom(c))) {
                     caller = element;
                     break;
                 }

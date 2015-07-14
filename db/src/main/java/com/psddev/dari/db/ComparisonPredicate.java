@@ -50,12 +50,12 @@ public final class ComparisonPredicate extends Predicate {
         this.values = Collections.unmodifiableList(mutableValues);
         for (Object value : values) {
 
-            if (value instanceof Recordable &&
-                    !(value instanceof Query)) {
+            if (value instanceof Recordable
+                    && !(value instanceof Query)) {
                 mutableValues.add(((Recordable) value).getState().getId());
 
-            } else if (value instanceof State &&
-                    !((State) value).getType().getGroups().contains(Query.class.getName())) {
+            } else if (value instanceof State
+                    && !((State) value).getType().getGroups().contains(Query.class.getName())) {
                 mutableValues.add(((State) value).getId());
 
             } else if (value instanceof Date) {
@@ -114,9 +114,9 @@ public final class ComparisonPredicate extends Predicate {
         for (Object value : values) {
 
             if (value instanceof Query) {
-                for (Object item : database.
-                        readPartial((Query<?>) value, 0, Settings.getOrDefault(int.class, "dari/subQueryResolveLimit", 100)).
-                        getItems()) {
+                for (Object item : database
+                        .readPartial((Query<?>) value, 0, Settings.getOrDefault(int.class, "dari/subQueryResolveLimit", 100))
+                        .getItems()) {
                     resolved.add(State.getInstance(item).getId());
                 }
 
@@ -157,10 +157,10 @@ public final class ComparisonPredicate extends Predicate {
 
         } else if (other instanceof ComparisonPredicate) {
             ComparisonPredicate otherPredicate = (ComparisonPredicate) other;
-            return getOperator().equals(otherPredicate.getOperator()) &&
-                    key.equals(otherPredicate.key) &&
-                    isIgnoreCase == otherPredicate.isIgnoreCase &&
-                    values.equals(otherPredicate.values);
+            return getOperator().equals(otherPredicate.getOperator())
+                    && key.equals(otherPredicate.key)
+                    && isIgnoreCase == otherPredicate.isIgnoreCase
+                    && values.equals(otherPredicate.values);
 
         } else {
             return false;

@@ -37,9 +37,9 @@ public interface StorageItemHash extends SettingsBackedObject {
      */
     public static final class Static {
 
-        private static final LoadingCache<String, StorageItemHash> INSTANCES = CacheBuilder.
-                newBuilder().
-                build(new CacheLoader<String, StorageItemHash>() {
+        private static final LoadingCache<String, StorageItemHash> INSTANCES = CacheBuilder
+                .newBuilder()
+                .build(new CacheLoader<String, StorageItemHash>() {
 
                     @Override
                     public StorageItemHash load(String name) {

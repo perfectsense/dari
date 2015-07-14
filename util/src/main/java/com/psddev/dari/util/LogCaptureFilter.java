@@ -86,8 +86,8 @@ public class LogCaptureFilter extends AbstractFilter {
             if (contentType != null) {
                 contentType = contentType.toLowerCase(Locale.ENGLISH);
 
-                if (contentType.contains("json") ||
-                        contentType.contains("javascript")) {
+                if (contentType.contains("json")
+                        || contentType.contains("javascript")) {
                     writer.println("/*");
                     for (String log : logs) {
                         writer.println(log);

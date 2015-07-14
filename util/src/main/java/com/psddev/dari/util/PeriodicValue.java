@@ -79,8 +79,8 @@ public abstract class PeriodicValue<T> {
         value = update();
         updateDate = new Date();
 
-        if (LOGGER.isDebugEnabled() &&
-                !ObjectUtils.equals(oldValue, value)) {
+        if (LOGGER.isDebugEnabled()
+                && !ObjectUtils.equals(oldValue, value)) {
             LOGGER.debug("Changed from [{}] to [{}]", oldValue, value);
         }
     }

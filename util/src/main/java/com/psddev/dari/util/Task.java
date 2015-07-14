@@ -64,9 +64,9 @@ public abstract class Task implements Comparable<Task>, Runnable {
         name = initialName + " #" + TASK_INDEXES.getUnchecked(initialName).incrementAndGet();
     }
 
-    private static final LoadingCache<String, AtomicLong> TASK_INDEXES = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<String, AtomicLong>() {
+    private static final LoadingCache<String, AtomicLong> TASK_INDEXES = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<String, AtomicLong>() {
 
         @Override
         public AtomicLong load(String name) {

@@ -56,8 +56,8 @@ public class CompoundMetric extends Metric {
 
     @Override
     public boolean isEmptyByDimensionBetween(String dimension, DateTime start, DateTime end) {
-        return (left != null ? left.isEmptyByDimensionBetween(dimension, start, end) : false) &&
-            (right != null ? right.isEmptyByDimensionBetween(dimension, start, end) : false);
+        return (left != null ? left.isEmptyByDimensionBetween(dimension, start, end) : false)
+                && (right != null ? right.isEmptyByDimensionBetween(dimension, start, end) : false);
     }
 
     @Override

@@ -1,16 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <differences>
 
-    <!-- Caused by upgrade from ASM version 3 to 5. -->
+    <!-- Temporary while this is reworked to accommodate shading ASM. -->
     <difference>
         <className>com/psddev/dari/util/ClassEnhancer</className>
-        <differenceType>4001</differenceType>
-        <to>org/objectweb/asm/ClassVisitor</to>
+        <differenceType>5001</differenceType>
+        <to>**</to>
     </difference>
 
     <difference>
         <className>com/psddev/dari/util/ClassEnhancer</className>
-        <differenceType>5001</differenceType>
-        <to>org/objectweb/asm/ClassAdapter</to>
+        <differenceType>7005</differenceType>
+        <method>**</method>
+        <to>**</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/util/ClassEnhancer</className>
+        <differenceType>7006</differenceType>
+        <method>**</method>
+        <to>**</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/util/asm/**</className>
+        <differenceType>8001</differenceType>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/util/sa/**</className>
+        <differenceType>6004</differenceType>
+        <field>**</field>
+        <from>**</from>
+        <to>**</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/util/sa/**</className>
+        <differenceType>7005</differenceType>
+        <method>**</method>
+        <to>**</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/util/sa/**</className>
+        <differenceType>8001</differenceType>
     </difference>
 </differences>

@@ -148,17 +148,17 @@ public class CloudStorageItem extends AbstractStorageItem {
             return createRegionContext();
         }
 
-        return ContextBuilder.
-                newBuilder(getProvider()).
-                credentials(getIdentity(), getCredential()).
-                buildView(BlobStoreContext.class);
+        return ContextBuilder
+                .newBuilder(getProvider())
+                .credentials(getIdentity(), getCredential())
+                .buildView(BlobStoreContext.class);
     }
 
     private RegionScopedBlobStoreContext createRegionContext() {
-        return ContextBuilder.
-                newBuilder(getProvider()).
-                credentials(getIdentity(), getCredential()).
-                buildView(RegionScopedBlobStoreContext.class);
+        return ContextBuilder
+                .newBuilder(getProvider())
+                .credentials(getIdentity(), getCredential())
+                .buildView(RegionScopedBlobStoreContext.class);
     }
 
     private BlobStore createBlobStore(BlobStoreContext context) {

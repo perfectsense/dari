@@ -68,9 +68,9 @@ public interface ImageEditor extends SettingsBackedObject {
      */
     public static final class Static {
 
-        private static final LoadingCache<String, ImageEditor> INSTANCES = CacheBuilder.
-                newBuilder().
-                build(new CacheLoader<String, ImageEditor>() {
+        private static final LoadingCache<String, ImageEditor> INSTANCES = CacheBuilder
+                .newBuilder()
+                .build(new CacheLoader<String, ImageEditor>() {
 
             @Override
             public ImageEditor load(String name) {

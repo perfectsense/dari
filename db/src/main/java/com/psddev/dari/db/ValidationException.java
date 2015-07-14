@@ -18,9 +18,9 @@ public class ValidationException extends IllegalArgumentException {
 
     /** Creates an instance with the given invalid {@code states}. */
     public ValidationException(List<State> states) {
-        this.states = states == null ?
-                Collections.<State>emptyList() :
-                Collections.unmodifiableList(states);
+        this.states = states == null
+                ? Collections.<State>emptyList()
+                : Collections.unmodifiableList(states);
     }
 
     /** Returns an unmodifiable list of invalid states. */

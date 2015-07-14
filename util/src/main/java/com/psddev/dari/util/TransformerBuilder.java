@@ -37,7 +37,10 @@ import java.util.Map;
  * &nbsp;   .toTransformer()
  * &nbsp;   .transform(new Bar());
  * </pre></blockquote>
+ *
+ * @deprecated No replacement.
  */
+@Deprecated
 public class TransformerBuilder {
 
     private Type mapType;

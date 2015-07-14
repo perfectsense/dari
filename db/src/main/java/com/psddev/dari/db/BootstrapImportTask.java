@@ -105,9 +105,9 @@ class BootstrapImportTask extends Task {
                     throw new RuntimeException("Missing " + BootstrapPackage.Static.TYPES_HEADER + " header");
                 }
             }
-            if (!(!headers.containsKey(BootstrapPackage.Static.ROW_COUNT_HEADER) ||
-                    headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER) == null ||
-                    "".equals(headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER).trim()))) {
+            if (!(!headers.containsKey(BootstrapPackage.Static.ROW_COUNT_HEADER)
+                    || headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER) == null
+                    || "".equals(headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER).trim()))) {
                 setProgressTotal(ObjectUtils.to(Long.class, headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER)));
             }
             UUID localObjTypeId = database.getEnvironment().getTypeByClass(ObjectType.class).getId();

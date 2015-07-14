@@ -47,8 +47,8 @@ public class ExponentialMovingAverage {
         long newOffset = time / tick;
         long offsetDiff = newOffset - oldOffset;
 
-        if (offsetDiff > 0L &&
-                tickOffset.compareAndSet(oldOffset, newOffset)) {
+        if (offsetDiff > 0L
+                && tickOffset.compareAndSet(oldOffset, newOffset)) {
             double oldAverage = total.getAndSet(0.0) / tick;
 
             for (long i = 0L, size = offsetDiff - 1L; i < size; ++ i) {

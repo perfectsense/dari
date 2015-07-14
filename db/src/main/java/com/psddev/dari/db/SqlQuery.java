@@ -171,9 +171,9 @@ class SqlQuery {
         for (ObjectType type : queryTypes) {
             for (ObjectField field : type.getFields()) {
                 SqlDatabase.FieldData fieldData = field.as(SqlDatabase.FieldData.class);
-                if (fieldData.isIndexTableSource() &&
-                        fieldData.getIndexTable() != null &&
-                        !field.isMetric()) {
+                if (fieldData.isIndexTableSource()
+                        && fieldData.getIndexTable() != null
+                        && !field.isMetric()) {
                     // TODO/performance: if this is a count(), don't join to this table.
                     // if this is a groupBy() and they don't want to group by
                     // a field in this table, don't join to this table.
@@ -308,15 +308,15 @@ class SqlQuery {
             if (join.type == JoinType.INNER && join.equals(mysqlIndexHint)) {
                 fromBuilder.append(" /*! USE INDEX (k_name_value) */");
 
-            } else if (join.sqlIndex == SqlIndex.LOCATION &&
-                    join.sqlIndexTable.getVersion() >= 2) {
+            } else if (join.sqlIndex == SqlIndex.LOCATION
+                    && join.sqlIndexTable.getVersion() >= 2) {
                 fromBuilder.append(" /*! IGNORE INDEX (PRIMARY) */");
             }
 
-            if ((join.sqlIndex == SqlIndex.LOCATION && join.sqlIndexTable.getVersion() < 3) ||
-                    (join.sqlIndex == SqlIndex.NUMBER && join.sqlIndexTable.getVersion() < 3) ||
-                    (join.sqlIndex == SqlIndex.STRING && join.sqlIndexTable.getVersion() < 4) ||
-                    (join.sqlIndex == SqlIndex.UUID && join.sqlIndexTable.getVersion() < 3)) {
+            if ((join.sqlIndex == SqlIndex.LOCATION && join.sqlIndexTable.getVersion() < 3)
+                    || (join.sqlIndex == SqlIndex.NUMBER && join.sqlIndexTable.getVersion() < 3)
+                    || (join.sqlIndex == SqlIndex.STRING && join.sqlIndexTable.getVersion() < 4)
+                    || (join.sqlIndex == SqlIndex.UUID && join.sqlIndexTable.getVersion() < 3)) {
                 mysqlIgnoreIndexPrimaryDisabled = true;
             }
 
@@ -571,12 +571,12 @@ class SqlQuery {
             boolean isFieldCollection = mappedKey.isInternalCollectionType();
 
             Join join = null;
-            if (mappedKey.getField() != null &&
-                    parentPredicate instanceof CompoundPredicate &&
-                    PredicateParser.OR_OPERATOR.equals(((CompoundPredicate) parentPredicate).getOperator())) {
+            if (mappedKey.getField() != null
+                    && parentPredicate instanceof CompoundPredicate
+                    && PredicateParser.OR_OPERATOR.equals(((CompoundPredicate) parentPredicate).getOperator())) {
                 for (Join j : joins) {
-                    if (j.parent == parentPredicate &&
-                            j.sqlIndex.equals(SqlIndex.Static.getByType(mappedKeys.get(queryKey).getInternalType()))) {
+                    if (j.parent == parentPredicate
+                            && j.sqlIndex.equals(SqlIndex.Static.getByType(mappedKeys.get(queryKey).getInternalType()))) {
                         join = j;
                         join.addIndexKey(queryKey);
                         needsDistinct = true;
@@ -599,9 +599,9 @@ class SqlQuery {
                 join.type = JoinType.LEFT_OUTER;
             }
 
-            if (isFieldCollection &&
-                    (join.sqlIndexTable == null ||
-                    join.sqlIndexTable.getVersion() < 2)) {
+            if (isFieldCollection
+                    && (join.sqlIndexTable == null
+                    || join.sqlIndexTable.getVersion() < 2)) {
                 needsDistinct = true;
             }
 
@@ -753,14 +753,13 @@ class SqlQuery {
             } else {
                 boolean isStartsWith = PredicateParser.STARTS_WITH_OPERATOR.equals(operator);
                 boolean isContains = PredicateParser.CONTAINS_OPERATOR.equals(operator);
-                String sqlOperator =
-                        isStartsWith ? "LIKE" :
-                        isContains ? "LIKE" :
-                        PredicateParser.LESS_THAN_OPERATOR.equals(operator) ? "<" :
-                        PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR.equals(operator) ? "<=" :
-                        PredicateParser.GREATER_THAN_OPERATOR.equals(operator) ? ">" :
-                        PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR.equals(operator) ? ">=" :
-                        null;
+                String sqlOperator = isStartsWith ? "LIKE"
+                        : isContains ? "LIKE"
+                        : PredicateParser.LESS_THAN_OPERATOR.equals(operator) ? "<"
+                        : PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR.equals(operator) ? "<="
+                        : PredicateParser.GREATER_THAN_OPERATOR.equals(operator) ? ">"
+                        : PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR.equals(operator) ? ">="
+                        : null;
 
                 Query<?> valueQuery = mappedKey.getSubQueryWithComparison(comparisonPredicate);
 
@@ -951,8 +950,8 @@ class SqlQuery {
                 ComparisonPredicate comparison = (ComparisonPredicate) predicate;
                 Query.MappedKey mappedKey = mappedKeys.get(comparison.getKey());
 
-                if (field.equals(mappedKey.getField()) &&
-                        mappedKey.getSubQueryWithComparison(comparison) == null) {
+                if (field.equals(mappedKey.getField())
+                        && mappedKey.getSubQueryWithComparison(comparison) == null) {
                     return true;
                 }
             }
@@ -966,10 +965,10 @@ class SqlQuery {
     }
 
     private boolean hasAnyDeferredMetricPredicates() {
-        return !recordMetricDatePredicates.isEmpty() ||
-                !recordMetricDimensionPredicates.isEmpty() ||
-                !recordMetricHavingPredicates.isEmpty() ||
-                !recordMetricSorters.isEmpty();
+        return !recordMetricDatePredicates.isEmpty()
+                || !recordMetricDimensionPredicates.isEmpty()
+                || !recordMetricHavingPredicates.isEmpty()
+                || !recordMetricSorters.isEmpty();
     }
 
     /**
@@ -1350,12 +1349,12 @@ class SqlQuery {
             orderByBuilder.insert(0, "\nORDER BY ");
         }
 
-        return selectBuilder +
-            " " + fromBuilder +
-            " " + whereBuilder +
-            " " + groupByBuilder +
-            " " + havingBuilder +
-            " " + orderByBuilder;
+        return selectBuilder
+                + " " + fromBuilder
+                + " " + whereBuilder
+                + " " + groupByBuilder
+                + " " + havingBuilder
+                + " " + orderByBuilder;
     }
 
     private void appendSubqueryMetricSql(StringBuilder sql, ObjectField metricField) {
@@ -1512,16 +1511,10 @@ class SqlQuery {
         vendor.appendIdentifier(statementBuilder, "typeId");
 
         List<String> fields = query.getFields();
-        boolean cacheData = database.isCacheData();
         if (fields == null) {
             if (!needsDistinct || vendor.supportsDistinctBlob()) {
-                if (cacheData) {
-                    statementBuilder.append(", ru.");
-                    vendor.appendIdentifier(statementBuilder, "updateDate");
-                } else {
-                    statementBuilder.append(", r.");
-                    vendor.appendIdentifier(statementBuilder, "data");
-                }
+                statementBuilder.append(", r.");
+                vendor.appendIdentifier(statementBuilder, "data");
             }
         } else if (!fields.isEmpty()) {
             statementBuilder.append(", ");
@@ -1569,22 +1562,10 @@ class SqlQuery {
         statementBuilder.append(aliasPrefix);
         statementBuilder.append('r');
 
-        if (fromClause.length() > 0 &&
-                !fromClause.contains("LEFT OUTER JOIN") &&
-                !mysqlIgnoreIndexPrimaryDisabled) {
+        if (fromClause.length() > 0
+                && !fromClause.contains("LEFT OUTER JOIN")
+                && !mysqlIgnoreIndexPrimaryDisabled) {
             statementBuilder.append(" /*! IGNORE INDEX (PRIMARY) */");
-        }
-
-        if (cacheData) {
-            statementBuilder.append("\nLEFT OUTER JOIN ");
-            vendor.appendIdentifier(statementBuilder, "RecordUpdate");
-            statementBuilder.append(' ');
-            statementBuilder.append(aliasPrefix);
-            statementBuilder.append("ru");
-            statementBuilder.append(" ON r.");
-            vendor.appendIdentifier(statementBuilder, "id");
-            statementBuilder.append(" = ru.");
-            vendor.appendIdentifier(statementBuilder, "id");
         }
 
         if (hasAnyDeferredMetricPredicates()) {
@@ -1741,10 +1722,10 @@ class SqlQuery {
                 return join;
             } else {
                 String indexKey = mappedKeys.get(queryKey).getIndexKey(index);
-                if (indexKey != null &&
-                        indexKey.equals(mappedKeys.get(join.queryKey).getIndexKey(join.index)) &&
-                        ((mappedKeys.get(queryKey).getHashAttribute() != null && mappedKeys.get(queryKey).getHashAttribute().equals(join.hashAttribute)) ||
-                         (mappedKeys.get(queryKey).getHashAttribute() == null && join.hashAttribute == null))) {
+                if (indexKey != null
+                        && indexKey.equals(mappedKeys.get(join.queryKey).getIndexKey(join.index))
+                        && ((mappedKeys.get(queryKey).getHashAttribute() != null && mappedKeys.get(queryKey).getHashAttribute().equals(join.hashAttribute))
+                        || (mappedKeys.get(queryKey).getHashAttribute() == null && join.hashAttribute == null))) {
                     // If there's a #attribute on the mapped key, make sure we are returning the matching join.
                     return join;
                 }
@@ -1761,10 +1742,10 @@ class SqlQuery {
                 return join;
             } else {
                 String indexKey = mappedKeys.get(queryKey).getIndexKey(index);
-                if (indexKey != null &&
-                        indexKey.equals(mappedKeys.get(join.queryKey).getIndexKey(join.index)) &&
-                        ((mappedKeys.get(queryKey).getHashAttribute() != null && mappedKeys.get(queryKey).getHashAttribute().equals(join.hashAttribute)) ||
-                         (mappedKeys.get(queryKey).getHashAttribute() == null && join.hashAttribute == null))) {
+                if (indexKey != null
+                        && indexKey.equals(mappedKeys.get(join.queryKey).getIndexKey(join.index))
+                        && ((mappedKeys.get(queryKey).getHashAttribute() != null && mappedKeys.get(queryKey).getHashAttribute().equals(join.hashAttribute))
+                        || (mappedKeys.get(queryKey).getHashAttribute() == null && join.hashAttribute == null))) {
                     // If there's a #attribute on the mapped key, make sure we are returning the matching join.
                     return join;
                 }
@@ -1836,9 +1817,9 @@ class SqlQuery {
             this.index = selectedIndexes.get(queryKey);
 
             this.indexType = mappedKey.getInternalType();
-            this.sqlIndex = this.index != null ?
-                    SqlIndex.Static.getByIndex(this.index) :
-                    SqlIndex.Static.getByType(this.indexType);
+            this.sqlIndex = this.index != null
+                    ? SqlIndex.Static.getByIndex(this.index)
+                    : SqlIndex.Static.getByType(this.indexType);
 
             ObjectField joinField = null;
             if (this.index != null) {
@@ -1908,8 +1889,8 @@ class SqlQuery {
                 needsIsNotNull = false;
                 isHaving = true;
 
-            } else if (Query.ANY_KEY.equals(queryKey) ||
-                    Query.LABEL_KEY.equals(queryKey)) {
+            } else if (Query.ANY_KEY.equals(queryKey)
+                    || Query.LABEL_KEY.equals(queryKey)) {
                 throw new UnsupportedIndexException(database, queryKey);
 
             } else if (database.hasInRowIndex() && index.isShortConstant()) {
@@ -2010,9 +1991,9 @@ class SqlQuery {
         public void appendValue(StringBuilder builder, ComparisonPredicate comparison, Object value) {
             Query.MappedKey mappedKey = mappedKeys.get(comparison.getKey());
             ObjectField field = mappedKey.getField();
-            SqlIndex fieldSqlIndex = field != null ?
-                    SqlIndex.Static.getByType(field.getInternalItemType()) :
-                    sqlIndex;
+            SqlIndex fieldSqlIndex = field != null
+                    ? SqlIndex.Static.getByType(field.getInternalItemType())
+                    : sqlIndex;
 
             if (field != null && field.isMetric()) {
 
@@ -2027,8 +2008,8 @@ class SqlQuery {
 
                     // EventDates in MetricAccess are smaller than long
                     Character padChar = 'F';
-                    if (PredicateParser.LESS_THAN_OPERATOR.equals(comparison.getOperator()) ||
-                            PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR.equals(comparison.getOperator())) {
+                    if (PredicateParser.LESS_THAN_OPERATOR.equals(comparison.getOperator())
+                            || PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR.equals(comparison.getOperator())) {
                         padChar = '0';
                     }
                     if (value instanceof DateTime) {
@@ -2049,8 +2030,8 @@ class SqlQuery {
             } else if (fieldSqlIndex == SqlIndex.UUID) {
                 value = ObjectUtils.to(UUID.class, value);
 
-            } else if (fieldSqlIndex == SqlIndex.NUMBER &&
-                    !PredicateParser.STARTS_WITH_OPERATOR.equals(comparison.getOperator())) {
+            } else if (fieldSqlIndex == SqlIndex.NUMBER
+                    && !PredicateParser.STARTS_WITH_OPERATOR.equals(comparison.getOperator())) {
                 if (value != null) {
                     Long valueLong = ObjectUtils.to(Long.class, value);
                     if (valueLong != null) {
@@ -2096,10 +2077,10 @@ class SqlQuery {
                 field = aliasedField(alias, sqlIndexTable.getValueField(database, index, fieldIndex));
             }
 
-            if (comparison != null &&
-                    comparison.isIgnoreCase() &&
-                    (sqlIndex != SqlIndex.STRING ||
-                    sqlIndexTable.getVersion() < 3)) {
+            if (comparison != null
+                    && comparison.isIgnoreCase()
+                    && (sqlIndex != SqlIndex.STRING
+                    || sqlIndexTable.getVersion() < 3)) {
 
                 field = "LOWER(" + vendor.convertRawToStringSql(field) + ")";
             }

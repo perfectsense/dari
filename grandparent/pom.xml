@@ -8,7 +8,7 @@
 
     <groupId>com.psddev</groupId>
     <artifactId>dari-grandparent</artifactId>
-    <version>3.0-SNAPSHOT</version>
+    <version>3.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Dari: Grandparent POM</name>
@@ -65,6 +65,12 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <version>2.6</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.18.1</version>
             </plugin>
 
             <plugin>
@@ -237,11 +243,15 @@ try {
     }
 
     def newVersion = project.version.toString().replace('-SNAPSHOT', '') +
-            '.' + ([ git, 'rev-list', '--count', 'HEAD' ].execute().in.text.trim()) +
-            '-' + ([ git, 'rev-parse', 'HEAD' ].execute().in.text.trim().substring(0, 6))
+            '.' + ([ git, 'rev-list', '--count', 'HEAD' ].execute().in.text.trim())
 
     project.properties['newVersion'] = newVersion
     project.properties['generateBackupPoms'] = 'false'
+
+    new File('newVersion').withWriter('UTF-8') {
+        it.write(newVersion);
+    }
+
     log.info("Set newVersion to ${newVersion}.")
 
 } catch (Exception error) {
@@ -405,7 +415,7 @@ try {
                                                 </module>
 
                                                 <module name="OperatorWrap">
-                                                    <property name="option" value="eol"/>
+                                                    <property name="option" value="NL"/>
                                                 </module>
 
                                                 <module name="PackageName"/>
@@ -418,6 +428,17 @@ try {
                                                 </module>
 
                                                 <module name="RightCurly"/>
+
+                                                <module name="SeparatorWrap">
+                                                    <property name="option" value="NL"/>
+                                                    <property name="tokens" value="DOT"/>
+                                                </module>
+
+                                                <module name="SeparatorWrap">
+                                                    <property name="option" value="EOL"/>
+                                                    <property name="tokens" value="COMMA"/>
+                                                </module>
+
                                                 <module name="SimplifyBooleanExpression"/>
                                                 <module name="SimplifyBooleanReturn"/>
                                                 <module name="StaticVariableName"/>
@@ -464,6 +485,53 @@ try {
                                 <version>6.0</version>
                             </dependency>
                         </dependencies>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>deploy</id>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>2.9.1</version>
+                        <executions>
+                            <execution>
+                                <id>deploy-javadoc-package</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>aggregate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>2.4</version>
+                        <executions>
+                            <execution>
+                                <id>deploy-source-package</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>aggregate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>2.18.1</version>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

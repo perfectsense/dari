@@ -209,11 +209,11 @@ public class HtmlMicrodata {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).
-                add("types", getTypes()).
-                add("id", getId()).
-                add("properties", getProperties()).
-                toString();
+        return Objects.toStringHelper(this)
+                .add("types", getTypes())
+                .add("id", getId())
+                .add("properties", getProperties())
+                .toString();
     }
 
     /**
@@ -234,8 +234,8 @@ public class HtmlMicrodata {
 
             if (document != null) {
                 for (Element item : document.select("[itemscope]")) {
-                    if (closestItemScope(item) == null ||
-                            !item.hasAttr("itemprop")) {
+                    if (closestItemScope(item) == null
+                            || !item.hasAttr("itemprop")) {
                         datas.add(new HtmlMicrodata(url, item));
                     }
                 }

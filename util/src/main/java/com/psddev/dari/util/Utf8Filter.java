@@ -1,6 +1,7 @@
 package com.psddev.dari.util;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
@@ -29,7 +30,7 @@ public class Utf8Filter extends AbstractFilter {
             FilterChain chain)
             throws IOException, ServletException {
 
-        String encoding = StringUtils.UTF_8.name();
+        String encoding = StandardCharsets.UTF_8.name();
 
         request.setCharacterEncoding(encoding);
         response.setCharacterEncoding(encoding);
@@ -61,7 +62,7 @@ public class Utf8Filter extends AbstractFilter {
                 }
 
                 private String reEncode(String string) {
-                    return new String(string.getBytes(StringUtils.ISO_8859_1), StringUtils.UTF_8);
+                    return new String(string.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
                 }
 
                 @Override

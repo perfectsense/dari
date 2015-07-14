@@ -13,9 +13,9 @@ public class ObjectToConstant<T> implements ConversionFunction<Object, T> {
 
     private static final ObjectToConstant<Object> NULL_INSTANCE = new ObjectToConstant<Object>(null);
 
-    private static final LoadingCache<Object, ObjectToConstant<?>> INSTANCES = CacheBuilder.newBuilder().
-            weakKeys().
-            build(new CacheLoader<Object, ObjectToConstant<?>>() {
+    private static final LoadingCache<Object, ObjectToConstant<?>> INSTANCES = CacheBuilder.newBuilder()
+            .weakKeys()
+            .build(new CacheLoader<Object, ObjectToConstant<?>>() {
 
                 @Override
                 public ObjectToConstant<?> load(Object constant) {

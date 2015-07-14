@@ -52,9 +52,9 @@ public class Stats {
     private final long start;
     private final Measurement totalMeasurement;
 
-    private final LoadingCache<String, Measurement> measurements = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<String, Measurement>() {
+    private final LoadingCache<String, Measurement> measurements = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<String, Measurement>() {
 
         @Override
         public Measurement load(String operation) {

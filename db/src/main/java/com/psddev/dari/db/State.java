@@ -512,9 +512,9 @@ public class State implements Map<String, Object> {
             State valueState = ((Recordable) value).getState();
             if (valueState.isNew()) {
                 ObjectType type;
-                if (isEmbedded ||
-                        ((type = valueState.getType()) != null &&
-                        type.isEmbedded())) {
+                if (isEmbedded
+                        || ((type = valueState.getType()) != null
+                        && type.isEmbedded())) {
                     return valueState.getSimpleValues(withTypeNames);
                 }
             }
@@ -528,17 +528,17 @@ public class State implements Map<String, Object> {
             }
             return map;
 
-        } else if (value instanceof Boolean ||
-                value instanceof Number ||
-                value instanceof String) {
+        } else if (value instanceof Boolean
+                || value instanceof Number
+                || value instanceof String) {
             return value;
 
-        } else if (value instanceof Character ||
-                value instanceof CharSequence ||
-                value instanceof String ||
-                value instanceof URI ||
-                value instanceof URL ||
-                value instanceof UUID) {
+        } else if (value instanceof Character
+                || value instanceof CharSequence
+                || value instanceof String
+                || value instanceof URI
+                || value instanceof URL
+                || value instanceof UUID) {
             return value.toString();
 
         } else if (value instanceof Date) {
@@ -584,8 +584,8 @@ public class State implements Map<String, Object> {
                 path = null;
             }
 
-            if (key.indexOf('.') > -1 &&
-                    environment.getTypeByName(key) != null) {
+            if (key.indexOf('.') > -1
+                    && environment.getTypeByName(key) != null) {
                 continue;
             }
 
@@ -593,10 +593,10 @@ public class State implements Map<String, Object> {
                 value = ((Recordable) value).getState();
             }
 
-            if (key.endsWith("()") ||
-                    ((key.startsWith("get") || key.startsWith("is") || key.startsWith("has") ||
-                     key.contains(".get") || key.contains(".is") || key.contains(".has")) &&
-                     (value instanceof State && ((State) value).isMethod(key)))) {
+            if (key.endsWith("()")
+                    || ((key.startsWith("get") || key.startsWith("is") || key.startsWith("has")
+                    || key.contains(".get") || key.contains(".is") || key.contains(".has"))
+                    && (value instanceof State && ((State) value).isMethod(key)))) {
                 if (value instanceof State) {
 
                     Class<?> keyClass = null;
@@ -981,9 +981,9 @@ public class State implements Map<String, Object> {
 
     /** Returns all the fields with validation errors from this record. */
     public Set<ObjectField> getErrorFields() {
-        return errors != null ?
-                Collections.unmodifiableSet(errors.keySet()) :
-                Collections.<ObjectField>emptySet();
+        return errors != null
+                ? Collections.unmodifiableSet(errors.keySet())
+                : Collections.<ObjectField>emptySet();
     }
 
     /**
@@ -1160,9 +1160,9 @@ public class State implements Map<String, Object> {
             }
         }
 
-        return ObjectUtils.isBlank(label) ?
-                getDefaultLabel() :
-                label;
+        return ObjectUtils.isBlank(label)
+                ? getDefaultLabel()
+                : label;
     }
 
     // To check for circular references in resolving labels.
@@ -1283,8 +1283,8 @@ public class State implements Map<String, Object> {
             if (field != null) {
                 Class<?> fieldDeclaring = ObjectUtils.getClassByName(field.getJavaDeclaringClassName());
 
-                if (fieldDeclaring != null &&
-                        VisibilityLabel.class.isAssignableFrom(fieldDeclaring)) {
+                if (fieldDeclaring != null
+                        && VisibilityLabel.class.isAssignableFrom(fieldDeclaring)) {
                     return ((VisibilityLabel) as(fieldDeclaring)).createVisibilityLabel(field);
                 }
             }
@@ -1358,10 +1358,10 @@ public class State implements Map<String, Object> {
 
                 Class<?> modClass = modType.getObjectClass();
 
-                if (modClass != null &&
-                        Modification.class.isAssignableFrom(modClass) &&
-                        Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class) &&
-                        !trigger.isMissing(modClass)) {
+                if (modClass != null
+                        && Modification.class.isAssignableFrom(modClass)
+                        && Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)
+                        && !trigger.isMissing(modClass)) {
                     triggerGlobalModifications.add(modClass);
                 }
             }
@@ -1373,17 +1373,17 @@ public class State implements Map<String, Object> {
         }
 
         for (Class<?> modClass : triggerGlobalModifications) {
-            if (modClass != null &&
-                    Modification.class.isAssignableFrom(modClass) &&
-                    Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)) {
+            if (modClass != null
+                    && Modification.class.isAssignableFrom(modClass)
+                    && Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)) {
                 fireModificationTrigger(trigger, modClass);
             }
         }
 
         ObjectType type = getType();
 
-        if (type == null ||
-                type.isAbstract()) {
+        if (type == null
+                || type.isAbstract()) {
             return;
         }
 
@@ -1626,8 +1626,8 @@ public class State implements Map<String, Object> {
             Collection<Object> rawValuesValues = rawValues.values();
 
             for (Object rawValue : rawValuesValues) {
-                if (rawValue instanceof Map &&
-                        ((Map<?, ?>) rawValue).containsKey(StateValueUtils.REFERENCE_KEY)) {
+                if (rawValue instanceof Map
+                        && ((Map<?, ?>) rawValue).containsKey(StateValueUtils.REFERENCE_KEY)) {
                     hasPotentialRefs = true;
                     break;
                 }
@@ -1748,8 +1748,8 @@ public class State implements Map<String, Object> {
 
             for (ObjectField field : type.getFields()) {
                 Field javaField = field.getJavaField(objectClass);
-                if (javaField == null ||
-                        !javaField.getDeclaringClass().getName().equals(field.getJavaDeclaringClassName())) {
+                if (javaField == null
+                        || !javaField.getDeclaringClass().getName().equals(field.getJavaDeclaringClassName())) {
                     continue;
                 }
 
@@ -1812,13 +1812,13 @@ public class State implements Map<String, Object> {
         try {
             Type javaFieldType = javaField.getGenericType();
 
-            if ((!javaField.getType().isPrimitive() &&
-                    !Number.class.isAssignableFrom(javaField.getType())) &&
-                    (javaFieldType instanceof Class ||
-                    ((value instanceof StateValueList ||
-                    value instanceof StateValueMap ||
-                    value instanceof StateValueSet) &&
-                    ObjectField.RECORD_TYPE.equals(field.getInternalItemType())))) {
+            if ((!javaField.getType().isPrimitive()
+                    && !Number.class.isAssignableFrom(javaField.getType()))
+                    && (javaFieldType instanceof Class
+                    || ((value instanceof StateValueList
+                    || value instanceof StateValueMap
+                    || value instanceof StateValueSet)
+                    && ObjectField.RECORD_TYPE.equals(field.getInternalItemType())))) {
                 try {
                     javaField.set(object, value);
                     return;
@@ -1832,8 +1832,8 @@ public class State implements Map<String, Object> {
                 if (javaFieldType instanceof TypeVariable) {
                     javaField.set(object, value);
 
-                } else if (javaFieldType instanceof Class &&
-                        ((Class<?>) javaFieldType).isPrimitive()) {
+                } else if (javaFieldType instanceof Class
+                        && ((Class<?>) javaFieldType).isPrimitive()) {
                     javaField.set(object, ObjectUtils.to(javaFieldType, value));
 
                 } else {
@@ -2105,9 +2105,9 @@ public class State implements Map<String, Object> {
         Map<String, Object> as = (Map<String, Object>) getExtras().get(MODIFICATIONS_EXTRA);
 
         if (as == null) {
-            as = new LoadingCacheMap<String, Object>(String.class, CacheBuilder.
-                    newBuilder().
-                    <String, Object>build(new CacheLoader<String, Object>() {
+            as = new LoadingCacheMap<String, Object>(String.class, CacheBuilder
+                    .newBuilder()
+                    .<String, Object>build(new CacheLoader<String, Object>() {
 
                 @Override
                 public Object load(String modificationClassName) {

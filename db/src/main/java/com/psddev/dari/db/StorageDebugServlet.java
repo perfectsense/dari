@@ -58,15 +58,15 @@ public class StorageDebugServlet extends HttpServlet {
             Query<Object> query = Query.fromType(selectedType);
 
             new AsyncDatabaseReader<Object>(
-                    executor, queue, database, query).
-                    submit();
+                    executor, queue, database, query)
+                    .submit();
 
             queue.closeAutomatically();
 
             for (int i = 0; i < 5; ++ i) {
                 new AsyncStorageItemWriter<Object>(
-                        executor, queue, database, WriteOperation.SAVE_UNSAFELY, 50, true, source, destination, saveObject).
-                        submit();
+                        executor, queue, database, WriteOperation.SAVE_UNSAFELY, 50, true, source, destination, saveObject)
+                        .submit();
             }
 
             wp.redirect(null);

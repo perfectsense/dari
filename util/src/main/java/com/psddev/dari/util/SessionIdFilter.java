@@ -61,6 +61,7 @@ public class SessionIdFilter extends AbstractFilter {
             super(response);
         }
 
+        @Deprecated
         @Override
         public String encodeRedirectUrl(String url) {
             return url;
@@ -71,6 +72,7 @@ public class SessionIdFilter extends AbstractFilter {
             return url;
         }
 
+        @Deprecated
         @Override
         public String encodeUrl(String url) {
             return url;

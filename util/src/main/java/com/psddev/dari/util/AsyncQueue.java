@@ -34,9 +34,9 @@ public class AsyncQueue<E> {
     /** Creates an instance with the given blocking {@code queue}. */
     public AsyncQueue(BlockingQueue<E> queue) {
         LOGGER.debug("Creating queue [{}]", this);
-        this.queue = queue == null ?
-                new ArrayBlockingQueue<E>(DEFAULT_QUEUE_CAPACITY) :
-                queue;
+        this.queue = queue == null
+                ? new ArrayBlockingQueue<E>(DEFAULT_QUEUE_CAPACITY)
+                : queue;
     }
 
     /** Creates an instance with a new blocking queue. */

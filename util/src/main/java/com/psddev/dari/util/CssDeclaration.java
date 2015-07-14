@@ -1,5 +1,9 @@
 package com.psddev.dari.util;
 
+/**
+ * @deprecated No replacement.
+ */
+@Deprecated
 public class CssDeclaration {
 
     private final String property;

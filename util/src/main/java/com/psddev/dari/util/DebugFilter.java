@@ -164,8 +164,8 @@ public class DebugFilter extends AbstractFilter {
                 // so far, it's probably form processing code. Custom error
                 // message here will most likely not reach the user, so don't
                 // substitute.
-                if (JspUtils.isFormPost(request) &&
-                        ObjectUtils.isBlank(capturing.getOutput())) {
+                if (JspUtils.isFormPost(request)
+                        && ObjectUtils.isBlank(capturing.getOutput())) {
                     throw error;
 
                 // Discard the output so far and write the error instead.
@@ -184,9 +184,9 @@ public class DebugFilter extends AbstractFilter {
         LdapContext context = LdapUtils.createContext();
         String[] credentials = JspUtils.getBasicCredentials(request);
 
-        if (context != null &&
-                credentials != null &&
-                LdapUtils.authenticate(context, credentials[0], credentials[1])) {
+        if (context != null
+                && credentials != null
+                && LdapUtils.authenticate(context, credentials[0], credentials[1])) {
             return true;
         }
 
@@ -198,16 +198,16 @@ public class DebugFilter extends AbstractFilter {
                 Settings.get(String.class, "dari/debugPassword"),
                 Settings.get(String.class, "servlet/debugPassword"));
 
-        if (context == null &&
-                (ObjectUtils.isBlank(username) ||
-                ObjectUtils.isBlank(password))) {
+        if (context == null
+                && (ObjectUtils.isBlank(username)
+                || ObjectUtils.isBlank(password))) {
             if (!Settings.isProduction()) {
                 return true;
             }
 
-        } else if (credentials != null &&
-                credentials[0].equals(username) &&
-                credentials[1].equals(password)) {
+        } else if (credentials != null
+                && credentials[0].equals(username)
+                && credentials[1].equals(password)) {
             return true;
         }
 

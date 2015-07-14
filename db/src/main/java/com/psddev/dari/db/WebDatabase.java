@@ -1,25 +1,32 @@
 package com.psddev.dari.db;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.apache.http.NameValuePair;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.BasicResponseHandler;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.protocol.HTTP;
 
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
-import com.psddev.dari.util.PullThroughCache;
+import org.apache.http.util.EntityUtils;
 
 /** Database backed by {@linkplain WebDatabaseServlet web APIs}. */
 public class WebDatabase extends AbstractDatabase<Void> {
@@ -94,16 +101,19 @@ public class WebDatabase extends AbstractDatabase<Void> {
 
     // --- AbstractDatabase support ---
 
-    private static final Map<WebDatabase, DatabaseEnvironment> ENVIRONMENT_CACHE = new PullThroughCache<WebDatabase, DatabaseEnvironment>() {
-        @Override
-        protected DatabaseEnvironment produce(WebDatabase database) {
-            return new DatabaseEnvironment(database, false);
-        }
-    };
+    private static final LoadingCache<WebDatabase, DatabaseEnvironment> ENVIRONMENT_CACHE = CacheBuilder.newBuilder()
+            .weakKeys()
+            .build(new CacheLoader<WebDatabase, DatabaseEnvironment>() {
+
+                @Override
+                public DatabaseEnvironment load(WebDatabase database) {
+                    return new DatabaseEnvironment(database, false);
+                }
+            });
 
     @Override
     public DatabaseEnvironment getEnvironment() {
-        return ENVIRONMENT_CACHE.get(this);
+        return ENVIRONMENT_CACHE.getUnchecked(this);
     }
 
     @Override
@@ -165,44 +175,57 @@ public class WebDatabase extends AbstractDatabase<Void> {
     }
 
     private Object sendRequest(List<NameValuePair> params) {
-        String response;
-        DefaultHttpClient client = new DefaultHttpClient();
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
         String username = getRemoteUsername();
         String password = getRemotePassword();
 
-        if (!ObjectUtils.isBlank(username) ||
-                !ObjectUtils.isBlank(password)) {
-            client.getCredentialsProvider().setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+        if (!ObjectUtils.isBlank(username)
+                || !ObjectUtils.isBlank(password)) {
+
+            credsProvider.setCredentials(
+                AuthScope.ANY,
+                new UsernamePasswordCredentials(username, password)
+            );
         }
 
-        try {
-            HttpPost post = new HttpPost(getRemoteUrl());
-            post.setEntity(new UrlEncodedFormEntity(params, HTTP.UTF_8));
-            response = client.execute(post, new BasicResponseHandler());
+        String output;
 
-        } catch (IOException ex) {
-            throw new DatabaseException(this, ex);
+        try (CloseableHttpClient client = HttpClients.custom()
+                .setDefaultCredentialsProvider(credsProvider)
+                .build()) {
 
-        } finally {
-            client.getConnectionManager().shutdown();
+            HttpUriRequest request = RequestBuilder.post()
+                    .setUri(getRemoteUrl())
+                    .setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8))
+                    .build();
+
+            try (CloseableHttpResponse response = client.execute(request)) {
+                output = EntityUtils.toString(response.getEntity());
+            }
+
+        } catch (IOException error) {
+            throw new DatabaseException(this, error);
         }
 
-        Object responseObject = ObjectUtils.fromJson(response);
-        if (!(responseObject instanceof Map)) {
+        Object outputObject = ObjectUtils.fromJson(output);
+
+        if (!(outputObject instanceof Map)) {
             throw new DatabaseException(this, String.format(
                     "Server didn't return a valid response! (%s)",
-                    response));
+                    output));
         }
 
-        Map<?, ?> responseMap = (Map<?, ?>) responseObject;
-        if (OK_STATUS.equals(responseMap.get(STATUS_KEY))) {
-            return responseMap.get(RESULT_KEY);
+        Map<?, ?> outputMap = (Map<?, ?>) outputObject;
+
+        if (OK_STATUS.equals(outputMap.get(STATUS_KEY))) {
+            return outputMap.get(RESULT_KEY);
         }
 
-        String message = ObjectUtils.to(String.class, responseMap.get(RESULT_KEY));
-        throw new DatabaseException(this, ObjectUtils.isBlank(message) ?
-                String.format("Unknown error! (%s)", response) :
-                message);
+        String message = ObjectUtils.to(String.class, outputMap.get(RESULT_KEY));
+
+        throw new DatabaseException(this, ObjectUtils.isBlank(message)
+                ? String.format("Unknown error! (%s)", output)
+                : message);
     }
 
     private <T> T createSavedObjectWithMap(Object mapObject, Query<T> query) {
@@ -294,8 +317,8 @@ public class WebDatabase extends AbstractDatabase<Void> {
             return true;
         } else if (other instanceof WebDatabase) {
             WebDatabase otherDatabase = (WebDatabase) other;
-            return ObjectUtils.equals(getRemoteUrl(), otherDatabase.getRemoteUrl()) &&
-                    ObjectUtils.equals(getRemoteDatabase(), otherDatabase.getRemoteDatabase());
+            return ObjectUtils.equals(getRemoteUrl(), otherDatabase.getRemoteUrl())
+                    && ObjectUtils.equals(getRemoteDatabase(), otherDatabase.getRemoteDatabase());
         } else {
             return false;
         }

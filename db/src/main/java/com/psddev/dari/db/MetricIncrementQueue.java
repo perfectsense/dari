@@ -96,11 +96,11 @@ class QueuedMetricIncrement {
             return false;
         } else {
             QueuedMetricIncrement otherIncr = (QueuedMetricIncrement) other;
-            return this.amount == otherIncr.amount &&
-                this.metricAccess.equals(otherIncr.metricAccess) &&
-                this.dimensionId.equals(otherIncr.dimensionId) &&
-                ((this.eventDate == null && otherIncr.eventDate == null) || (this.eventDate != null && this.eventDate.equals(otherIncr.eventDate))) &&
-                this.id.equals(otherIncr.id);
+            return this.amount == otherIncr.amount
+                    && this.metricAccess.equals(otherIncr.metricAccess)
+                    && this.dimensionId.equals(otherIncr.dimensionId)
+                    && ((this.eventDate == null && otherIncr.eventDate == null) || (this.eventDate != null && this.eventDate.equals(otherIncr.eventDate)))
+                    && this.id.equals(otherIncr.id);
         }
     }
 

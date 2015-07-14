@@ -158,9 +158,7 @@ public class ColorDistribution extends Record {
                     boolean found = false;
 
                     distribution.getState().put(
-                            "o_" + center[0] +
-                            "_" + center[1] +
-                            "_" + center[2],
+                            "o_" + center[0] + "_" + center[1] + "_" + center[2],
                             percentage);
 
                     int normalized0 = center[0];
@@ -178,9 +176,9 @@ public class ColorDistribution extends Record {
                             ((int) Math.round(normalized2 / 20.0)) * 20 };
 
                     for (DominantColor dc : dominantColors) {
-                        if (dc.color[0] == normalized[0] &&
-                                dc.color[1] == normalized[1] &&
-                                dc.color[2] == normalized[2]) {
+                        if (dc.color[0] == normalized[0]
+                                && dc.color[1] == normalized[1]
+                                && dc.color[2] == normalized[2]) {
                             found = true;
                             dc.percentage += percentage;
                             break;
@@ -198,9 +196,7 @@ public class ColorDistribution extends Record {
 
                 for (DominantColor dc : dominantColors) {
                     distribution.getState().put(
-                            "n_" + dc.color[0] +
-                            "_" + dc.color[1] +
-                            "_" + dc.color[2],
+                            "n_" + dc.color[0] + "_" + dc.color[1] + "_" + dc.color[2],
                             dc.percentage);
                 }
 
@@ -318,9 +314,10 @@ public class ColorDistribution extends Record {
 
         private static double euclideanDistance(int[] color1, int[] color2) {
             return Math.sqrt(
-                    Math.pow(color1[0] - color2[0], 2) +
-                    Math.pow(color1[1] - color2[1], 2) +
-                    Math.pow(color1[2] - color2[2], 2));
+                    Math.pow(
+                            color1[0] - color2[0], 2)
+                            + Math.pow(color1[1] - color2[1], 2)
+                            + Math.pow(color1[2] - color2[2], 2));
         }
     }
 }

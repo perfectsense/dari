@@ -42,9 +42,9 @@ public class LazyWriter extends Writer {
     }
 
     private boolean isInBody() {
-        return inBody ||
-                (request != null &&
-                Boolean.TRUE.equals(request.getAttribute(IN_BODY_ATTRIBUTE)));
+        return inBody
+                || (request != null
+                && Boolean.TRUE.equals(request.getAttribute(IN_BODY_ATTRIBUTE)));
     }
 
     @Override

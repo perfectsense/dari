@@ -295,8 +295,8 @@ public class PredicateParser {
                         "Unmatched ( after [%s]!", predicate));
             }
 
-        } else if ("not".equals(nextToken) ||
-                NOT_OPERATOR.equals(nextToken)) {
+        } else if ("not".equals(nextToken)
+                || NOT_OPERATOR.equals(nextToken)) {
             tokens.remove();
             predicate = new CompoundPredicate(
                     NOT_OPERATOR,
@@ -592,8 +592,8 @@ public class PredicateParser {
             if (keyValue instanceof String) {
                 String keyValueString = ((String) keyValue).trim();
                 for (Object value : values) {
-                    if (value != null &&
-                            keyValueString.equalsIgnoreCase(value.toString().trim())) {
+                    if (value != null
+                            && keyValueString.equalsIgnoreCase(value.toString().trim())) {
                         return true;
                     }
                 }
@@ -679,8 +679,8 @@ public class PredicateParser {
             if (keyValue != null) {
                 String keyValueString = keyValue.toString().trim().toLowerCase(Locale.ENGLISH);
                 for (Object value : values) {
-                    if (value != null &&
-                            keyValueString.startsWith(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
+                    if (value != null
+                            && keyValueString.startsWith(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
                         return true;
                     }
                 }
@@ -696,8 +696,8 @@ public class PredicateParser {
             if (keyValue != null) {
                 String keyValueString = keyValue.toString().trim().toLowerCase(Locale.ENGLISH);
                 for (Object value : values) {
-                    if (value != null &&
-                            keyValueString.contains(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
+                    if (value != null
+                            && keyValueString.contains(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
                         return true;
                     }
                 }
@@ -713,8 +713,8 @@ public class PredicateParser {
             if (keyValue != null) {
                 String keyValueString = keyValue.toString().trim().toLowerCase(Locale.ENGLISH);
                 for (Object value : values) {
-                    if (value != null &&
-                            keyValueString.contains(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
+                    if (value != null
+                            && keyValueString.contains(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
                         return true;
                     }
                 }
@@ -730,8 +730,8 @@ public class PredicateParser {
             if (keyValue != null) {
                 String keyValueString = keyValue.toString().trim().toLowerCase(Locale.ENGLISH);
                 for (Object value : values) {
-                    if (value == null ||
-                            !keyValueString.contains(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
+                    if (value == null
+                            || !keyValueString.contains(value.toString().trim().toLowerCase(Locale.ENGLISH))) {
                         return false;
                     }
                 }

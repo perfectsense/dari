@@ -264,8 +264,8 @@ public class ObjectMap extends AbstractMap<String, Object> {
 
         @Override
         public boolean equals(Object object) {
-            return this == object || (object instanceof Entry &&
-                    ObjectUtils.equals(getKey(), ((Entry) object).getKey()));
+            return this == object || (object instanceof Entry
+                    && ObjectUtils.equals(getKey(), ((Entry) object).getKey()));
         }
 
         @Override

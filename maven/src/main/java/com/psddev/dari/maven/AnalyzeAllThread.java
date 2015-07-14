@@ -3,11 +3,11 @@ package com.psddev.dari.maven;
 import java.io.IOException;
 import java.util.UUID;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
 import org.apache.solr.core.CoreContainer;
 
-import com.jolbox.bonecp.BoneCPDataSource;
 import com.psddev.dari.db.AggregateDatabase;
 import com.psddev.dari.db.Database;
 import com.psddev.dari.db.SolrDatabase;
@@ -30,18 +30,15 @@ public class AnalyzeAllThread extends Thread {
     @Override
     public void run() {
         SqlDatabase sql = new SqlDatabase();
-        BoneCPDataSource sqlBone = new BoneCPDataSource();
+        HikariDataSource ds = new HikariDataSource();
 
-        sqlBone.setJdbcUrl("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
-        sqlBone.setUsername("");
-        sqlBone.setPassword("");
-        sqlBone.setMinConnectionsPerPartition(1);
-        sqlBone.setMaxConnectionsPerPartition(2);
-        sqlBone.setPartitionCount(3);
-        sqlBone.setConnectionTimeoutInMs(5000L);
+        ds.setJdbcUrl("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
+        ds.setUsername("");
+        ds.setPassword("");
+        ds.setConnectionTimeout(5000L);
 
         sql.setName("sql");
-        sql.setDataSource(sqlBone);
+        sql.setDataSource(ds);
 
         SolrDatabase solr = new SolrDatabase();
 

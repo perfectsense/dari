@@ -23,9 +23,12 @@ import javax.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// CHECKSTYLE:OFF
 /**
  * @see <a href="http://www.w3.org/TR/css3-grid-layout/">CSS Grid Layout</a>
+ * @deprecated No replacement.
  */
+@Deprecated
 public class HtmlGrid {
 
     private String selector;

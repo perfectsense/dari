@@ -174,9 +174,9 @@ public class BuildDebugServlet extends HttpServlet {
                     if (prefixAt > -1) {
                         prefixAt += prefix.length();
                         int slashAt = issueUrl.indexOf('/', prefixAt);
-                        String jiraId = slashAt > -1 ?
-                                issueUrl.substring(prefixAt, slashAt) :
-                                issueUrl.substring(prefixAt);
+                        String jiraId = slashAt > -1
+                                ? issueUrl.substring(prefixAt, slashAt)
+                                : issueUrl.substring(prefixAt);
                         issuePattern = Pattern.compile("\\Q" + jiraId + "\\E-\\d+");
                         issueUrlFormat = issueUrl.substring(0, prefixAt) + "%s";
                     }

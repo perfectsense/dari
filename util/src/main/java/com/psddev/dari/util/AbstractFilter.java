@@ -246,9 +246,9 @@ public abstract class AbstractFilter implements Filter {
             Filter dependency = i.next();
             Class<? extends Filter> dependencyClass = dependency.getClass();
 
-            if (dependency instanceof AbstractFilter &&
-                    ObjectUtils.isBlank(((AbstractFilter) dependency).dependencies()) &&
-                    !hasDispatchOverride(dependencyClass)) {
+            if (dependency instanceof AbstractFilter
+                    && ObjectUtils.isBlank(((AbstractFilter) dependency).dependencies())
+                    && !hasDispatchOverride(dependencyClass)) {
 
                 if (JspUtils.isIncluded(request)) {
                     if (!hasIncludeOverride(dependencyClass)) {
@@ -271,8 +271,8 @@ public abstract class AbstractFilter implements Filter {
             }
         }
 
-        new DependencyFilterChain(dependencies, chain).
-                doFilter(request, response);
+        new DependencyFilterChain(dependencies, chain)
+                .doFilter(request, response);
     }
 
     @SuppressWarnings("unchecked")
@@ -510,8 +510,8 @@ public abstract class AbstractFilter implements Filter {
 
         @Override
         public String getFilterName() {
-            return filterConfig.getFilterName() +
-                    "$" + filter.getClass().getName();
+            return filterConfig.getFilterName()
+                    + "$" + filter.getClass().getName();
         }
 
         @Override
@@ -559,8 +559,8 @@ public abstract class AbstractFilter implements Filter {
                 return;
             }
 
-            if (request instanceof HttpServletRequest &&
-                    response instanceof HttpServletResponse) {
+            if (request instanceof HttpServletRequest
+                    && response instanceof HttpServletResponse) {
                 try {
                     doDispatch(
                             (HttpServletRequest) request,

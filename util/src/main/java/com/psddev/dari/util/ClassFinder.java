@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -62,8 +63,8 @@ public class ClassFinder {
     public <T> Set<Class<? extends T>> find(ClassLoader loader, Class<T> baseClass) {
         Set<String> classNames = new HashSet<String>();
         for (ClassLoader l = loader; l != null; l = l.getParent()) {
-            if (l instanceof URLClassLoader &&
-                    !getClassLoaderExclusions().contains(l.getClass().getName())) {
+            if (l instanceof URLClassLoader
+                    && !getClassLoaderExclusions().contains(l.getClass().getName())) {
                 for (URL url : ((URLClassLoader) l).getURLs()) {
                     processUrl(classNames, url);
                 }
@@ -118,8 +119,8 @@ public class ClassFinder {
                     Manifest manifest = jarInput.getManifest();
                     if (manifest != null) {
                         Attributes attributes = manifest.getMainAttributes();
-                        if (attributes != null &&
-                                Boolean.parseBoolean(attributes.getValue(INCLUDE_ATTRIBUTE))) {
+                        if (attributes != null
+                                && Boolean.parseBoolean(attributes.getValue(INCLUDE_ATTRIBUTE))) {
 
                             for (JarEntry entry; (entry = jarInput.getNextJarEntry()) != null;) {
                                 String name = entry.getName();
@@ -143,7 +144,7 @@ public class ClassFinder {
             }
 
         } else {
-            File file = IoUtils.toFile(url, StringUtils.UTF_8);
+            File file = IoUtils.toFile(url, StandardCharsets.UTF_8);
             if (file != null && file.isDirectory()) {
                 processFile(classNames, file, "");
             }
@@ -159,9 +160,9 @@ public class ClassFinder {
 
         if (file.isDirectory()) {
             for (File child : file.listFiles()) {
-                processFile(classNames, root, path.isEmpty() ?
-                        child.getName() :
-                        path + File.separator + child.getName());
+                processFile(classNames, root, path.isEmpty()
+                        ? child.getName()
+                        : path + File.separator + child.getName());
             }
 
         } else {
@@ -180,12 +181,12 @@ public class ClassFinder {
 
         private static final ClassFinder INSTANCE = new ClassFinder();
 
-        private static final LoadingCache<ClassLoader, LoadingCache<Class<?>, Set<?>>> CLASSES_BY_BASE_CLASS_BY_LOADER = CacheBuilder.newBuilder().
-                build(new CacheLoader<ClassLoader, LoadingCache<Class<?>, Set<?>>>() {
+        private static final LoadingCache<ClassLoader, LoadingCache<Class<?>, Set<?>>> CLASSES_BY_BASE_CLASS_BY_LOADER = CacheBuilder.newBuilder()
+                .build(new CacheLoader<ClassLoader, LoadingCache<Class<?>, Set<?>>>() {
                     @Override
                     public LoadingCache<Class<?>, Set<?>> load(final ClassLoader loader) {
-                        return CacheBuilder.newBuilder().
-                                build(new CacheLoader<Class<?>, Set<?>>() {
+                        return CacheBuilder.newBuilder()
+                                .build(new CacheLoader<Class<?>, Set<?>>() {
                                     @Override
                                     public Set<?> load(Class<?> baseClass) {
                                         return INSTANCE.find(loader, baseClass);

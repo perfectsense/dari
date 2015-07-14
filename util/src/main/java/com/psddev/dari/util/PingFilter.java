@@ -33,8 +33,8 @@ public class PingFilter extends AbstractFilter {
         String interceptPath = StringUtils.ensureSurrounding(Settings.getOrDefault(String.class, INTERCEPT_PATH_SETTING, DEFAULT_INTERCEPT_PATH), "/");
         String path = request.getServletPath();
 
-        if (!path.equals(interceptPath.substring(0, interceptPath.length() - 1)) &&
-                !path.startsWith(interceptPath)) {
+        if (!path.equals(interceptPath.substring(0, interceptPath.length() - 1))
+                && !path.startsWith(interceptPath)) {
             chain.doFilter(request, response);
             return;
         }

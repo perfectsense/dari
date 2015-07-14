@@ -22,9 +22,9 @@ public class TaskFilter extends AbstractFilter {
     @Override
     protected void doInit() {
         for (Class<? extends RepeatingTask> taskClass : ClassFinder.Static.findClasses(RepeatingTask.class)) {
-            if (taskClass.isAnnotationPresent(Ignored.class) ||
-                    taskClass.isAnonymousClass() ||
-                    Modifier.isAbstract(taskClass.getModifiers())) {
+            if (taskClass.isAnnotationPresent(Ignored.class)
+                    || taskClass.isAnonymousClass()
+                    || Modifier.isAbstract(taskClass.getModifiers())) {
                 continue;
             }
 

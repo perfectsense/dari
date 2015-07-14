@@ -1,5 +1,6 @@
 package com.psddev.dari.util;
 
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.UUID;
 
@@ -163,7 +164,7 @@ public final class UuidUtils {
         int length = string.length();
 
         if (length == 32 || length == 36) {
-            byte[] letters = string.getBytes(StringUtils.UTF_8);
+            byte[] letters = string.getBytes(StandardCharsets.UTF_8);
             int read = 0;
             int letterIndex = 0;
             int letterDigit;

@@ -56,19 +56,19 @@ public class QueryUsagesDebugServlet extends HttpServlet {
 
             int mods = queryMethod.getModifiers();
 
-            if (Modifier.isStatic(mods) ||
-                    !Modifier.isPublic(mods)) {
+            if (Modifier.isStatic(mods)
+                    || !Modifier.isPublic(mods)) {
                 continue;
             }
 
             String name = queryMethod.getName();
 
-            if (name.startsWith("get") ||
-                    name.startsWith("is") ||
-                    name.startsWith("set") ||
-                    name.startsWith("create") ||
-                    name.startsWith("find") ||
-                    name.startsWith("map")) {
+            if (name.startsWith("get")
+                    || name.startsWith("is")
+                    || name.startsWith("set")
+                    || name.startsWith("create")
+                    || name.startsWith("find")
+                    || name.startsWith("map")) {
                 continue;
             }
 
@@ -264,8 +264,8 @@ public class QueryUsagesDebugServlet extends HttpServlet {
                     for (Sorter sorter : query.getSorters()) {
                         String op = sorter.getOperator();
 
-                        if (Sorter.ASCENDING_OPERATOR.equals(op) ||
-                                Sorter.DESCENDING_OPERATOR.equals(op)) {
+                        if (Sorter.ASCENDING_OPERATOR.equals(op)
+                                || Sorter.DESCENDING_OPERATOR.equals(op)) {
                             List<Object> options = sorter.getOptions();
 
                             if (!options.isEmpty()) {
@@ -293,8 +293,8 @@ public class QueryUsagesDebugServlet extends HttpServlet {
                         }
                     }
 
-                    if (query.getPredicate() == null &&
-                            "selectAll".equals(calledMethod.getName())) {
+                    if (query.getPredicate() == null
+                            && "selectAll".equals(calledMethod.getName())) {
                         /*
                         writer.writeStart("div", "class", "alert alert-warning");
                             writer.writeHtml("Calling ");

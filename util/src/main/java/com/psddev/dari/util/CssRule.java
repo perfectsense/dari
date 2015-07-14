@@ -3,6 +3,10 @@ package com.psddev.dari.util;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * @deprecated No replacement.
+ */
+@Deprecated
 public class CssRule {
 
     private final String selector;

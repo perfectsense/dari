@@ -14,7 +14,6 @@ import javax.servlet.http.HttpServletResponse;
 import com.psddev.dari.util.DebugFilter;
 import com.psddev.dari.util.DependencyResolver;
 import com.psddev.dari.util.ObjectUtils;
-import com.psddev.dari.util.PullThroughCache;
 import com.psddev.dari.util.StringLogger;
 import com.psddev.dari.util.TypeDefinition;
 
@@ -24,7 +23,7 @@ import com.psddev.dari.util.TypeDefinition;
 @SuppressWarnings("serial")
 public class InitializerServlet extends HttpServlet {
 
-    private static final Map<Class<?>, Initializer> INITIALIZERS = new PullThroughCache<Class<?>, Initializer>() {
+    private static final Map<Class<?>, Initializer> INITIALIZERS = new com.psddev.dari.util.PullThroughCache<Class<?>, Initializer>() {
 
         @Override
         protected Initializer produce(Class<?> initClass) {

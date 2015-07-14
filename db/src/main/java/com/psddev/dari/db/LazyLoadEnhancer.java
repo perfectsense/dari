@@ -61,8 +61,8 @@ public class LazyLoadEnhancer extends ClassEnhancer {
     public boolean canEnhance(ClassReader reader) {
         enhancedClassName = reader.getClassName();
 
-        return !enhancedClassName.startsWith("com/psddev/dari/") &&
-                findRecordableClass(enhancedClassName) != null;
+        return !enhancedClassName.startsWith("com/psddev/dari/")
+                && findRecordableClass(enhancedClassName) != null;
     }
 
     @Override
@@ -117,8 +117,8 @@ public class LazyLoadEnhancer extends ClassEnhancer {
             return new MethodVisitor(Opcodes.ASM5, visitor) {
                 @Override
                 public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-                    if (!transientFields.contains(name) &&
-                            !name.startsWith("this$")) {
+                    if (!transientFields.contains(name)
+                            && !name.startsWith("this$")) {
                         if (opcode == Opcodes.GETFIELD) {
                             if (recordableFields.contains(name)) {
                                 visitInsn(Opcodes.DUP);
@@ -136,8 +136,8 @@ public class LazyLoadEnhancer extends ClassEnhancer {
                                 visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/psddev/dari/db/State", "beforeFieldGet", "(Ljava/lang/String;)V", false);
                             }
 
-                        } else if (opcode == Opcodes.PUTFIELD &&
-                                recordableFields.contains(name)) {
+                        } else if (opcode == Opcodes.PUTFIELD
+                                && recordableFields.contains(name)) {
                             visitInsn(Opcodes.SWAP);
                             visitInsn(Opcodes.DUP);
                             visitMethodInsn(Opcodes.INVOKEINTERFACE, "com/psddev/dari/db/Recordable", "getState", "()Lcom/psddev/dari/db/State;", true);

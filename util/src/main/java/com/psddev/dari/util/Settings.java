@@ -65,9 +65,9 @@ public final class Settings {
     private static final ThreadLocal<Map<String, Object>> THREAD_OVERRIDES = new ThreadLocal<Map<String, Object>>();
     private static final String RANDOM_SECRET = UUID.randomUUID().toString();
 
-    private static final LoadingCache<Class<?>, Constructor<?>> CONSTRUCTOR_CACHE = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<Class<?>, Constructor<?>>() {
+    private static final LoadingCache<Class<?>, Constructor<?>> CONSTRUCTOR_CACHE = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<Class<?>, Constructor<?>>() {
 
                 @Override
                 public Constructor<?> load(Class<?> instanceClass) throws NoSuchMethodException {
@@ -548,9 +548,9 @@ public final class Settings {
         } catch (InvocationTargetException ex) {
             Throwable cause = ex.getCause();
 
-            throw cause instanceof RuntimeException ?
-                    (RuntimeException) cause :
-                    new RuntimeException(String.format(
+            throw cause instanceof RuntimeException
+                    ? (RuntimeException) cause
+                    : new RuntimeException(String.format(
                             "Unexpected error trying to create [%s]!",
                             instanceClassName), cause);
         }

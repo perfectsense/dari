@@ -622,8 +622,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                 } else {
                     values = new ArrayList<Object>();
                     for (Object item : readPartial(
-                            valueQuery, 0, Settings.getOrDefault(int.class, "dari/subQueryResolveLimit", 100)).
-                            getItems()) {
+                            valueQuery, 0, Settings.getOrDefault(int.class, "dari/subQueryResolveLimit", 100))
+                            .getItems()) {
                         values.add(State.getInstance(item).getId());
                     }
                 }
@@ -787,10 +787,9 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         protected abstract void addValue(StringBuilder comparisonBuilder, String solrField, Object value);
 
         protected String changeSolrField(String solrField) {
-            return solrField.startsWith("_t_") ?
-                    (schema.get().version >= 8 ? "_sl_" : "_s_") +
-                    solrField.substring(3) :
-                    solrField;
+            return solrField.startsWith("_t_")
+                    ? (schema.get().version >= 8 ? "_sl_" : "_s_") + solrField.substring(3)
+                    : solrField;
         }
 
         protected String escapeValue(Object value) {
@@ -1008,8 +1007,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     }
 
     private void addToStreamBody(StringBuilder streamBody, Object value) {
-        if (value == null ||
-                value instanceof Boolean) {
+        if (value == null
+                || value instanceof Boolean) {
             // No need to search against null or a boolean.
 
         } else if (value instanceof Iterable) {
@@ -1613,8 +1612,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         }
 
         if (includeInAny) {
-            includeInAny = field == null ||
-                    !field.as(FieldData.class).isExcludeFromAny();
+            includeInAny = field == null
+                    || !field.as(FieldData.class).isExcludeFromAny();
         }
 
         if (value instanceof Recordable) {

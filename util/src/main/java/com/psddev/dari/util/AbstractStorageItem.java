@@ -315,8 +315,8 @@ public abstract class AbstractStorageItem implements StorageItem {
                         url.getAuthority(),
                         url.getPath(),
                         url.getQuery(),
-                        url.getRef()).
-                        toASCIIString();
+                        url.getRef())
+                        .toASCIIString();
             } catch (MalformedURLException error) {
                 // Return the path as is if the given path is malformed.
             } catch (URISyntaxException error) {
@@ -358,8 +358,8 @@ public abstract class AbstractStorageItem implements StorageItem {
             return true;
         } else if (other instanceof StorageItem) {
             StorageItem otherItem = (StorageItem) other;
-            return ObjectUtils.equals(getStorage(), otherItem.getStorage()) &&
-                    ObjectUtils.equals(getPath(), otherItem.getPath());
+            return ObjectUtils.equals(getStorage(), otherItem.getStorage())
+                    && ObjectUtils.equals(getPath(), otherItem.getPath());
         } else {
             return false;
         }

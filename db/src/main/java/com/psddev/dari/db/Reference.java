@@ -18,9 +18,9 @@ public class Reference extends Record {
             value = object;
         }
 
-        return value instanceof Record ?
-                value :
-                Query.findById(Object.class, StateValueUtils.toIdIfReference(value));
+        return value instanceof Record
+                ? value
+                : Query.findById(Object.class, StateValueUtils.toIdIfReference(value));
     }
 
     public void setObject(Object object) {

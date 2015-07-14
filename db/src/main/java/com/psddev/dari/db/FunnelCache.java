@@ -42,13 +42,13 @@ public class FunnelCache<T extends Database> {
         Long expireMilliseconds = ObjectUtils.to(Long.class, settings.get(CACHE_EXPIRE_MILLISECONDS_SUB_SETTING));
         Long refreshMilliseconds = ObjectUtils.to(Long.class, settings.get(CACHE_REFRESH_MILLISECONDS_SUB_SETTING));
 
-        objectCache = CacheBuilder.
-            newBuilder().
-            maximumSize(cacheSize != null ? cacheSize : DEFAULT_CACHE_SIZE).
-            concurrencyLevel(concurrencyLevel != null ? concurrencyLevel : DEFAULT_CONCURRENCY_LEVEL).
-            expireAfterWrite(expireMilliseconds != null ? expireMilliseconds : DEFAULT_CACHE_EXPIRE_MILLISECONDS, TimeUnit.MILLISECONDS).
-            refreshAfterWrite(refreshMilliseconds != null ? refreshMilliseconds : DEFAULT_CACHE_REFRESH_MILLISECONDS, TimeUnit.MILLISECONDS).
-            build(new FunnelCacheLoader());
+        objectCache = CacheBuilder
+                .newBuilder()
+                .maximumSize(cacheSize != null ? cacheSize : DEFAULT_CACHE_SIZE)
+                .concurrencyLevel(concurrencyLevel != null ? concurrencyLevel : DEFAULT_CONCURRENCY_LEVEL)
+                .expireAfterWrite(expireMilliseconds != null ? expireMilliseconds : DEFAULT_CACHE_EXPIRE_MILLISECONDS, TimeUnit.MILLISECONDS)
+                .refreshAfterWrite(refreshMilliseconds != null ? refreshMilliseconds : DEFAULT_CACHE_REFRESH_MILLISECONDS, TimeUnit.MILLISECONDS)
+                .build(new FunnelCacheLoader());
     }
 
     public final List<FunnelCachedObject> get(final FunnelCachedObjectProducer<T> producer) {

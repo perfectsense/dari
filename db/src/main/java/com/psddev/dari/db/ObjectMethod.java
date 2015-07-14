@@ -66,8 +66,8 @@ public class ObjectMethod extends ObjectField {
 
     public boolean hasSingleObjectMethodParameter() {
         if (hasSingleObjectMethodParameter == null) {
-            hasSingleObjectMethodParameter = getJavaParameterTypeNames().size() == 1 &&
-                ObjectMethod.class.getName().equals(getJavaParameterTypeNames().get(0));
+            hasSingleObjectMethodParameter = getJavaParameterTypeNames().size() == 1
+                    && ObjectMethod.class.getName().equals(getJavaParameterTypeNames().get(0));
         }
         return hasSingleObjectMethodParameter;
     }
@@ -78,14 +78,14 @@ public class ObjectMethod extends ObjectField {
         }
         Class<?> declaringClass = ObjectUtils.getClassByName(getJavaDeclaringClassName());
 
-        return declaringClass != null && declaringClass.isAssignableFrom(objectClass) ?
-                javaMethodCache.getUnchecked(objectClass) :
-                null;
+        return declaringClass != null && declaringClass.isAssignableFrom(objectClass)
+                ? javaMethodCache.getUnchecked(objectClass)
+                : null;
     }
 
-    private final transient LoadingCache<Class<?>, Method> javaMethodCache = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<Class<?>, Method>() {
+    private final transient LoadingCache<Class<?>, Method> javaMethodCache = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<Class<?>, Method>() {
 
         @Override
         public Method load(Class<?> objectClass) {
@@ -119,15 +119,15 @@ public class ObjectMethod extends ObjectField {
 
         Matcher nameMatcher = StringUtils.getMatcher(name, "^(get|(is|has))([^a-z])(.*)$");
         if (nameMatcher.matches()) {
-            name = ObjectUtils.isBlank(nameMatcher.group(2)) ?
-                nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4) :
-                name;
+            name = ObjectUtils.isBlank(nameMatcher.group(2))
+                    ? nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4)
+                    : name;
         }
 
         name = StringUtils.toLabel(name);
 
-        if (!name.endsWith("?") &&
-                BOOLEAN_TYPE.equals(getInternalItemType())) {
+        if (!name.endsWith("?")
+                && BOOLEAN_TYPE.equals(getInternalItemType())) {
             name += "?";
         }
 

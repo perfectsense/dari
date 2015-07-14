@@ -26,8 +26,8 @@ public class MultipartRequestFilter extends AbstractFilter {
             FilterChain chain)
             throws IOException, ServletException {
 
-        if (Static.getInstance(request) == null &&
-                ServletFileUpload.isMultipartContent(request)) {
+        if (Static.getInstance(request) == null
+                && ServletFileUpload.isMultipartContent(request)) {
             request = new MultipartRequest(request);
             request.setAttribute(INSTANCE_ATTRIBUTE, request);
         }

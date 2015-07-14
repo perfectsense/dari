@@ -4,7 +4,12 @@ import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Transforms an arbitrary object into another object. */
+/**
+ * Transforms an arbitrary object into another object.
+ *
+ * @deprecated No replacement.
+ */
+@Deprecated
 public class Transformer {
 
     private final Map<Class<?>, TransformationFunction<?>> functions = new HashMap<Class<?>, TransformationFunction<?>>();
