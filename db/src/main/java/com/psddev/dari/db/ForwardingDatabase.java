@@ -167,6 +167,16 @@ public abstract class ForwardingDatabase implements Database {
         return getDelegate().now();
     }
 
+    @Override
+    public void addUpdateNotifier(UpdateNotifier<?> notifier) {
+        getDelegate().addUpdateNotifier(notifier);
+    }
+
+    @Override
+    public void removeUpdateNotifier(UpdateNotifier<?> notifier) {
+        getDelegate().removeUpdateNotifier(notifier);
+    }
+
     // --- Object support ---
 
     @Override

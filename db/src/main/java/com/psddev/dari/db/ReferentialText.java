@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.google.common.base.Preconditions;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -13,7 +14,6 @@ import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.parser.Tag;
 
-import com.psddev.dari.util.ErrorUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.StringUtils;
 
@@ -488,7 +488,7 @@ public class ReferentialText extends AbstractList<Object> {
     // --- AbstractList support ---
 
     private Object checkItem(Object item) {
-        ErrorUtils.errorIfNull(item, "item");
+        Preconditions.checkNotNull(item);
 
         if (item instanceof Reference) {
             return item;

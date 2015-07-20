@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Throwables;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -73,8 +75,9 @@ public final class CollectionUtils {
 
                     } catch (IllegalAccessException error) {
                         throw new IllegalStateException(error);
+
                     } catch (InvocationTargetException error) {
-                        ErrorUtils.rethrow(error);
+                        throw Throwables.propagate(error.getCause());
                     }
                 }
             }

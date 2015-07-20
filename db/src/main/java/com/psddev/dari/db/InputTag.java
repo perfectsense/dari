@@ -11,7 +11,6 @@ import javax.servlet.jsp.tagext.TagSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.psddev.dari.util.ErrorUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.TypeDefinition;
 
@@ -41,15 +40,15 @@ public class InputTag extends TagSupport {
         String writerClassName = String.valueOf(writer);
         Class<?> wc = ObjectUtils.getClassByName(writerClassName);
 
-        ErrorUtils.errorIf(wc == null, writerClassName, "isn't a valid class name!");
-        ErrorUtils.errorIf(!FormWriter.class.isAssignableFrom(wc),
+        com.psddev.dari.util.ErrorUtils.errorIf(wc == null, writerClassName, "isn't a valid class name!");
+        com.psddev.dari.util.ErrorUtils.errorIf(!FormWriter.class.isAssignableFrom(wc),
                 wc.getName(), "doesn't extend [" + FormWriter.class.getName() + "]!");
 
         this.writerClass = (Class<? extends FormWriter>) wc;
     }
 
     public void setObject(Object object) {
-        ErrorUtils.errorIf(object instanceof State || object instanceof Recordable,
+        com.psddev.dari.util.ErrorUtils.errorIf(object instanceof State || object instanceof Recordable,
                 object != null ? object.getClass().getName() : null,
                         "doesn't implement [" + Recordable.class.getName() + "]!");
 
@@ -57,7 +56,7 @@ public class InputTag extends TagSupport {
     }
 
     public void setName(String name) {
-        ErrorUtils.errorIf(ObjectUtils.isBlank(name), name, "isn't a valid field namme!");
+        com.psddev.dari.util.ErrorUtils.errorIf(ObjectUtils.isBlank(name), name, "isn't a valid field namme!");
 
         this.name = name;
     }

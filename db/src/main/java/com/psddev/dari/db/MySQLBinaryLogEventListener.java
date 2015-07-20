@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.github.shyiko.mysql.binlog.event.WriteRowsEventData;
 import com.google.common.base.Charsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,7 @@ class MySQLBinaryLogEventListener implements EventListener {
     private static final Pattern DELETE_PATTERN = Pattern.compile("DELETE\\s+FROM\\s+`?(?<table>\\p{Alnum}+)`?\\s+WHERE\\s+`?id`?\\s*(?:(?:IN\\s*\\()|(?:=))\\s*(?<id>(?:(?:[^\']+'){2},?\\s*){1,})\\)?", Pattern.CASE_INSENSITIVE);
     private static final Pattern UPDATE_PATTERN = Pattern.compile("UPDATE\\s+`?(?<table>\\p{Alnum}+)`?\\s+SET\\s+`?typeId`?\\s*=\\s*(?<typeId>(?:[^\']+'){2})\\s*,\\s*`?data`?\\s*=\\s*(?<data>.+)\\s*WHERE\\s+`?id`?\\s*(?:(?:IN\\s*\\()|(?:=))\\s*(?<id>(?:[^\']+'){2}).*", Pattern.CASE_INSENSITIVE);
 
+    private final SqlDatabase database;
     private final Cache<UUID, Object[]> cache;
     private final String catalog;
 
@@ -40,7 +42,8 @@ class MySQLBinaryLogEventListener implements EventListener {
     private final List<Event> events = new ArrayList<Event>();
     private boolean isFlushCache = false;
 
-    public MySQLBinaryLogEventListener(Cache<UUID, Object[]> cache, String catalog) {
+    public MySQLBinaryLogEventListener(SqlDatabase database, Cache<UUID, Object[]> cache, String catalog) {
+        this.database = database;
         this.cache = cache;
         this.catalog = catalog;
     }
@@ -66,14 +69,16 @@ class MySQLBinaryLogEventListener implements EventListener {
         id = confirm16Bytes(id);
         if (id != null) {
             UUID bid = ObjectUtils.to(UUID.class, id);
-            Object[] cachedValue = cache.getIfPresent(bid);
-            if (cachedValue != null) {
-                // populate cache
-                Object[] value = new Object[3];
-                value[1] = data;
-                Map<String, Object> jsonData = SqlDatabase.unserializeData(data);
-                value[2] = jsonData;
-                value[0] = UuidUtils.toBytes(ObjectUtils.to(UUID.class, jsonData.get(StateValueUtils.TYPE_KEY)));
+            Object[] value = new Object[3];
+            value[1] = data;
+            Map<String, Object> jsonData = SqlDatabase.unserializeData(data);
+            value[2] = jsonData;
+            value[0] = UuidUtils.toBytes(ObjectUtils.to(UUID.class, jsonData.get(StateValueUtils.TYPE_KEY)));
+
+            database.notifyUpdate(database.createSavedObjectFromReplicationCache((byte[]) value[0], bid, (byte[]) value[1], jsonData, null));
+
+            // populate cache
+            if (cache.getIfPresent(bid) != null) {
                 cache.put(bid, value);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.debug("[BINLOG] UPDATING CACHE: ID [{}]", StringUtils.hex(id));
@@ -100,7 +105,17 @@ class MySQLBinaryLogEventListener implements EventListener {
             EventType eventType = eventHeader.getEventType();
             EventData eventData = event.getData();
             LOGGER.debug("BIN LOG TEST [{}] [{}]", event.getHeader().getEventType().toString(), event.getData().toString());
-            if (eventType == EventType.UPDATE_ROWS || eventType == EventType.EXT_UPDATE_ROWS) {
+            if (eventType == EventType.WRITE_ROWS || eventType == EventType.EXT_WRITE_ROWS) {
+                for (Serializable[] row : ((WriteRowsEventData) eventData).getRows()) {
+                    byte[] data = row[2] instanceof byte[] ? (byte[]) row[2]
+                            : row[2] instanceof String ? ((String) row[2]).getBytes(Charsets.UTF_8)
+                            : null;
+
+                    updateCache((byte[]) row[0], (byte[]) row[1], data);
+                    LOGGER.debug("InsertRow HEX [{}][{}]", StringUtils.hex((byte[]) row[0]), ((byte[]) row[0]).length);
+                }
+
+            } else if (eventType == EventType.UPDATE_ROWS || eventType == EventType.EXT_UPDATE_ROWS) {
                 for (Map.Entry<Serializable[], Serializable[]> row : ((UpdateRowsEventData) eventData).getRows()) {
                     Serializable[] newValue = row.getValue();
                     byte[] data = newValue[2] instanceof byte[] ? (byte[]) newValue[2]
@@ -289,12 +304,12 @@ class MySQLBinaryLogEventListener implements EventListener {
                 if (tableMapEventData != null) {
                     // TODO: check column metadata to get length.
                     try {
-                        if (EventType.isUpdate(eventType)) {
+                        if (EventType.isWrite(eventType)) {
+                            tableId = ((WriteRowsEventData) eventData).getTableId();
+                        } else if (EventType.isUpdate(eventType)) {
                             tableId = ((UpdateRowsEventData) eventData).getTableId();
                         } else if (EventType.isDelete(eventType)) {
                             tableId = ((DeleteRowsEventData) eventData).getTableId();
-                        } else if (EventType.isWrite(eventType)) {
-                            // Do nothing
                         } else {
                             LOGGER.error("NOT RECOGNIZED TYPE: {}", eventType);
                         }

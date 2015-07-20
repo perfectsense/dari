@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -88,7 +90,7 @@ public class CodeDebugServlet extends HttpServlet {
 
         new DebugFilter.PageWriter(page) { {
             File file = getFile(page);
-            ErrorUtils.errorIfNull(file, "file");
+            Preconditions.checkNotNull(file);
             String code = page.paramOrDefault(String.class, "code", "");
 
             try {

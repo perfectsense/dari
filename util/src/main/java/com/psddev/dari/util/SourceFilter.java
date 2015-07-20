@@ -471,10 +471,12 @@ public class SourceFilter extends AbstractFilter {
 
             if (diagnostics != null) {
                 for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics) {
+                    JavaFileObject source = diagnostic.getSource();
+
                     writeDiagnostic(
                             noteWriter,
                             diagnostic.getKind(),
-                            diagnostic.getSource().getName(),
+                            source != null ? source.getName() : "Unknown Source",
                             null,
                             diagnostic.getLineNumber(),
                             diagnostic.getColumnNumber(),

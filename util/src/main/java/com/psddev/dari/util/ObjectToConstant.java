@@ -6,20 +6,23 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
 /**
  * Converts an object into a constant.
  */
 public class ObjectToConstant<T> implements ConversionFunction<Object, T> {
 
-    private static final ObjectToConstant<Object> NULL_INSTANCE = new ObjectToConstant<Object>(null);
+    private static final ObjectToConstant<Object> NULL_INSTANCE = new ObjectToConstant<>(null);
 
     private static final LoadingCache<Object, ObjectToConstant<?>> INSTANCES = CacheBuilder.newBuilder()
             .weakKeys()
             .build(new CacheLoader<Object, ObjectToConstant<?>>() {
 
                 @Override
+                @ParametersAreNonnullByDefault
                 public ObjectToConstant<?> load(Object constant) {
-                    return new ObjectToConstant<Object>(constant);
+                    return new ObjectToConstant<>(constant);
                 }
             });
 
@@ -29,7 +32,9 @@ public class ObjectToConstant<T> implements ConversionFunction<Object, T> {
      * Returns an instance that will convert any object into the given
      * {@code constant}.
      *
-     * @param constant May be {@code null}.
+     * @param constant
+     *        May be {@code null}.
+     *
      * @return Never {@code null}.
      */
     @SuppressWarnings("unchecked")
@@ -41,7 +46,8 @@ public class ObjectToConstant<T> implements ConversionFunction<Object, T> {
      * Creates a instance that will convert any object into the given
      * {@code constant}.
      *
-     * @param constant May be {@code null}.
+     * @param constant
+     *        May be {@code null}.
      */
     protected ObjectToConstant(T constant) {
         this.constant = constant;

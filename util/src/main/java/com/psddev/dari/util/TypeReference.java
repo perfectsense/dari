@@ -1,5 +1,6 @@
 package com.psddev.dari.util;
 
+import javax.annotation.Nullable;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
@@ -29,14 +30,10 @@ public abstract class TypeReference<T> implements Comparable<TypeReference<T>> {
         return type;
     }
 
-    // --- Comparable support ---
-
     @Override
-    public int compareTo(TypeReference<T> object) {
+    public int compareTo(@Nullable TypeReference<T> object) {
         return 0;
     }
-
-    // --- Object support ---
 
     @Override
     public int hashCode() {
@@ -45,15 +42,9 @@ public abstract class TypeReference<T> implements Comparable<TypeReference<T>> {
 
     @Override
     public boolean equals(Object other) {
-        if (this == other) {
-            return true;
-
-        } else if (other instanceof TypeReference) {
-            return getType().equals(((TypeReference<?>) other).getType());
-
-        } else {
-            return false;
-        }
+        return this == other
+                || (other instanceof TypeReference
+                && getType().equals(((TypeReference<?>) other).getType()));
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -309,7 +311,7 @@ public class ProfilerFilter extends AbstractFilter {
          * @return Never {@code null}.
          */
         public static HtmlWriter getResultWriter(HttpServletRequest request, HttpServletResponse response) throws IOException {
-            ErrorUtils.errorIfNull(request, "request");
+            Preconditions.checkNotNull(request);
 
             HtmlWriter writer = (HtmlWriter) request.getAttribute(RESULT_WRITER_ATTRIBUTE);
 
@@ -331,7 +333,7 @@ public class ProfilerFilter extends AbstractFilter {
          * @param writer {@code null} unsets the result writer.
          */
         public static void setResultWriter(HttpServletRequest request, HtmlWriter writer) {
-            ErrorUtils.errorIfNull(request, "request");
+            Preconditions.checkNotNull(request);
 
             request.setAttribute(RESULT_WRITER_ATTRIBUTE, writer);
         }

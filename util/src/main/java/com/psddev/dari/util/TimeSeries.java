@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -27,8 +29,8 @@ public class TimeSeries implements Iterable<Double> {
      * @throws IllegalArgumentException
      */
     public TimeSeries(long duration, long interval) {
-        ErrorUtils.errorIf(duration <= 0, "duration", "must be positive!");
-        ErrorUtils.errorIf(interval <= 0, "interval", "must be positive!");
+        Preconditions.checkArgument(duration > 0);
+        Preconditions.checkArgument(interval > 0);
 
         this.createTime = System.currentTimeMillis();
         this.interval = interval;

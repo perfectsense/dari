@@ -20,6 +20,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
 public class TypeDefinition<T> {
 
     private final Type type;
@@ -34,8 +36,9 @@ public class TypeDefinition<T> {
             .build(new CacheLoader<Type, TypeDefinition<?>>() {
 
         @Override
+        @ParametersAreNonnullByDefault
         public TypeDefinition<?> load(Type type) {
-            return new TypeDefinition<Object>(type);
+            return new TypeDefinition<>(type);
         }
     });
 
@@ -101,7 +104,7 @@ public class TypeDefinition<T> {
         protected List<Class<? super T>> create() {
 
             Class<T> objectClass = getObjectClass();
-            List<Class<? super T>> classes = new ArrayList<Class<? super T>>();
+            List<Class<? super T>> classes = new ArrayList<>();
             classes.add(objectClass);
 
             Class<? super T> superClass = objectClass.getSuperclass();
@@ -127,7 +130,7 @@ public class TypeDefinition<T> {
         @Override
         protected Set<Class<?>> create() {
             Class<T> objectClass = getObjectClass();
-            Set<Class<?>> classes = new LinkedHashSet<Class<?>>();
+            Set<Class<?>> classes = new LinkedHashSet<>();
 
             classes.add(objectClass);
 
@@ -155,7 +158,7 @@ public class TypeDefinition<T> {
         protected List<Field> create() {
 
             Class<T> objectClass = getObjectClass();
-            List<Field> fields = new ArrayList<Field>();
+            List<Field> fields = new ArrayList<>();
             for (Field field : objectClass.getDeclaredFields()) {
                 field.setAccessible(true);
                 fields.add(field);
@@ -184,12 +187,12 @@ public class TypeDefinition<T> {
         protected Map<String, List<Field>> create() {
 
             Class<T> objectClass = getObjectClass();
-            Map<String, List<Field>> fieldsMap = new CompactMap<String, List<Field>>();
+            Map<String, List<Field>> fieldsMap = new CompactMap<>();
 
             Class<? super T> superClass = objectClass.getSuperclass();
             if (superClass != null) {
                 for (Map.Entry<String, List<Field>> entry : getInstance(superClass).getAllSerializableFields().entrySet()) {
-                    fieldsMap.put(entry.getKey(), new ArrayList<Field>(entry.getValue()));
+                    fieldsMap.put(entry.getKey(), new ArrayList<>(entry.getValue()));
                 }
             }
 
@@ -213,7 +216,7 @@ public class TypeDefinition<T> {
 
                     List<Field> fields = fieldsMap.get(name);
                     if (fields == null) {
-                        fields = new ArrayList<Field>();
+                        fields = new ArrayList<>();
                         fieldsMap.put(name, fields);
                     }
 
@@ -261,7 +264,7 @@ public class TypeDefinition<T> {
         @Override
         @SuppressWarnings("unchecked")
         protected List<Constructor<T>> create() {
-            List<Constructor<T>> constructors = new ArrayList<Constructor<T>>();
+            List<Constructor<T>> constructors = new ArrayList<>();
             for (Constructor<?> constructor : getObjectClass().getDeclaredConstructors()) {
                 constructor.setAccessible(true);
                 constructors.add((Constructor<T>) constructor);
@@ -287,7 +290,7 @@ public class TypeDefinition<T> {
                         }
                     }
 
-                    return (Constructor<T>) constructor;
+                    return constructor;
                 }
             }
 
@@ -336,7 +339,7 @@ public class TypeDefinition<T> {
         protected List<Method> create() {
 
             Class<T> objectClass = getObjectClass();
-            List<Method> methods = new ArrayList<Method>();
+            List<Method> methods = new ArrayList<>();
             try {
                 for (Method method : objectClass.getDeclaredMethods()) {
                     method.setAccessible(true);
@@ -369,8 +372,8 @@ public class TypeDefinition<T> {
         @Override
         protected Map<String, Method> create() {
 
-            Map<String, Method> getters = new CompactMap<String, Method>();
-            for (Method method : getAllMethods()) {
+            Map<String, Method> getters = new CompactMap<>();
+            getAllMethods().forEach(method -> {
                 if (method.getDeclaringClass() != Object.class) {
 
                     int mod = method.getModifiers();
@@ -391,7 +394,7 @@ public class TypeDefinition<T> {
                         }
                     }
                 }
-            }
+            });
 
             return Collections.unmodifiableMap(getters);
         }
@@ -411,8 +414,8 @@ public class TypeDefinition<T> {
         @Override
         protected Map<String, Method> create() {
 
-            Map<String, Method> setters = new CompactMap<String, Method>();
-            for (Method method : getAllMethods()) {
+            Map<String, Method> setters = new CompactMap<>();
+            getAllMethods().forEach(method -> {
                 if (method.getDeclaringClass() != Object.class) {
 
                     int mod = method.getModifiers();
@@ -428,7 +431,7 @@ public class TypeDefinition<T> {
                         }
                     }
                 }
-            }
+            });
 
             return Collections.unmodifiableMap(setters);
         }

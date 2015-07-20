@@ -645,6 +645,16 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         }
     };
 
+    @Override
+    public void addUpdateNotifier(UpdateNotifier notifier) {
+        getDefaultDelegate().addUpdateNotifier(notifier);
+    }
+
+    @Override
+    public void removeUpdateNotifier(UpdateNotifier notifier) {
+        getDefaultDelegate().removeUpdateNotifier(notifier);
+    }
+
     // --- Iterable support ---
 
     @Override

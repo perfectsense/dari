@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 
 import javax.tools.JavaFileObject;
 
+import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -214,7 +215,7 @@ public class ClassFinder {
          */
         @SuppressWarnings("unchecked")
         public static <T> Set<Class<? extends T>> findClassesFromLoader(ClassLoader loader, Class<T> baseClass) {
-            ErrorUtils.errorIfNull(baseClass, "baseClass");
+            Preconditions.checkNotNull(baseClass);
 
             if (loader == null) {
                 loader = ObjectUtils.getCurrentClassLoader();

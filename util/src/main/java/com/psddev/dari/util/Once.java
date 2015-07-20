@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Throwables;
+
 import java.util.concurrent.locks.ReadWriteLock;
 
 /**
@@ -64,7 +66,7 @@ public abstract class Once {
                         ran = true;
 
                     } catch (Exception error) {
-                        ErrorUtils.rethrow(error);
+                        throw Throwables.propagate(error);
                     }
                 }
             }

@@ -3,7 +3,7 @@ package com.psddev.dari.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +33,9 @@ import java.util.Set;
  */
 public class DependencyResolver<T> {
 
-    private final Set<T> allObjects = new HashSet<T>();
-    private final Set<T> allDependencies = new HashSet<T>();
-    private final Set<Edge<T>> edges = new HashSet<Edge<T>>();
+    private final Set<T> allObjects = new LinkedHashSet<>();
+    private final Set<T> allDependencies = new LinkedHashSet<>();
+    private final Set<Edge<T>> edges = new LinkedHashSet<>();
 
     /**
      * Add an item that is needed, plus any dependencies
@@ -91,7 +91,7 @@ public class DependencyResolver<T> {
 
         for (Edge<T> edge : edges) {
             T object = edge.object;
-            Set<T> incoming = new HashSet<T>();
+            Set<T> incoming = new LinkedHashSet<>();
             graph.put(object, incoming);
             for (T dependency : edge.dependencies) {
                 incoming.add(dependency);

@@ -21,6 +21,8 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,16 +126,17 @@ public abstract class AbstractFilter implements Filter {
      */
     @Override
     public final void init(FilterConfig config) throws ServletException {
-        ErrorUtils.errorIfNull(config, "config");
+        Preconditions.checkNotNull(config);
 
         filterConfig = config;
         servletContext = config.getServletContext();
 
         try {
             doInit();
+
         } catch (Exception error) {
-            ErrorUtils.rethrowIf(error, ServletException.class);
-            ErrorUtils.rethrow(error);
+            Throwables.propagateIfInstanceOf(error, ServletException.class);
+            throw Throwables.propagate(error);
         }
 
         LOGGER.debug("Initialized [{}]", getClass().getName());
@@ -161,8 +164,9 @@ public abstract class AbstractFilter implements Filter {
 
         try {
             doDestroy();
+
         } catch (Exception error) {
-            ErrorUtils.rethrow(error);
+            throw Throwables.propagate(error);
         }
 
         filterConfig = null;
@@ -568,9 +572,9 @@ public abstract class AbstractFilter implements Filter {
                             finalChain);
 
                 } catch (Exception error) {
-                    ErrorUtils.rethrowIf(error, IOException.class);
-                    ErrorUtils.rethrowIf(error, ServletException.class);
-                    ErrorUtils.rethrow(error);
+                    Throwables.propagateIfInstanceOf(error, IOException.class);
+                    Throwables.propagateIfInstanceOf(error, ServletException.class);
+                    throw Throwables.propagate(error);
                 }
 
             } else {

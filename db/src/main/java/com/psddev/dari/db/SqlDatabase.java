@@ -8,6 +8,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.ref.WeakReference;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
@@ -169,6 +171,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
     private transient volatile Cache<UUID, Object[]> replicationCache;
     private transient volatile MySQLBinaryLogReader mysqlBinaryLogReader;
     private transient volatile FunnelCache<SqlDatabase> funnelCache;
+    private final List<UpdateNotifier<?>> updateNotifiers = new ArrayList<>();
 
     /**
      * Quotes the given {@code identifier} so that it's safe to use
@@ -1096,13 +1099,13 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
     }
 
     // Creates a previously saved object from the replication cache.
-    private <T> T createSavedObjectFromReplicationCache(byte[] typeId, UUID id, byte[] data, Map<String, Object> dataJson, Query<T> query) {
+    protected <T> T createSavedObjectFromReplicationCache(byte[] typeId, UUID id, byte[] data, Map<String, Object> dataJson, Query<T> query) {
         T object = createSavedObject(typeId, id, query);
         State objectState = State.getInstance(object);
 
         objectState.setValues(cloneDataJson(dataJson));
 
-        Boolean returnOriginal = ObjectUtils.to(Boolean.class, query.getOptions().get(RETURN_ORIGINAL_DATA_QUERY_OPTION));
+        Boolean returnOriginal = query != null ? ObjectUtils.to(Boolean.class, query.getOptions().get(RETURN_ORIGINAL_DATA_QUERY_OPTION)) : null;
 
         if (returnOriginal == null) {
             returnOriginal = Boolean.FALSE;
@@ -1776,7 +1779,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
 
             try {
                 LOGGER.info("Starting MySQL binary log reader");
-                mysqlBinaryLogReader = new MySQLBinaryLogReader(replicationCache, ObjectUtils.firstNonNull(getReadDataSource(), getDataSource()));
+                mysqlBinaryLogReader = new MySQLBinaryLogReader(this, replicationCache, ObjectUtils.firstNonNull(getReadDataSource(), getDataSource()));
                 mysqlBinaryLogReader.start();
 
             } catch (IllegalArgumentException error) {
@@ -2785,6 +2788,60 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
         vendor.appendValue(updateBuilder, System.currentTimeMillis() / 1000.0);
         updateBuilder.append(whereBuilder);
         Static.executeUpdateWithArray(connection, updateBuilder.toString());
+    }
+
+    @Override
+    public void addUpdateNotifier(UpdateNotifier<?> notifier) {
+        updateNotifiers.add(notifier);
+    }
+
+    @Override
+    public void removeUpdateNotifier(UpdateNotifier<?> notifier) {
+        updateNotifiers.remove(notifier);
+    }
+
+    protected void notifyUpdate(Object object) {
+        NOTIFIER: for (UpdateNotifier<?> notifier : updateNotifiers) {
+            for (Type notifierInterface : notifier.getClass().getGenericInterfaces()) {
+                if (notifierInterface instanceof ParameterizedType) {
+                    ParameterizedType pt = (ParameterizedType) notifierInterface;
+                    Type rt = pt.getRawType();
+
+                    if (rt instanceof Class
+                            && UpdateNotifier.class.isAssignableFrom((Class<?>) rt)) {
+
+                        Type[] args = pt.getActualTypeArguments();
+
+                        if (args.length > 0) {
+                            Type arg = args[0];
+
+                            if (arg instanceof Class
+                                    && !((Class<?>) arg).isInstance(object)) {
+                                continue NOTIFIER;
+
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            @SuppressWarnings("unchecked")
+            UpdateNotifier<Object> objectNotifier = (UpdateNotifier<Object>) notifier;
+
+            try {
+                objectNotifier.onUpdate(object);
+
+            } catch (Exception error) {
+                LOGGER.warn(
+                        String.format(
+                                "Can't notify [%s] of [%s] update!",
+                                notifier,
+                                State.getInstance(object).getId()),
+                        error);
+            }
+        }
     }
 
     @FieldData.FieldInternalNamePrefix("sql.")

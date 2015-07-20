@@ -145,21 +145,6 @@
                                     <ignored>
                                         <difference>
                                             <className>com/psddev/dari/db/Database</className>
-                                            <method>void recalculate(com.psddev.dari.db.State, com.psddev.dari.db.ObjectIndex[])</method>
-                                            <differenceType>7012</differenceType>
-                                        </difference>
-                                        <difference>
-                                            <className>com/psddev/dari/db/SqlIndex$Table</className>
-                                            <method>void bindUpdateValues(com.psddev.dari.db.SqlDatabase, com.psddev.dari.db.ObjectIndex, java.util.UUID, java.util.UUID, com.psddev.dari.db.SqlIndex$IndexValue, java.util.Set, java.util.List)</method>
-                                            <differenceType>7012</differenceType>
-                                        </difference>
-                                        <difference>
-                                            <className>com/psddev/dari/db/SqlIndex$Table</className>
-                                            <method>java.lang.String prepareUpdateStatement(com.psddev.dari.db.SqlDatabase, java.sql.Connection, com.psddev.dari.db.ObjectIndex)</method>
-                                            <differenceType>7012</differenceType>
-                                        </difference>
-                                        <difference>
-                                            <className>com/psddev/dari/db/Database</className>
                                             <method>void saveWithOptions(com.psddev.dari.db.State, com.psddev.dari.db.SaveOptions)</method>
                                             <differenceType>7012</differenceType>
                                         </difference>

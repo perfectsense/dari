@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.common.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.cache.CacheBuilder;
@@ -28,7 +29,6 @@ import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ConversionException;
 import com.psddev.dari.util.ConversionFunction;
 import com.psddev.dari.util.Converter;
-import com.psddev.dari.util.ErrorUtils;
 import com.psddev.dari.util.LoadingCacheMap;
 import com.psddev.dari.util.LocaleUtils;
 import com.psddev.dari.util.ObjectToIterable;
@@ -319,6 +319,7 @@ public class State implements Map<String, Object> {
      * fields are {@code null}).
      */
     public boolean isVisible() {
+        getVisibilityAwareTypeId();
         return ObjectUtils.isBlank(get("dari.visibilities"));
     }
 
@@ -673,7 +674,7 @@ public class State implements Map<String, Object> {
                             throw new IllegalStateException(error);
 
                         } catch (InvocationTargetException error) {
-                            ErrorUtils.rethrow(error.getCause());
+                            throw Throwables.propagate(error.getCause());
 
                         } catch (NoSuchMethodException error) {
                             // Try to find the method in the super class.
@@ -1689,6 +1690,16 @@ public class State implements Map<String, Object> {
         resolveReference(null);
     }
 
+    private static class OnValidateTrigger extends TriggerOnce {
+
+        @Override
+        public void executeOnce(Object object) {
+            if (object instanceof Record) {
+                ((Record) object).onValidate();
+            }
+        }
+    }
+
     /**
      * Returns {@code true} if the field values in this state is valid.
      * The validation rules are typically read from annotations such as
@@ -1707,6 +1718,8 @@ public class State implements Map<String, Object> {
         for (ObjectField field : environment.getFields()) {
             field.validate(this);
         }
+
+        fireTrigger(new OnValidateTrigger());
 
         return !hasAnyErrors();
     }
@@ -2245,7 +2258,7 @@ public class State implements Map<String, Object> {
             }
         }
 
-        ErrorUtils.rethrow(lastError);
+        throw Throwables.propagate(lastError);
     }
 
     /**

@@ -59,6 +59,13 @@ public class Record implements BeanInfo, Cloneable, Comparable<Record>, HtmlObje
     }
 
     /**
+     * Triggers when this record is being validated. Default implementation
+     * of this method doesn't do anything.
+     */
+    protected void onValidate() {
+    }
+
+    /**
      * Triggers when there's a duplicate value on the given unique
      * {@code index}. Default implementation of this method doesn't do
      * anything and always returns {@code false}.

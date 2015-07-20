@@ -1,56 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <differences>
-
-    <!-- Caused by upgrade from ASM version 3 to 5. -->
     <difference>
-        <className>com/psddev/dari/db/LazyLoadEnhancer</className>
-        <differenceType>4001</differenceType>
-        <to>org/objectweb/asm/ClassVisitor</to>
-    </difference>
-
-    <difference>
-        <className>com/psddev/dari/db/LazyLoadEnhancer</className>
-        <differenceType>7005</differenceType>
-        <method>boolean canEnhance(org.objectweb.asm.ClassReader)</method>
-        <to>boolean canEnhance(com.psddev.dari.util.asm.ClassReader)</to>
-    </difference>
-
-    <difference>
-        <className>com/psddev/dari/db/LazyLoadEnhancer</className>
-        <differenceType>7006</differenceType>
-        <method>org.objectweb.asm.AnnotationVisitor visitAnnotation(java.lang.String, boolean)</method>
-        <to>com.psddev.dari.util.asm.AnnotationVisitor</to>
-    </difference>
-
-    <difference>
-        <className>com/psddev/dari/db/LazyLoadEnhancer</className>
-        <differenceType>7006</differenceType>
-        <method>org.objectweb.asm.FieldVisitor visitField(int, java.lang.String, java.lang.String, java.lang.String, java.lang.Object)</method>
-        <to>com.psddev.dari.util.asm.FieldVisitor</to>
-    </difference>
-
-    <difference>
-        <className>com/psddev/dari/db/LazyLoadEnhancer</className>
-        <differenceType>7006</differenceType>
-        <method>org.objectweb.asm.MethodVisitor visitMethod(int, java.lang.String, java.lang.String, java.lang.String, java.lang.String[])</method>
-        <to>com.psddev.dari.util.asm.MethodVisitor</to>
-    </difference>
-
-    <difference>
-        <className>com/psddev/dari/db/LazyLoadEnhancer</className>
-        <differenceType>5001</differenceType>
-        <to>org/objectweb/asm/ClassAdapter</to>
-    </difference>
-
-    <difference>
-        <className>com/psddev/dari/db/Trigger</className>
+        <className>com/psddev/dari/db/Database</className>
         <differenceType>7012</differenceType>
-        <method>boolean isMissing(java.lang.Class)</method>
+        <method>void addUpdateNotifier(com.psddev.dari.db.UpdateNotifier)</method>
     </difference>
 
     <difference>
         <className>com/psddev/dari/db/Database</className>
         <differenceType>7012</differenceType>
-        <method>long now()</method>
+        <method>void removeUpdateNotifier(com.psddev.dari.db.UpdateNotifier)</method>
     </difference>
 </differences>

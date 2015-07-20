@@ -2,6 +2,7 @@ package com.psddev.dari.util;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AtomicDouble;
 
 /**
@@ -30,9 +31,9 @@ public class ExponentialMovingAverage {
      * @throws IllegalArgumentException
      */
     public ExponentialMovingAverage(double keepDuration, double measureInterval, double averageInterval) {
-        ErrorUtils.errorIf(keepDuration <= 0, "keepDuration", "must be positive!");
-        ErrorUtils.errorIf(measureInterval <= 0, "measureInterval", "must be positive!");
-        ErrorUtils.errorIf(averageInterval <= 0, "averageInterval", "must be positive!");
+        Preconditions.checkArgument(keepDuration > 0);
+        Preconditions.checkArgument(measureInterval > 0);
+        Preconditions.checkArgument(averageInterval > 0);
 
         averages = new TimeSeries((long) (keepDuration * 1e3), (long) (measureInterval * 1e3));
         tick = (long) (measureInterval * 1e9);

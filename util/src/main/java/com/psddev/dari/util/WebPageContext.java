@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.jsp.PageContext;
 
+import com.google.common.base.Preconditions;
 import org.joda.time.DateTime;
 
 /** Utility methods for working with a web page. */
@@ -37,7 +38,7 @@ public class WebPageContext extends HtmlWriter {
      * @param pageContext Can't be {@code null}.
      */
     public WebPageContext(PageContext pageContext) {
-        ErrorUtils.errorIfNull(pageContext, "pageContext");
+        Preconditions.checkNotNull(pageContext);
 
         this.page = pageContext.getPage();
         this.servletContext = pageContext.getServletContext();
@@ -57,7 +58,7 @@ public class WebPageContext extends HtmlWriter {
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        ErrorUtils.errorIfNull(servlet, "servlet");
+        Preconditions.checkNotNull(servlet);
 
         this.page = servlet;
         this.servletContext = servlet.getServletConfig().getServletContext();

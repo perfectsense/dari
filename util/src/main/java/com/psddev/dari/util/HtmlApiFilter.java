@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -136,7 +138,7 @@ public class HtmlApiFilter extends AbstractFilter {
                 callback = request.getParameter("callback");
             }
 
-            ErrorUtils.errorIfBlank(callback, "_callback");
+            Preconditions.checkArgument(!ObjectUtils.isBlank(callback));
 
             response.setContentType("application/javascript");
             writer.write(callback);

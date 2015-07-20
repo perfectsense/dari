@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+
 import java.awt.Color;
 import java.awt.color.ColorSpace;
 
@@ -60,7 +62,7 @@ public class HuslColorSpace extends ColorSpace {
     }
 
     private int checkComponent(int component) {
-        ErrorUtils.errorIf(component < 0 || component > 2, "component", "must be between 0 and 2 (inclusive)!");
+        Preconditions.checkArgument(0 <= component && component <= 2);
         return component;
     }
 

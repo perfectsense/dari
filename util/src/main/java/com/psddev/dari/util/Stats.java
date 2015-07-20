@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -75,15 +76,16 @@ public class Stats {
      * @throws IllegalArgumentException
      */
     public Stats(String name, double keepDuration, double measureInterval, double... averageIntervals) {
-        ErrorUtils.errorIfBlank(name, "name");
-        ErrorUtils.errorIf(keepDuration <= 0, "keepDuration", "must be positive!");
-        ErrorUtils.errorIf(measureInterval <= 0, "measureInterval", "must be positive!");
-        ErrorUtils.errorIfBlank(name, "averageIntervals");
+        Preconditions.checkArgument(!ObjectUtils.isBlank(name));
+        Preconditions.checkArgument(keepDuration > 0);
+        Preconditions.checkArgument(measureInterval > 0);
+        Preconditions.checkNotNull(averageIntervals);
+        Preconditions.checkArgument(averageIntervals.length > 0);
 
         List<Double> newAverageIntervals = new ArrayList<Double>();
         for (int i = 0, length = averageIntervals.length; i < length; ++ i) {
             double averageInterval = averageIntervals[i];
-            ErrorUtils.errorIf(averageInterval <= 0, "averageIntervals[" + i + "]", "must be positive!");
+            Preconditions.checkArgument(averageInterval > 0);
             newAverageIntervals.add(averageInterval);
         }
 
