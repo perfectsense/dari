@@ -8,13 +8,16 @@ public final class LogUtils {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(LogUtils.class);
 
-    public static void authenticate(String context, String userId, String domain, String ipAddress, boolean status) {
-        if (status) {
-            LOGGER.info(context + " {userId:" + userId + ", status:success, domain:" + domain + ", ipAddress:" +
-                    ipAddress + "}");
-        } else {
-            LOGGER.info(context + " {userId:" + userId + ", status:fail, domain:" + domain + ", ipAddress:" +
-                    ipAddress + "}");
+    public static void logAuthRequest(String context, String userId, String domain, String ipAddress, boolean status,
+            boolean enabled) {
+        if (enabled) {
+            if (status) {
+                LOGGER.info(context + " {userId:" + userId + ", status:success, domain:" + domain + ", ipAddress:"
+                        + ipAddress + "}");
+            } else {
+                LOGGER.info(context + " {userId:" + userId + ", status:fail, domain:" + domain + ", ipAddress:"
+                        + ipAddress + "}");
+            }
         }
     }
 
