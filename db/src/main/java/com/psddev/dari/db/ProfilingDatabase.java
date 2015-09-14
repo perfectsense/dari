@@ -64,9 +64,9 @@ public class ProfilingDatabase extends ForwardingDatabase {
                 String className = element.getClassName();
                 Class<?> c = ObjectUtils.getClassByName(className);
 
-                if (c == null ||
-                        !(Database.class.isAssignableFrom(c) ||
-                        Query.class.isAssignableFrom(c))) {
+                if (c == null
+                        || !(Database.class.isAssignableFrom(c)
+                        || Query.class.isAssignableFrom(c))) {
                     caller = element;
                     break;
                 }
@@ -250,23 +250,6 @@ public class ProfilingDatabase extends ForwardingDatabase {
 
         } finally {
             Profiler.Static.stopThreadEvent();
-        }
-    }
-
-    // --- Deprecated ---
-
-    @Deprecated
-    @Override
-    public <T> List<T> readList(Query<T> query) {
-        List<T> result = null;
-
-        try {
-            startQueryEvent(READ_ALL_EVENT_NAME, query);
-            result = super.readList(query);
-            return result;
-
-        } finally {
-            Profiler.Static.stopThreadEvent(result);
         }
     }
 }

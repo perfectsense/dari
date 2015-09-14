@@ -6,6 +6,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import javax.servlet.ServletOutputStream;
+import javax.servlet.WriteListener;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 
@@ -78,6 +79,16 @@ public class CapturingResponse extends HttpServletResponseWrapper {
     private static class ByteArrayServletOutputStream extends ServletOutputStream {
 
         private final ByteArrayOutputStream delegate = new ByteArrayOutputStream();
+
+        @Override
+        public boolean isReady() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void setWriteListener(WriteListener writeListener) {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public void write(int b) {

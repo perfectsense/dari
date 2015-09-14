@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
 
@@ -23,7 +24,6 @@ import com.psddev.dari.util.JspUtils;
 import com.psddev.dari.util.Lazy;
 import com.psddev.dari.util.Once;
 import com.psddev.dari.util.PeriodicCache;
-import com.psddev.dari.util.StringUtils;
 
 public class WebResourceOverrideFilter extends AbstractFilter {
 
@@ -32,8 +32,8 @@ public class WebResourceOverrideFilter extends AbstractFilter {
     private static final String DEL_FILE_SUFFIX = ".del";
     private static final String TMP_FILE_SUFFIX = ".tmp";
 
-    private final LoadingCache<String, Restorer> restorers = CacheBuilder.newBuilder().
-            build(new CacheLoader<String, Restorer>() {
+    private final LoadingCache<String, Restorer> restorers = CacheBuilder.newBuilder()
+            .build(new CacheLoader<String, Restorer>() {
 
                 @Override
                 public Restorer load(String path) {
@@ -54,13 +54,13 @@ public class WebResourceOverrideFilter extends AbstractFilter {
                     try {
                         Date cacheUpdate = getUpdateDate();
 
-                        if (cacheUpdate == null ||
-                                UpdateTrackable.Static.isUpdated(WebResourceOverride.UPDATE_TRACKING_NAME, cacheUpdate.getTime())) {
+                        if (cacheUpdate == null
+                                || UpdateTrackable.Static.isUpdated(WebResourceOverride.UPDATE_TRACKING_NAME, cacheUpdate.getTime())) {
                             Map<String, Copier> copiers = new CompactMap<String, Copier>();
 
-                            for (WebResourceOverride override : Query.
-                                    from(WebResourceOverride.class).
-                                    selectAll()) {
+                            for (WebResourceOverride override : Query
+                                    .from(WebResourceOverride.class)
+                                    .selectAll()) {
                                 String path = override.getPath();
 
                                 restorers.invalidate(path);
@@ -168,7 +168,7 @@ public class WebResourceOverrideFilter extends AbstractFilter {
             if (realPath != null) {
                 File curFile = new File(realPath);
                 File newFile = new File(realPath + NEW_FILE_SUFFIX);
-                Writer writer = new OutputStreamWriter(new FileOutputStream(newFile), StringUtils.UTF_8);
+                Writer writer = new OutputStreamWriter(new FileOutputStream(newFile), StandardCharsets.UTF_8);
 
                 try {
                     String content = override.getContent();
@@ -184,8 +184,8 @@ public class WebResourceOverrideFilter extends AbstractFilter {
                 if (curFile.exists()) {
                     File oldFile = new File(realPath + OLD_FILE_SUFFIX);
 
-                    if (!oldFile.exists() &&
-                            !new File(realPath + DEL_FILE_SUFFIX).exists()) {
+                    if (!oldFile.exists()
+                            && !new File(realPath + DEL_FILE_SUFFIX).exists()) {
                         IoUtils.rename(curFile, oldFile);
                     }
 

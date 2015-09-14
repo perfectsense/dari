@@ -54,8 +54,8 @@ public class Location {
         double x2 = rad(other.getX());
         double y2 = rad(other.getY());
         return Math.acos(
-                Math.cos(x1) * Math.cos(x2) * Math.cos(y2 - y1) +
-                Math.sin(x1) * Math.sin(x2));
+                Math.cos(x1) * Math.cos(x2) * Math.cos(y2 - y1)
+                        + Math.sin(x1) * Math.sin(x2));
     }
 
     private double rad(double degree) {

@@ -3,6 +3,7 @@ package com.psddev.dari.util;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
@@ -112,7 +113,7 @@ public class LdapUtils {
                 String caCertPath = Settings.get(String.class, CUSTOM_CA_CERTIFICATE_PATH_SETTING);
 
                 if (!ObjectUtils.isBlank(caCertPath)) {
-                    caCertString = IoUtils.toString(new File(caCertPath.trim()), StringUtils.UTF_8);
+                    caCertString = IoUtils.toString(new File(caCertPath.trim()), StandardCharsets.UTF_8);
                 }
             }
 
@@ -128,7 +129,7 @@ public class LdapUtils {
 
                 // Custom SSL socket factory based on the CA cert.
                 KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-                InputStream caCertInput = new ByteArrayInputStream(caCertString.getBytes(StringUtils.UTF_8));
+                InputStream caCertInput = new ByteArrayInputStream(caCertString.getBytes(StandardCharsets.UTF_8));
                 Certificate caCert = CertificateFactory.getInstance("X.509").generateCertificate(caCertInput);
                 TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
                 SSLContext sslContext = SSLContext.getInstance("TLS");

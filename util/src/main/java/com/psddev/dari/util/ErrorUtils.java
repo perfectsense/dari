@@ -1,6 +1,12 @@
 package com.psddev.dari.util;
 
-/** Error utility methods. */
+/**
+ * Error utility methods.
+ *
+ * @deprecated Use {@link com.google.common.base.Preconditions} or
+ *             {@link com.google.common.base.Throwables} instead.
+ */
+@Deprecated
 public final class ErrorUtils {
 
     /**

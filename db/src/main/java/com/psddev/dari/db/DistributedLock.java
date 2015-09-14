@@ -92,13 +92,13 @@ public class DistributedLock implements Lock {
         }
 
         synchronized (holderRef) {
-            State key = State.getInstance(Query.
-                    from(Object.class).
-                    where("_id = ?", keyId).
-                    using(database).
-                    noCache().
-                    master().
-                    first());
+            State key = State.getInstance(Query
+                    .from(Object.class)
+                    .where("_id = ?", keyId)
+                    .using(database)
+                    .noCache()
+                    .master()
+                    .first());
 
             if (key == null) {
                 key = new State();
@@ -107,7 +107,7 @@ public class DistributedLock implements Lock {
                 key.put("keyString", keyString);
 
             } else {
-                if (ObjectUtils.to(long.class, key.get("lastPing")) + TIMEOUT < System.currentTimeMillis()) {
+                if (ObjectUtils.to(long.class, key.get("lastPing")) + TIMEOUT < database.now()) {
                     LOGGER.debug("Timeout exceeded: [{}]", this);
                 } else {
                     return false;
@@ -116,7 +116,7 @@ public class DistributedLock implements Lock {
 
             try {
                 key.replaceAtomically("lockId", lockId);
-                key.replaceAtomically("lastPing", System.currentTimeMillis());
+                key.replaceAtomically("lastPing", database.now());
                 key.saveImmediately();
 
             } catch (DatabaseException ex) {
@@ -143,7 +143,7 @@ public class DistributedLock implements Lock {
      */
     @Override
     public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
-        long end = System.currentTimeMillis() + unit.toMillis(time);
+        long end = database.now() + unit.toMillis(time);
 
         do {
             if (tryLock()) {
@@ -151,7 +151,7 @@ public class DistributedLock implements Lock {
             } else {
                 Thread.sleep(TRY_INTERVAL);
             }
-        } while (System.currentTimeMillis() < end);
+        } while (database.now() < end);
 
         return false;
     }
@@ -178,13 +178,13 @@ public class DistributedLock implements Lock {
             try {
                 LOGGER.debug("Releasing [{}]", this);
 
-                State key = State.getInstance(Query.
-                        from(Object.class).
-                        where("_id = ?", keyId).
-                        using(database).
-                        noCache().
-                        master().
-                        first());
+                State key = State.getInstance(Query
+                        .from(Object.class)
+                        .where("_id = ?", keyId)
+                        .using(database)
+                        .noCache()
+                        .master()
+                        .first());
 
                 if (key != null && lockId.equals(key.get("lockId"))) {
                     key.deleteImmediately();
@@ -205,8 +205,8 @@ public class DistributedLock implements Lock {
 
         } else if (other instanceof DistributedLock) {
             DistributedLock otherLock = (DistributedLock) other;
-            return database.equals(otherLock.database) &&
-                    keyId.equals(otherLock.keyId);
+            return database.equals(otherLock.database)
+                    && keyId.equals(otherLock.keyId);
 
         } else {
             return false;

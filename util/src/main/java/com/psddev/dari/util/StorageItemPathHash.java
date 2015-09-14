@@ -1,5 +1,6 @@
 package com.psddev.dari.util;
 
+import java.nio.ByteBuffer;
 import java.util.Map;
 
 /**
@@ -12,7 +13,7 @@ public class StorageItemPathHash extends AbstractStorageItemHash {
     @Override
     public int hashStorageItem(StorageItem storageItem) {
         String path = storageItem.getPath();
-        return path != null ? path.hashCode() : 0;
+        return path != null ? ByteBuffer.wrap(StringUtils.md5(path)).getInt() : 0;
     }
 
     @Override

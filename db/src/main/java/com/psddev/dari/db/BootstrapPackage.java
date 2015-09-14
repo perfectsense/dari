@@ -224,8 +224,8 @@ public class BootstrapPackage extends Record {
             for (Map.Entry<ObjectField, ObjectType> entry : checkFields.entrySet()) {
                 ObjectField field = entry.getKey();
                 ObjectType t = entry.getValue();
-                if (field.getParentType() != null &&
-                        field.getParentType().as(TypeData.class).getFollowReferencesFields().contains(field.getInternalName())) {
+                if (field.getParentType() != null
+                        && field.getParentType().as(TypeData.class).getFollowReferencesFields().contains(field.getInternalName())) {
                     continue;
                 }
                 if (!allMyTypes.contains(t)) {
@@ -272,8 +272,8 @@ public class BootstrapPackage extends Record {
             Set<UUID> concreteTypeIds = new HashSet<UUID>();
 
             for (ObjectType type : database.getEnvironment().getTypes()) {
-                if (!type.as(TypeData.class).getTypeMappableGroups().isEmpty() &&
-                        type.as(TypeData.class).getTypeMappableUniqueKey() != null) {
+                if (!type.as(TypeData.class).getTypeMappableGroups().isEmpty()
+                        && type.as(TypeData.class).getTypeMappableUniqueKey() != null) {
                     allTypeMappableTypes.add(type);
                 }
             }

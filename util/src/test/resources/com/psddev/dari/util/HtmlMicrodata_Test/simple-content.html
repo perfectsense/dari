@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+
+<head>
+    <title>Test Page for HtmlMicrodata / Value Nodes</title>
+</head>
+
+<body>
+
+<div itemscope itemtype="http://schema.org/Recipe">
+
+    <div>
+        <h1 itemprop="name">Mexican Rigatoni and Cheese</h1>
+    </div>
+
+    <div>
+        <span>Prep:</span>
+        <span itemprop="prepTime" content="PT30M">30 mins</span>
+    </div>
+
+    <div>
+        <span>Cook Time DateTime:</span>
+        <time itemprop="cookTimeDateTime" datetime="PT15M">15 mins</time>
+    </div>
+
+    <div>
+        <span>Cook Time Content:</span>
+        <time itemprop="cookTimeContent" content="PT14M">14 mins</time>
+    </div>
+
+    <div>
+        <span>Cook Time Value:</span>
+        <time itemprop="cookTimeValue">13 mins</time>
+    </div>
+
+</div>
+
+</body>
+</html>

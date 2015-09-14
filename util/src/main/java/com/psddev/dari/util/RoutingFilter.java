@@ -39,7 +39,7 @@ public class RoutingFilter extends AbstractFilter {
     protected void doInit() {
         servletWrappers = new ArrayList<ServletWrapper>();
 
-        for (Class<? extends Servlet> servletClass : ClassFinder.Static.findClasses(Servlet.class)) {
+        for (Class<? extends Servlet> servletClass : ClassFinder.findClasses(Servlet.class)) {
             try {
                 if (Modifier.isAbstract(servletClass.getModifiers())) {
                     continue;

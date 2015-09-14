@@ -8,7 +8,6 @@ import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 
-import com.psddev.dari.util.ErrorUtils;
 import com.psddev.dari.util.HtmlWriter;
 
 /**
@@ -98,7 +97,7 @@ public class FormWriter extends HtmlWriter {
     // Finds the type associated with the given state, throwing
     // errors if there isn't one.
     private ObjectType findType(State state) {
-        ErrorUtils.errorIfNull(state, "state");
+        com.psddev.dari.util.ErrorUtils.errorIfNull(state, "state");
 
         ObjectType type = state.getType();
         if (type == null) {
@@ -221,7 +220,7 @@ public class FormWriter extends HtmlWriter {
      * using the given {@code request}.
      */
     public void update(State state, HttpServletRequest request, String... fieldNames) {
-        ErrorUtils.errorIfNull(request, "request");
+        com.psddev.dari.util.ErrorUtils.errorIfNull(request, "request");
 
         if (fieldNames != null) {
             ObjectType type = findType(state);
@@ -239,7 +238,7 @@ public class FormWriter extends HtmlWriter {
      * {@code request}.
      */
     public void updateAll(State state, HttpServletRequest request) {
-        ErrorUtils.errorIfNull(request, "request");
+        com.psddev.dari.util.ErrorUtils.errorIfNull(request, "request");
 
         ObjectType type = findType(state);
         for (ObjectField field : type.getFields()) {

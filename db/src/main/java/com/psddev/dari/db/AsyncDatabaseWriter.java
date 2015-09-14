@@ -18,9 +18,11 @@ public class AsyncDatabaseWriter<E> extends AsyncConsumer<E> {
     private final boolean isCommitEventually;
 
     private double commitSizeJitter = DEFAULT_COMMIT_SIZE_JITTER;
+    private long maximumDataLength;
 
     private transient int nextCommitSize;
     private transient E lastItem;
+    private transient long dataLength;
     private final transient List<E> toBeCommitted = new ArrayList<E>();
 
     /**
@@ -76,6 +78,14 @@ public class AsyncDatabaseWriter<E> extends AsyncConsumer<E> {
      */
     public void setCommitSizeJitter(double commitSizeJitter) {
         this.commitSizeJitter = commitSizeJitter;
+    }
+
+    public long getMaximumDataLength() {
+        return maximumDataLength;
+    }
+
+    public void setMaximumDataLength(long maximumDataLength) {
+        this.maximumDataLength = maximumDataLength;
     }
 
     // Commits all pending writes.
@@ -141,8 +151,13 @@ public class AsyncDatabaseWriter<E> extends AsyncConsumer<E> {
     @Override
     protected void consume(E item) {
         lastItem = item;
+        dataLength += ObjectUtils.to(long.class, State.getInstance(item).getExtras().get(AbstractDatabase.DATA_LENGTH_EXTRA));
+
         toBeCommitted.add(item);
-        if (toBeCommitted.size() >= nextCommitSize) {
+
+        if (toBeCommitted.size() >= nextCommitSize
+                || (maximumDataLength > 0
+                && dataLength > maximumDataLength)) {
             calculateNextCommitSize();
             commit();
         }

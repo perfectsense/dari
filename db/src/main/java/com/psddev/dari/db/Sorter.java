@@ -78,8 +78,8 @@ public class Sorter extends Record {
 
         } else if (other instanceof Sorter) {
             Sorter otherSorter = (Sorter) other;
-            return getOperator().equals(otherSorter.getOperator()) &&
-                    getOptions().equals(otherSorter.getOptions());
+            return getOperator().equals(otherSorter.getOperator())
+                    && getOptions().equals(otherSorter.getOptions());
         } else {
             return false;
         }

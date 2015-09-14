@@ -3,6 +3,7 @@ package com.psddev.dari.util;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,10 +15,15 @@ import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.ServletResponse;
+import javax.servlet.WriteListener;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 
+/**
+ * @deprecated 2015-07-23 - No replacement.
+ */
+@Deprecated
 public class FrameFilter extends AbstractFilter {
 
     private static final String PARAMETER_PREFIX = "_frame.";
@@ -86,8 +92,8 @@ public class FrameFilter extends AbstractFilter {
             if (body != null) {
                 PrintWriter writer = response.getWriter();
 
-                if (JspUtils.isAjaxRequest(request) ||
-                        "html".equals(request.getParameter("_result"))) {
+                if (JspUtils.isAjaxRequest(request)
+                        || "html".equals(request.getParameter("_result"))) {
                     response.setContentType("text/plain");
                     writer.write(body);
 
@@ -140,8 +146,8 @@ public class FrameFilter extends AbstractFilter {
         } finally {
             DiscardingResponse discarding = (DiscardingResponse) request.getAttribute(DISCARDING_RESPONSE_ATTRIBUTE);
 
-            if (discarding != null &&
-                    JspUtils.getCurrentServletPath(request).equals(discarding.donePath)) {
+            if (discarding != null
+                    && JspUtils.getCurrentServletPath(request).equals(discarding.donePath)) {
                 request.setAttribute(DISCARDING_DONE_ATTRIBUTE, Boolean.TRUE);
             }
         }
@@ -152,7 +158,7 @@ public class FrameFilter extends AbstractFilter {
         public final String donePath;
 
         private final ServletOutputStream output = new DiscardingOutputStream();
-        private final PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, StringUtils.UTF_8));
+        private final PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8));
 
         public DiscardingResponse(HttpServletResponse response, String donePath) {
             super(response);
@@ -171,6 +177,16 @@ public class FrameFilter extends AbstractFilter {
     }
 
     private static final class DiscardingOutputStream extends ServletOutputStream {
+
+        @Override
+        public boolean isReady() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void setWriteListener(WriteListener writeListener) {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public void write(int b) {

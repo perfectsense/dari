@@ -7,15 +7,17 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Reader;
-import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,8 +36,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 import javax.servlet.jsp.JspFactory;
-import javax.xml.bind.DatatypeConverter;
 
+import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,17 +79,17 @@ public final class JspUtils {
             String username,
             String password) {
 
-        if (ObjectUtils.isBlank(username) &&
-                ObjectUtils.isBlank(password) &&
-                !Settings.isProduction()) {
+        if (ObjectUtils.isBlank(username)
+                && ObjectUtils.isBlank(password)
+                && !Settings.isProduction()) {
             return true;
         }
 
         String[] credentials = getBasicCredentials(request);
 
-        if (credentials != null &&
-                credentials[0].equals(username) &&
-                credentials[1].equals(password)) {
+        if (credentials != null
+                && credentials[0].equals(username)
+                && credentials[1].equals(password)) {
             return true;
 
         } else {
@@ -98,46 +100,46 @@ public final class JspUtils {
 
     /**
      * Returns the basic access authentication credentials from the
-     * {@code Authorization} header.
+     * {@code Authorization} header in the given {@code request}.
      *
-     * @param request Can't be {@code null}.
-     * @return {@code null} if not found, or a 2-element string array.
+     * @param request
+     *        Can't be {@code null}.
+     *
+     * @return {@code null} if not found, or a 2-element string array
+     *         containing the username and the password.
      */
     public static String[] getBasicCredentials(HttpServletRequest request) {
+        Preconditions.checkNotNull(request);
+
         String header = request.getHeader("Authorization");
 
         if (!ObjectUtils.isBlank(header)) {
             int spaceAt = header.indexOf(' ');
 
             if (spaceAt > -1 && "Basic".equals(header.substring(0, spaceAt))) {
-                String encoding = request.getCharacterEncoding();
-
-                if (ObjectUtils.isBlank(encoding)) {
-                    encoding = "UTF-8";
-                }
-
-                String decoded = null;
-
                 try {
-                    byte[] decodedBytes = DatatypeConverter.parseBase64Binary(header.substring(spaceAt + 1));
-                    decoded = new String(decodedBytes, encoding);
+                    String encoding = request.getCharacterEncoding();
+                    Charset charset = ObjectUtils.isBlank(encoding)
+                            ? StandardCharsets.UTF_8
+                            : Charset.forName(encoding);
+
+                    String decoded = new String(
+                            Base64.getDecoder().decode(header.substring(spaceAt + 1).getBytes(charset)),
+                            charset);
+
+                    if (!ObjectUtils.isBlank(decoded)) {
+                        int colonAt = decoded.indexOf(':');
+
+                        if (colonAt > -1) {
+                            return new String[] {
+                                    decoded.substring(0, colonAt),
+                                    decoded.substring(colonAt + 1) };
+                        }
+                    }
 
                 } catch (IllegalArgumentException error) {
                     // Not a valid Base64 string, so just ignore the header
                     // value.
-
-                } catch (UnsupportedEncodingException error) {
-                    throw new IllegalStateException(error);
-                }
-
-                if (!ObjectUtils.isBlank(decoded)) {
-                    int colonAt = decoded.indexOf(':');
-
-                    if (colonAt > -1) {
-                        return new String[] {
-                                decoded.substring(0, colonAt),
-                                decoded.substring(colonAt + 1) };
-                    }
                 }
             }
         }
@@ -178,10 +180,10 @@ public final class JspUtils {
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
 
-            sha1.update(name.getBytes(StringUtils.UTF_8));
-            sha1.update(value.getBytes(StringUtils.UTF_8));
+            sha1.update(name.getBytes(StandardCharsets.UTF_8));
+            sha1.update(value.getBytes(StandardCharsets.UTF_8));
             sha1.update(Long.valueOf(timestamp).byteValue());
-            sha1.update(Settings.getSecret().getBytes(StringUtils.UTF_8));
+            sha1.update(Settings.getSecret().getBytes(StandardCharsets.UTF_8));
             return StringUtils.hex(sha1.digest());
 
         } catch (NoSuchAlgorithmException error) {
@@ -212,21 +214,39 @@ public final class JspUtils {
     }
 
     /**
-     * Forwards to the resource at the given {@code path} modified by the
-     * given {@code parameters}.
+     * Forwards to the resource at the given {@code path} with the given
+     * {@code attributes} overridden.
+     *
+     * @param request
+     *        Can't be {@code null}.
+     *
+     * @param response
+     *        Can't be {@code null}.
+     *
+     * @param path
+     *        Can't be {@code null}.
+     *
+     * @param attributes
+     *        If {@code null}, doesn't override any attributes.
      */
     public static void forward(
             ServletRequest request,
             ServletResponse response,
             String path,
-            Object... parameters)
+            Object... attributes)
             throws IOException, ServletException {
 
-        Map<String, Object> old = setAttributes(request, parameters);
+        Preconditions.checkNotNull(request);
+        Preconditions.checkNotNull(response);
+        Preconditions.checkNotNull(path);
+
+        Map<String, Object> oldAttributes = setAttributes(request, attributes);
+
         try {
             request.getRequestDispatcher(path).forward(request, response);
+
         } finally {
-            setAttributesWithMap(request, old);
+            setAttributesWithMap(request, oldAttributes);
         }
     }
 
@@ -275,30 +295,30 @@ public final class JspUtils {
 
     /** Returns the current context path of the given {@code request}. */
     public static String getCurrentContextPath(HttpServletRequest request) {
-        return isIncluded(request) ?
-                (String) request.getAttribute("javax.servlet.include.context_path") :
-                request.getContextPath();
+        return isIncluded(request)
+                ? (String) request.getAttribute("javax.servlet.include.context_path")
+                : request.getContextPath();
     }
 
     /** Returns the current path info of the given {@code request}. */
     public static String getCurrentPathInfo(HttpServletRequest request) {
-        return isIncluded(request) ?
-                (String) request.getAttribute("javax.servlet.include.path_info") :
-                request.getPathInfo();
+        return isIncluded(request)
+                ? (String) request.getAttribute("javax.servlet.include.path_info")
+                : request.getPathInfo();
     }
 
     /** Returns the current query string of the given {@code request}. */
     public static String getCurrentQueryString(HttpServletRequest request) {
-        return isIncluded(request) ?
-                (String) request.getAttribute("javax.servlet.include.query_string") :
-                request.getQueryString();
+        return isIncluded(request)
+                ? (String) request.getAttribute("javax.servlet.include.query_string")
+                : request.getQueryString();
     }
 
     /** Returns the current servlet path of the given {@code request}. */
     public static String getCurrentServletPath(HttpServletRequest request) {
-        return isIncluded(request) ?
-                (String) request.getAttribute("javax.servlet.include.servlet_path") :
-                request.getServletPath();
+        return isIncluded(request)
+                ? (String) request.getAttribute("javax.servlet.include.servlet_path")
+                : request.getServletPath();
     }
 
     /** Returns the exception that the given {@code request} is handling. */
@@ -404,30 +424,30 @@ public final class JspUtils {
 
     /** Returns the original context path of the given {@code request}. */
     public static String getOriginalContextPath(HttpServletRequest request) {
-        return isForwarded(request) ?
-                (String) request.getAttribute("javax.servlet.forward.context_path") :
-                request.getContextPath();
+        return isForwarded(request)
+                ? (String) request.getAttribute("javax.servlet.forward.context_path")
+                : request.getContextPath();
     }
 
     /** Returns the original path info of the given {@code request}. */
     public static String getOriginalPathInfo(HttpServletRequest request) {
-        return isForwarded(request) ?
-                (String) request.getAttribute("javax.servlet.forward.path_info") :
-                request.getPathInfo();
+        return isForwarded(request)
+                ? (String) request.getAttribute("javax.servlet.forward.path_info")
+                : request.getPathInfo();
     }
 
     /** Returns the original query string of the given {@code request}. */
     public static String getOriginalQueryString(HttpServletRequest request) {
-        return isForwarded(request) ?
-                (String) request.getAttribute("javax.servlet.forward.query_string") :
-                request.getQueryString();
+        return isForwarded(request)
+                ? (String) request.getAttribute("javax.servlet.forward.query_string")
+                : request.getQueryString();
     }
 
     /** Returns the original servlet path of the given {@code request}. */
     public static String getOriginalServletPath(HttpServletRequest request) {
-        return isForwarded(request) ?
-                (String) request.getAttribute("javax.servlet.forward.servlet_path") :
-                request.getServletPath();
+        return isForwarded(request)
+                ? (String) request.getAttribute("javax.servlet.forward.servlet_path")
+                : request.getServletPath();
     }
 
     /**
@@ -483,7 +503,7 @@ public final class JspUtils {
         try {
             return response.getWriter();
         } catch (IllegalStateException error) {
-            return new PrintWriter(new OutputStreamWriter(response.getOutputStream(), StringUtils.UTF_8));
+            return new PrintWriter(new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8));
         }
     }
 
@@ -528,9 +548,9 @@ public final class JspUtils {
             ServletRequest request,
             ServletResponse response) {
 
-        return (response instanceof HttpServletResponse &&
-                ((HttpServletResponse) response).containsHeader("Location")) ||
-                request.getAttribute(IS_FINISHED_ATTRIBUTE) != null;
+        return (response instanceof HttpServletResponse
+                && ((HttpServletResponse) response).containsHeader("Location"))
+                || request.getAttribute(IS_FINISHED_ATTRIBUTE) != null;
     }
 
     /**
@@ -583,9 +603,9 @@ public final class JspUtils {
      * </ul>
      */
     public static boolean isSecure(HttpServletRequest request) {
-        return request.isSecure() ||
-                "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto")) ||
-                System.getenv("HTTPS") != null;
+        return request.isSecure()
+                || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"))
+                || System.getenv("HTTPS") != null;
     }
 
     /** @deprecated Use {@link #isSecure} instead. */
@@ -768,34 +788,54 @@ public final class JspUtils {
     /**
      * Sets all given {@code attributes} in the given {@code request}
      * and returns the previously set values.
+     *
+     * @param request
+     *        Can't be {@code null}.
+     *
+     * @param attributes
+     *        Alternating key and value pairs. May be {@code null}.
+     *
+     * @return Never {@code null}.
      */
-    public static Map<String, Object> setAttributes(
-            ServletRequest request,
-            Object... attributes) {
+    public static Map<String, Object> setAttributes(ServletRequest request, Object... attributes) {
+        Preconditions.checkNotNull(request);
 
-        Map<String, Object> old = new HashMap<String, Object>();
+        Map<String, Object> old = new HashMap<>();
+
         for (int i = 0, length = attributes.length; i < length; i += 2) {
             String key = String.valueOf(attributes[i]);
+
             old.put(key, request.getAttribute(key));
             request.setAttribute(key, i + 1 < length ? attributes[i + 1] : null);
         }
+
         return old;
     }
 
     /**
      * Sets all given {@code attributes} in the given {@code request}
      * and returns the previously set values.
+     *
+     * @param request
+     *        Can't be {@code null}.
+     *
+     * @param attributes
+     *        May be {@code null}.
+     *
+     * @return Never {@code null}.
      */
-    public static Map<String, Object> setAttributesWithMap(
-            ServletRequest request,
-            Map<String, Object> attributes) {
+    public static Map<String, Object> setAttributesWithMap(ServletRequest request, Map<String, Object> attributes) {
+        Preconditions.checkNotNull(request);
 
-        Map<String, Object> old = new HashMap<String, Object>();
-        for (Map.Entry<String, Object> e : attributes.entrySet()) {
-            String key = e.getKey();
+        Map<String, Object> old = new HashMap<>();
+
+        for (Map.Entry<String, Object> entry : attributes.entrySet()) {
+            String key = entry.getKey();
+
             old.put(key, request.getAttribute(key));
-            request.setAttribute(key, e.getValue());
+            request.setAttribute(key, entry.getValue());
         }
+
         return old;
     }
 
@@ -853,9 +893,9 @@ public final class JspUtils {
      */
     public static String signCookie(String name, String unsignedValue) {
         long timestamp = System.currentTimeMillis();
-        return unsignedValue +
-                "|" + timestamp +
-                "|" + createCookieSignature(name, unsignedValue, timestamp);
+        return unsignedValue
+                + "|" + timestamp
+                + "|" + createCookieSignature(name, unsignedValue, timestamp);
     }
 
     /**
@@ -920,8 +960,8 @@ public final class JspUtils {
             try {
                 URI pathUri = new URI(path).resolve("./");
 
-                while (context.getResource(pathUri.resolve(WEB_INF_DIRECTORY).toString()) == null &&
-                        pathUri.toString().length() > 1) {
+                while (context.getResource(pathUri.resolve(WEB_INF_DIRECTORY).toString()) == null
+                        && pathUri.toString().length() > 1) {
                     pathUri = pathUri.resolve("../");
                 }
 
@@ -1111,9 +1151,9 @@ public final class JspUtils {
                 Writer writer) {
 
             super(response);
-            this.writer = writer instanceof PrintWriter ?
-                    (PrintWriter) writer :
-                    new PrintWriter(writer);
+            this.writer = writer instanceof PrintWriter
+                    ? (PrintWriter) writer
+                    : new PrintWriter(writer);
         }
 
         // --- HttpServletResponseWrapper support ---

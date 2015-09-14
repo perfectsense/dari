@@ -19,7 +19,13 @@ import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 
-/** Database backed by <a href="http://www.mongodb.org/">MongoDB</a>. */
+// CHECKSTYLE:OFF
+/**
+ * Database backed by <a href="http://www.mongodb.org/">MongoDB</a>.
+ *
+ * @deprecated No replacement.
+ */
+@Deprecated
 public class MongoDatabase extends AbstractDatabase<DBCollection> {
 
     public static final String ADDRESS_SETTING = "address";

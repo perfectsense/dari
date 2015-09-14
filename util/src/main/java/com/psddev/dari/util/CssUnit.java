@@ -1,5 +1,10 @@
 package com.psddev.dari.util;
 
+// CHECKSTYLE:OFF
+/**
+ * @deprecated No replacement.
+ */
+@Deprecated
 public class CssUnit {
 
     private final double number;

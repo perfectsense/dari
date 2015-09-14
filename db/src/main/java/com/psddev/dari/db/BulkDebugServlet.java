@@ -3,7 +3,9 @@ package com.psddev.dari.db;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.servlet.ServletException;
@@ -58,20 +60,22 @@ public class BulkDebugServlet extends HttpServlet {
             if ("index".equals(action)) {
                 String executor = INDEXER_PREFIX + (selectedType != null ? selectedType.getInternalName() : "ALL");
                 AsyncQueue<Object> queue = new AsyncQueue<Object>();
-                Query<Object> query = Query.
-                        fromType(selectedType).
-                        resolveToReferenceOnly();
+                Query<Object> query = Query
+                        .fromType(selectedType)
+                        .resolveToReferenceOnly();
+
+                query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
 
                 new AsyncDatabaseReader<Object>(
-                        executor, queue, selectedDatabase, query).
-                        submit();
+                        executor, queue, selectedDatabase, query)
+                        .submit();
 
                 queue.closeAutomatically();
 
                 for (int i = 0; i < writersCount; ++ i) {
                     new AsyncDatabaseWriter<Object>(
-                            executor, queue, selectedDatabase, WriteOperation.INDEX, commitSize, true).
-                            submit();
+                            executor, queue, selectedDatabase, WriteOperation.INDEX, commitSize, true)
+                            .submit();
                 }
 
             } else if ("copy".equals(action)) {
@@ -80,12 +84,32 @@ public class BulkDebugServlet extends HttpServlet {
 
                 String executor = COPIER_PREFIX + " from " + source + " to " + destination;
                 AsyncQueue<Object> queue = new AsyncQueue<Object>();
-                Query<Object> query = Query.
-                        fromType(selectedType).
-                        resolveToReferenceOnly();
+                Query<Object> query = Query
+                        .fromType(selectedType)
+                        .resolveToReferenceOnly();
+
+                if (destination instanceof AbstractDatabase) {
+                    Set<String> destinationGroups = ((AbstractDatabase<?>) destination).getGroups();
+
+                    if (!destinationGroups.contains(UUID.randomUUID().toString())) {
+                        Set<UUID> savableTypeIds = new HashSet<>();
+
+                        for (ObjectType type : source.getEnvironment().getTypes()) {
+                            for (String typeGroup : type.getGroups()) {
+                                if (destinationGroups.contains(typeGroup)) {
+                                    savableTypeIds.add(type.getId());
+                                    break;
+                                }
+                            }
+                        }
+
+                        query.and("_type = ?", savableTypeIds);
+                    }
+                }
+
+                query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
 
                 if (wp.param(boolean.class, "isResumable") && source instanceof SqlDatabase) {
-                    query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
                     String resumeIdStr = wp.param(String.class, "resumeId");
                     if (!StringUtils.isEmpty(resumeIdStr)) {
                         UUID resumeId = UuidUtils.fromString(resumeIdStr);
@@ -112,11 +136,19 @@ public class BulkDebugServlet extends HttpServlet {
                 }).submit();
 
                 queue.closeAutomatically();
+                System.gc();
+
+                long maximumDataLength = Runtime.getRuntime().freeMemory() / 10 / writersCount / commitSize;
+
+                System.out.println("maximum data length: " + maximumDataLength);
 
                 for (int i = 0; i < writersCount; ++ i) {
-                    new AsyncDatabaseWriter<Object>(
-                            executor, queue, destination, WriteOperation.SAVE_UNSAFELY, commitSize, true).
-                            submit();
+                    AsyncDatabaseWriter<Object> writer = new AsyncDatabaseWriter<>(
+                            executor, queue, destination, WriteOperation.SAVE_UNSAFELY, commitSize, true);
+
+                    writer.setCommitSizeJitter(0.2);
+                    writer.setMaximumDataLength(maximumDataLength);
+                    writer.submit();
                 }
             }
 

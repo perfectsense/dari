@@ -17,8 +17,8 @@ public class JvmObjectArrayLoad extends JvmObject {
         Object object = this.object.resolve();
         Object index = this.index.resolve();
 
-        if (object instanceof Object[] &&
-                index instanceof Integer) {
+        if (object instanceof Object[]
+                && index instanceof Integer) {
             return ((Object[]) object)[((Integer) index).intValue()];
 
         } else {

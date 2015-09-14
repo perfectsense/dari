@@ -175,9 +175,9 @@ public class SolrPaginatedResult<E> extends PaginatedResult<E> implements HtmlOb
             }
 
             @SuppressWarnings("unchecked")
-            List<T> objects = (List<T>) (this.klass == null || this.klass == Query.class ?
-                    Query.fromAll().where("id = ?", ids).selectAll() :
-                    Query.from(this.klass).where("id = ?", ids).selectAll());
+            List<T> objects = (List<T>) (this.klass == null || this.klass == Query.class
+                    ? Query.fromAll().where("id = ?", ids).selectAll()
+                    : Query.from(this.klass).where("id = ?", ids).selectAll());
 
             if (objects != null) {
                 for (Object o : objects) {

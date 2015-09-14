@@ -91,8 +91,8 @@ public final class CompoundPredicate extends Predicate {
 
         } else if (other instanceof CompoundPredicate) {
             CompoundPredicate otherPredicate = (CompoundPredicate) other;
-            return getOperator().equals(otherPredicate.getOperator()) &&
-                    children.equals(otherPredicate.children);
+            return getOperator().equals(otherPredicate.getOperator())
+                    && children.equals(otherPredicate.children);
 
         } else {
             return false;

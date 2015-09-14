@@ -3,18 +3,19 @@ package com.psddev.dari.db;
 import java.util.AbstractList;
 import java.util.List;
 
+import com.google.common.base.Preconditions;
 import com.psddev.dari.util.Lazy;
 
 /**
  * Internal list implementation that automatically loads a list of objects
- * using a junction query.
+ * in a state field using a junction query.
  */
 class JunctionList extends AbstractList<Object> {
 
     private final State state;
     private final ObjectField field;
 
-    private final Lazy<List<Object>> list = new Lazy<List<Object>>() {
+    private final transient Lazy<List<Object>> list = new Lazy<List<Object>>() {
 
         @Override
         protected List<Object> create() {
@@ -22,12 +23,22 @@ class JunctionList extends AbstractList<Object> {
         }
     };
 
+    /**
+     * Creates an instance with the given parameters.
+     *
+     * @param state
+     *        Can't be {@code null}.
+     *
+     * @param field
+     *        Can't be {@code null}.
+     */
     public JunctionList(State state, ObjectField field) {
+        Preconditions.checkNotNull(state);
+        Preconditions.checkNotNull(field);
+
         this.state = state;
         this.field = field;
     }
-
-    // --- AbstractList support ---
 
     @Override
     public void add(int index, Object item) {

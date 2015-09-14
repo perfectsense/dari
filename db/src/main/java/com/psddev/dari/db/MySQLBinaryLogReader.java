@@ -42,11 +42,14 @@ class MySQLBinaryLogReader {
     private static final Pattern MYSQL_JDBC_URL_PATTERN = Pattern.compile("(?i)jdbc:mysql://([^:/]+)(?::(\\d+))?/([^?]+).*");
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    private final SqlDatabase database;
     private final BinaryLogClient client;
     private final MySQLBinaryLogLifecycleListener lifecycleListener;
     private final AtomicBoolean running = new AtomicBoolean();
 
-    public MySQLBinaryLogReader(Cache<UUID, Object[]> cache, DataSource dataSource) {
+    public MySQLBinaryLogReader(SqlDatabase database, Cache<UUID, Object[]> cache, DataSource dataSource) {
+        this.database = database;
+
         Class<?> dataSourceClass = dataSource.getClass();
         String dataSourceClassName = dataSourceClass.getName();
         String jdbcUrl = null;
@@ -107,7 +110,7 @@ class MySQLBinaryLogReader {
 
         client.setServerId(RANDOM.nextLong());
         client.registerLifecycleListener(lifecycleListener);
-        client.registerEventListener(new MySQLBinaryLogEventListener(cache, catalog));
+        client.registerEventListener(new MySQLBinaryLogEventListener(database, cache, catalog));
 
         @SuppressWarnings("rawtypes")
         Map<EventType, EventDataDeserializer> eventDataDeserializers = new HashMap<EventType, EventDataDeserializer>();

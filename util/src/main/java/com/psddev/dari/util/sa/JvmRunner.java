@@ -19,7 +19,7 @@ import org.objectweb.asm.Type;
 import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ObjectUtils;
 
-class JvmRunner implements MethodVisitor {
+class JvmRunner extends MethodVisitor {
 
     private int callingMethodLine;
     private int instructionIndex;
@@ -29,12 +29,16 @@ class JvmRunner implements MethodVisitor {
     private final Deque<JvmObject> stack;
 
     public JvmRunner(JvmMethodVisitor parent) {
+        super(Opcodes.ASM5);
+
         this.locals = new CompactMap<Integer, JvmObject>();
         this.parent = parent;
         this.stack = new ArrayDeque<JvmObject>();
     }
 
     public JvmRunner(JvmRunner runner, int instructionIndex) {
+        super(Opcodes.ASM5);
+
         this.instructionIndex = instructionIndex;
         this.lastLine = runner.lastLine;
         this.locals = runner.locals;
@@ -62,9 +66,9 @@ class JvmRunner implements MethodVisitor {
 
         Class<?> objectClass = ObjectUtils.getClassByName(className);
 
-        return dimensions > 0 ?
-                Array.newInstance(objectClass, new int[dimensions]).getClass() :
-                objectClass;
+        return dimensions > 0
+                ? Array.newInstance(objectClass, new int[dimensions]).getClass()
+                : objectClass;
     }
 
     @Override
@@ -468,15 +472,15 @@ class JvmRunner implements MethodVisitor {
                 {
                     stack.pop();
                     stack.push(new JvmObjectArray(
-                            operand == Opcodes.T_BOOLEAN ? Type.BOOLEAN_TYPE :
-                            operand == Opcodes.T_CHAR ? Type.CHAR_TYPE :
-                            operand == Opcodes.T_FLOAT ? Type.FLOAT_TYPE :
-                            operand == Opcodes.T_DOUBLE ? Type.DOUBLE_TYPE :
-                            operand == Opcodes.T_BYTE ? Type.BYTE_TYPE :
-                            operand == Opcodes.T_SHORT ? Type.SHORT_TYPE :
-                            operand == Opcodes.T_INT ? Type.INT_TYPE :
-                            operand == Opcodes.T_LONG ? Type.LONG_TYPE :
-                            null));
+                            operand == Opcodes.T_BOOLEAN ? Type.BOOLEAN_TYPE
+                            : operand == Opcodes.T_CHAR ? Type.CHAR_TYPE
+                            : operand == Opcodes.T_FLOAT ? Type.FLOAT_TYPE
+                            : operand == Opcodes.T_DOUBLE ? Type.DOUBLE_TYPE
+                            : operand == Opcodes.T_BYTE ? Type.BYTE_TYPE
+                            : operand == Opcodes.T_SHORT ? Type.SHORT_TYPE
+                            : operand == Opcodes.T_INT ? Type.INT_TYPE
+                            : operand == Opcodes.T_LONG ? Type.LONG_TYPE
+                            : null));
                     break;
                 }
 
@@ -737,9 +741,9 @@ class JvmRunner implements MethodVisitor {
                 {
                     JvmObject local = locals.get(var);
 
-                    stack.push(local == null ?
-                            new JvmObjectLocal(parent.getLocalType(var), parent.getLocalName(var)) :
-                            local);
+                    stack.push(local == null
+                            ? new JvmObjectLocal(parent.getLocalType(var), parent.getLocalName(var))
+                            : local);
                     break;
                 }
 

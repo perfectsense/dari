@@ -63,8 +63,7 @@ public class QueryDebugServlet extends HttpServlet {
         private enum SubAction {
 
             RAW("Raw"),
-            EDIT_RAW("Edit Raw"),
-            EDIT_FIELDED("Edit Fielded");
+            EDIT_RAW("Edit Raw");
 
             public final String displayName;
 
@@ -177,8 +176,8 @@ public class QueryDebugServlet extends HttpServlet {
                 }
             }
 
-            if (ObjectUtils.isBlank(additionalFieldsString) &&
-                    ObjectUtils.isBlank(filter)) {
+            if (ObjectUtils.isBlank(additionalFieldsString)
+                    && ObjectUtils.isBlank(filter)) {
                 query.resolveToReferenceOnly();
             }
 
@@ -591,28 +590,6 @@ public class QueryDebugServlet extends HttpServlet {
                             writeEnd();
                         writeEnd();
 
-                    } else if (SubAction.EDIT_FIELDED.equals(subAction)) {
-                        @SuppressWarnings("all")
-                        FormWriter form = new FormWriter(this);
-                        form.putAllStandardInputProcessors();
-
-                        if (page.isFormPost()) {
-                            try {
-                                form.updateAll(state, page.getRequest());
-                                state.save();
-                                writeStart("p", "class", "alert alert-success").writeHtml("Saved successfully at " + new Date() + "!").writeEnd();
-                            } catch (RuntimeException error) {
-                                writeStart("div", "class", "alert alert-error").writeObject(error).writeEnd();
-                            }
-                        }
-
-                        writeStart("form", "method", "post", "action", page.url(""));
-                            form.allInputs(state);
-                            writeStart("div", "class", "form-actions");
-                                writeElement("input", "class", "btn btn-success", "type", "submit", "value", "Save");
-                            writeEnd();
-                        writeEnd();
-
                     } else {
                         writeStart("pre");
                             String json = ObjectUtils.toJson(state.getSimpleValues(), true);
@@ -812,12 +789,11 @@ public class QueryDebugServlet extends HttpServlet {
                                         writeStart("td");
                                             writeStart("span",
                                                     "class", "link",
-                                                    "onclick",
-                                                            "var $input = $(this).popup('source').prev();" +
-                                                            "$input.val('" + itemState.getId() + "');" +
-                                                            "$input.prev().text('" + StringUtils.escapeJavaScript(itemState.getLabel()) + "');" +
-                                                            "$(this).popup('close');" +
-                                                            "return false;");
+                                                    "onclick", "var $input = $(this).popup('source').prev();"
+                                                            + "$input.val('" + itemState.getId() + "');"
+                                                            + "$input.prev().text('" + StringUtils.escapeJavaScript(itemState.getLabel()) + "');"
+                                                            + "$(this).popup('close');"
+                                                            + "return false;");
                                                 writeHtml(itemState.getId());
                                             writeEnd();
                                         writeEnd();

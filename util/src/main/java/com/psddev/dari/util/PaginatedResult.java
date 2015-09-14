@@ -39,11 +39,11 @@ public class PaginatedResult<E> {
         this.limit = limit;
         this.count = allItems.size();
         long toIndex = offset + limit;
-        this.items = offset >= count ?
-                new ArrayList<E>() :
-                toIndex >= count ?
-                        allItems.subList((int) offset, (int) count) :
-                        allItems.subList((int) offset, (int) toIndex);
+        this.items = offset >= count
+                ? new ArrayList<E>()
+                : toIndex >= count
+                        ? allItems.subList((int) offset, (int) count)
+                        : allItems.subList((int) offset, (int) toIndex);
     }
 
     public long getOffset() {

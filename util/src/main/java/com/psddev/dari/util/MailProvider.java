@@ -26,9 +26,9 @@ public interface MailProvider extends SettingsBackedObject {
      */
     public static final class Static {
 
-        private static final LoadingCache<String, MailProvider> INSTANCES = CacheBuilder.
-                newBuilder().
-                build(new CacheLoader<String, MailProvider>() {
+        private static final LoadingCache<String, MailProvider> INSTANCES = CacheBuilder
+                .newBuilder()
+                .build(new CacheLoader<String, MailProvider>() {
 
             @Override
             public MailProvider load(String name) {

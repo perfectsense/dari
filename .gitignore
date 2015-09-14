@@ -9,6 +9,7 @@ target
 /mysql/lib_mysqludf_dari.so
 /docs/documentation/javadocs
 /docs/documentation/_site
+/util/dependency-reduced-pom.xml
 
 # Jekyll
 _site

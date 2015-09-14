@@ -7,18 +7,27 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+
+import javax.annotation.ParametersAreNonnullByDefault;
 
 public class TypeDefinition<T> {
 
@@ -29,13 +38,14 @@ public class TypeDefinition<T> {
         return INSTANCES.getUnchecked(type);
     }
 
-    private static final LoadingCache<Type, TypeDefinition<?>> INSTANCES = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<Type, TypeDefinition<?>>() {
+    private static final LoadingCache<Type, TypeDefinition<?>> INSTANCES = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<Type, TypeDefinition<?>>() {
 
         @Override
+        @ParametersAreNonnullByDefault
         public TypeDefinition<?> load(Type type) {
-            return new TypeDefinition<Object>(type);
+            return new TypeDefinition<>(type);
         }
     });
 
@@ -101,7 +111,7 @@ public class TypeDefinition<T> {
         protected List<Class<? super T>> create() {
 
             Class<T> objectClass = getObjectClass();
-            List<Class<? super T>> classes = new ArrayList<Class<? super T>>();
+            List<Class<? super T>> classes = new ArrayList<>();
             classes.add(objectClass);
 
             Class<? super T> superClass = objectClass.getSuperclass();
@@ -127,7 +137,7 @@ public class TypeDefinition<T> {
         @Override
         protected Set<Class<?>> create() {
             Class<T> objectClass = getObjectClass();
-            Set<Class<?>> classes = new LinkedHashSet<Class<?>>();
+            Set<Class<?>> classes = new LinkedHashSet<>();
 
             classes.add(objectClass);
 
@@ -155,7 +165,7 @@ public class TypeDefinition<T> {
         protected List<Field> create() {
 
             Class<T> objectClass = getObjectClass();
-            List<Field> fields = new ArrayList<Field>();
+            List<Field> fields = new ArrayList<>();
             for (Field field : objectClass.getDeclaredFields()) {
                 field.setAccessible(true);
                 fields.add(field);
@@ -184,19 +194,19 @@ public class TypeDefinition<T> {
         protected Map<String, List<Field>> create() {
 
             Class<T> objectClass = getObjectClass();
-            Map<String, List<Field>> fieldsMap = new CompactMap<String, List<Field>>();
+            Map<String, List<Field>> fieldsMap = new CompactMap<>();
 
             Class<? super T> superClass = objectClass.getSuperclass();
             if (superClass != null) {
                 for (Map.Entry<String, List<Field>> entry : getInstance(superClass).getAllSerializableFields().entrySet()) {
-                    fieldsMap.put(entry.getKey(), new ArrayList<Field>(entry.getValue()));
+                    fieldsMap.put(entry.getKey(), new ArrayList<>(entry.getValue()));
                 }
             }
 
             for (Field field : objectClass.getDeclaredFields()) {
                 int mod = field.getModifiers();
-                if (!Modifier.isStatic(mod) &&
-                        !Modifier.isTransient(mod)) {
+                if (!Modifier.isStatic(mod)
+                        && !Modifier.isTransient(mod)) {
 
                     // Normalize common field name formats:
                     // _name, name_, fName or mName.
@@ -205,15 +215,15 @@ public class TypeDefinition<T> {
                         name = name.substring(1);
                     } else if (name.endsWith("_")) {
                         name = name.substring(0, name.length() - 1);
-                    } else if (name.length() > 2 &&
-                            (name.charAt(0) == 'f' || name.charAt(0) == 'm') &&
-                            Character.isUpperCase(name.charAt(1))) {
+                    } else if (name.length() > 2
+                            && (name.charAt(0) == 'f' || name.charAt(0) == 'm')
+                            && Character.isUpperCase(name.charAt(1))) {
                         name = Character.toLowerCase(name.charAt(1)) + name.substring(2);
                     }
 
                     List<Field> fields = fieldsMap.get(name);
                     if (fields == null) {
-                        fields = new ArrayList<Field>();
+                        fields = new ArrayList<>();
                         fieldsMap.put(name, fields);
                     }
 
@@ -261,7 +271,7 @@ public class TypeDefinition<T> {
         @Override
         @SuppressWarnings("unchecked")
         protected List<Constructor<T>> create() {
-            List<Constructor<T>> constructors = new ArrayList<Constructor<T>>();
+            List<Constructor<T>> constructors = new ArrayList<>();
             for (Constructor<?> constructor : getObjectClass().getDeclaredConstructors()) {
                 constructor.setAccessible(true);
                 constructors.add((Constructor<T>) constructor);
@@ -287,7 +297,7 @@ public class TypeDefinition<T> {
                         }
                     }
 
-                    return (Constructor<T>) constructor;
+                    return constructor;
                 }
             }
 
@@ -319,9 +329,9 @@ public class TypeDefinition<T> {
             if (cause == null) {
                 cause = ex;
             }
-            throw cause instanceof RuntimeException ?
-                    (RuntimeException) cause :
-                    new RuntimeException(cause.getMessage(), cause);
+            throw cause instanceof RuntimeException
+                    ? (RuntimeException) cause
+                    : new RuntimeException(cause.getMessage(), cause);
         }
     }
 
@@ -336,7 +346,7 @@ public class TypeDefinition<T> {
         protected List<Method> create() {
 
             Class<T> objectClass = getObjectClass();
-            List<Method> methods = new ArrayList<Method>();
+            List<Method> methods = new ArrayList<>();
             try {
                 for (Method method : objectClass.getDeclaredMethods()) {
                     method.setAccessible(true);
@@ -369,29 +379,29 @@ public class TypeDefinition<T> {
         @Override
         protected Map<String, Method> create() {
 
-            Map<String, Method> getters = new CompactMap<String, Method>();
-            for (Method method : getAllMethods()) {
+            Map<String, Method> getters = new CompactMap<>();
+            getAllMethods().forEach(method -> {
                 if (method.getDeclaringClass() != Object.class) {
 
                     int mod = method.getModifiers();
-                    if (Modifier.isPublic(mod) &&
-                            !Modifier.isStatic(mod) &&
-                            method.getReturnType() != void.class &&
-                            method.getReturnType() != Void.class &&
-                            method.getParameterTypes().length == 0) {
+                    if (Modifier.isPublic(mod)
+                            && !Modifier.isStatic(mod)
+                            && method.getReturnType() != void.class
+                            && method.getReturnType() != Void.class
+                            && method.getParameterTypes().length == 0) {
 
                         String methodName = method.getName();
                         Matcher nameMatcher = StringUtils.getMatcher(methodName, "^(get|(is|has))([^a-z])(.*)$");
                         if (nameMatcher.matches()) {
 
-                            String name = ObjectUtils.isBlank(nameMatcher.group(2)) ?
-                                    nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4) :
-                                    methodName;
+                            String name = ObjectUtils.isBlank(nameMatcher.group(2))
+                                    ? nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4)
+                                    : methodName;
                             getters.put(name, method);
                         }
                     }
                 }
-            }
+            });
 
             return Collections.unmodifiableMap(getters);
         }
@@ -411,15 +421,15 @@ public class TypeDefinition<T> {
         @Override
         protected Map<String, Method> create() {
 
-            Map<String, Method> setters = new CompactMap<String, Method>();
-            for (Method method : getAllMethods()) {
+            Map<String, Method> setters = new CompactMap<>();
+            getAllMethods().forEach(method -> {
                 if (method.getDeclaringClass() != Object.class) {
 
                     int mod = method.getModifiers();
-                    if (Modifier.isPublic(mod) &&
-                            !Modifier.isStatic(mod) &&
-                            (method.getReturnType() == void.class || method.getReturnType() == Void.class) &&
-                            method.getParameterTypes().length == 1) {
+                    if (Modifier.isPublic(mod)
+                            && !Modifier.isStatic(mod)
+                            && (method.getReturnType() == void.class || method.getReturnType() == Void.class)
+                            && method.getParameterTypes().length == 1) {
 
                         String methodName = method.getName();
                         Matcher nameMatcher = StringUtils.getMatcher(methodName, "^set([^a-z])(.*)$");
@@ -428,9 +438,253 @@ public class TypeDefinition<T> {
                         }
                     }
                 }
-            }
+            });
 
             return Collections.unmodifiableMap(setters);
+        }
+    };
+
+    /**
+     * Gets the inferred generic type argument class of this type for a given
+     * {@code superClass} and {@code genericTypeArgumentIndex}.
+     *
+     * @param superClass a super class (or interface) of this type.
+     * @param genericTypeArgumentIndex the generic type argument index of the
+     *      {@code superClass}.
+     * @return the inferred generic type argument class for given
+     *      {@code superClass} and {@code genericTypeArgumentIndex}.
+     */
+    public Class<?> getInferredGenericTypeArgumentClass(Class<?> superClass, int genericTypeArgumentIndex) {
+        Map<Integer, Class<?>> indexMap = allInferredGenericTypeArguments.get().get(superClass);
+        return indexMap != null ? indexMap.get(genericTypeArgumentIndex) : null;
+    }
+
+    // Map of super types, to map of the super type's generic variable index to inferred generic type at that index for this TypeDefinition's type.
+    private final transient Lazy<Map<Class<?>, Map<Integer, Class<?>>>> allInferredGenericTypeArguments = new Lazy<Map<Class<?>, Map<Integer, Class<?>>>>() {
+
+        @Override
+        protected Map<Class<?>, Map<Integer, Class<?>>> create() throws Exception {
+
+            Map<Class<?>, Map<Integer, Class<?>>> map = new HashMap<>();
+
+            if (TypeDefinition.this.type instanceof Class) {
+                for (Class<?> superType : getAllSuperTypesWithTypeVariables((Class<?>) TypeDefinition.this.type)) {
+
+                    Map<Integer, Class<?>> indexMap = new HashMap<>();
+                    map.put(superType, indexMap);
+
+                    int typeParamCount = superType.getTypeParameters().length;
+                    for (int i = 0; i < typeParamCount; i++) {
+                        indexMap.put(i, getInferredGenericTypeArgumentClass((Class<?>) TypeDefinition.this.type, superType, i));
+                    }
+                }
+            }
+
+            return map;
+        }
+
+        // Gets all super classes with type variables defined starting from the {@code sourceClass}
+        private Set<Class<?>> getAllSuperTypesWithTypeVariables(Class<?> sourceClass) {
+
+            Set<Class<?>> superTypes = new HashSet<>();
+
+            // check super class
+            Class<?> superClass = sourceClass.getSuperclass();
+
+            if (superClass != null) {
+                if (superClass.getTypeParameters().length > 0) {
+                    superTypes.add(superClass);
+                }
+                superTypes.addAll(getAllSuperTypesWithTypeVariables(superClass));
+            }
+
+            // check interfaces
+            List<Class<?>> interfaces = Arrays.asList(sourceClass.getInterfaces());
+
+            superTypes.addAll(interfaces.stream().filter((i) -> i.getTypeParameters().length > 0).collect(Collectors.toList()));
+            interfaces.forEach((i) -> superTypes.addAll(getAllSuperTypesWithTypeVariables(i)));
+
+            return superTypes;
+        }
+
+        // gets the inferred generic type argument class for the given {@code sourceClass}
+        // based on the give {@code superClass} generic type argument at the specified index.
+        private Class<?> getInferredGenericTypeArgumentClass(Class<?> sourceClass, Class<?> superClass, int genericTypeArgumentIndex) {
+
+            List<Map.Entry<Class<?>, Type>> hierarchy = getClassAndGenericSuperTypeHierarchy(sourceClass, superClass);
+
+            int argIndex = genericTypeArgumentIndex;
+
+            for (Iterator<Map.Entry<Class<?>, Type>> it = hierarchy.iterator(); it.hasNext();) {
+
+                Map.Entry<Class<?>, Type> entry = it.next();
+
+                // get list of super class type parameters
+                List<Type> superClassTypeVars;
+
+                Type hierarchyGenericSuperClass = entry.getValue();
+
+                if (hierarchyGenericSuperClass instanceof ParameterizedType) {
+                    ParameterizedType pt = (ParameterizedType) hierarchyGenericSuperClass;
+                    superClassTypeVars = Arrays.asList(pt.getActualTypeArguments());
+
+                } else {
+                    break;
+                }
+
+                // make sure the var list size is greater than the arg index.
+                if (superClassTypeVars.size() > argIndex) {
+
+                    Type superClassTypeVar = superClassTypeVars.get(argIndex);
+
+                    if (superClassTypeVar instanceof Class) {
+                        return (Class<?>) superClassTypeVar;
+
+                    } else if (superClassTypeVar instanceof TypeVariable) {
+
+                        Class<?> hierarchyClass = entry.getKey();
+
+                        String superClassTypeVarName = ((TypeVariable) superClassTypeVar).getName();
+
+                        int index = 0;
+                        for (TypeVariable classTypeVar : hierarchyClass.getTypeParameters()) {
+
+                            if (superClassTypeVarName.equals(classTypeVar.getName())) {
+
+                                if (it.hasNext()) {
+                                    argIndex = index;
+
+                                } else {
+                                    superClass = hierarchyClass;
+                                    genericTypeArgumentIndex = index;
+                                }
+                                break;
+                            }
+                            index++;
+                        }
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            TypeVariable[] typeParameters = superClass.getTypeParameters();
+            if (typeParameters.length > genericTypeArgumentIndex) {
+
+                Type[] bounds = typeParameters[genericTypeArgumentIndex].getBounds();
+                if (bounds.length > 0) {
+                    Type bound = bounds[0];
+                    if (bound instanceof Class) {
+                        return (Class<?>) bound;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        // Returns the list of ClassInfo objects in the class hierarchy from {@code sourceClass}
+        // class to {@code superClass} class, where the first element in the list is {@code sourceClass}.
+        // If the two classes are not in the same hierarchy, an empty list returned.
+        private List<Map.Entry<Class<?>, Type>> getClassAndGenericSuperTypeHierarchy(Class<?> sourceClass, Class<?> superClass) {
+
+            List<Class<?>> classes = getClassHierarchy(sourceClass, superClass);
+
+            List<Class<?>> classesReversed = new ArrayList<>();
+            if (classes != null) {
+                classesReversed.addAll(classes);
+            }
+            Collections.reverse(classesReversed);
+            classesReversed.add(superClass);
+
+            List<Map.Entry<Class<?>, Type>> hierarchy = new ArrayList<>();
+
+            Class<?> prevClass = null;
+            for (Class<?> nextClass : classesReversed) {
+
+                if (prevClass != null) {
+                    Type superType = getGenericSuperType(prevClass, nextClass);
+
+                    if (superType != null) {
+                        hierarchy.add(new AbstractMap.SimpleImmutableEntry<>(prevClass, superType));
+                    }
+                }
+
+                prevClass = nextClass;
+            }
+
+            Collections.reverse(hierarchy);
+
+            return hierarchy;
+        }
+
+        // Returns the list of classes in the class hierarchy from {@code sourceClass} class
+        // to {@code superClass} class, where the first element in the list is {@code sourceClass}.
+        // If the two classes are not in the same hierarchy, {@code null} is returned.
+        private List<Class<?>> getClassHierarchy(Class<?> sourceClass, Class<?> superClass) {
+
+            if (Object.class.equals(sourceClass)) {
+                return null;
+
+            } else if (superClass.equals(sourceClass)) {
+                return new ArrayList<>();
+            }
+
+            List<Class<?>> superTypes = new ArrayList<>();
+
+            Class<?> sourceSuperClass = sourceClass.getSuperclass();
+            if (sourceSuperClass != null) {
+                superTypes.add(sourceSuperClass);
+            }
+
+            List<Class<?>> interfaceClasses = Arrays.asList(sourceClass.getInterfaces());
+            superTypes.addAll(interfaceClasses);
+
+            for (Class<?> superType : superTypes) {
+
+                List<Class<?>> hierarchy = getClassHierarchy(superType, superClass);
+
+                if (hierarchy != null) {
+
+                    List<Class<?>> classes = new ArrayList<>();
+
+                    classes.addAll(hierarchy);
+                    classes.add(sourceClass);
+
+                    return classes;
+                }
+            }
+
+            return null;
+        }
+
+        // Returns the generic super type of the for the given {@code sourceClass} matching the specified {@code superClass}.
+        private Type getGenericSuperType(Class<?> sourceClass, Class<?> superClass) {
+
+            if (superClass.isInterface()) {
+                for (Type genericInterface : sourceClass.getGenericInterfaces()) {
+
+                    if (genericInterface instanceof Class) {
+                        if (superClass.equals(genericInterface)) {
+                            return genericInterface;
+                        }
+
+                    } else if (genericInterface instanceof ParameterizedType) {
+
+                        Type rawType = ((ParameterizedType) genericInterface).getRawType();
+                        if (superClass.equals(rawType)) {
+                            return genericInterface;
+                        }
+                    }
+                }
+
+            } else {
+                return sourceClass.getGenericSuperclass();
+            }
+
+            return null;
         }
     };
 

@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Throwables;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -19,9 +21,9 @@ public final class CollectionUtils {
      */
     public static Object getByPath(Object object, String path) {
         if (path == null) {
-            return object instanceof Map ?
-                    ((Map<?, ?>) object).get(null) :
-                    null;
+            return object instanceof Map
+                    ? ((Map<?, ?>) object).get(null)
+                    : null;
         }
 
         for (String key; path != null;) {
@@ -73,8 +75,9 @@ public final class CollectionUtils {
 
                     } catch (IllegalAccessException error) {
                         throw new IllegalStateException(error);
+
                     } catch (InvocationTargetException error) {
-                        ErrorUtils.rethrow(error);
+                        throw Throwables.propagate(error.getCause());
                     }
                 }
             }
@@ -115,6 +118,8 @@ public final class CollectionUtils {
             Object srcValue = e.getValue();
             Object dstValue = destination.get(key);
             if (srcValue instanceof Map && dstValue instanceof Map) {
+                dstValue = new CompactMap<String, Object>((Map<String, Object>) dstValue);
+                destination.put(key, dstValue);
                 putAllRecursively((Map<String, Object>) dstValue,
                         (Map<String, Object>) srcValue);
             } else {

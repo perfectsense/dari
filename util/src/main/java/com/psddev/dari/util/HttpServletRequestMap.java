@@ -11,6 +11,7 @@ import java.util.Set;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 
+// CHECKSTYLE:OFF
 /** @deprecated No replacement. */
 @Deprecated
 @SuppressWarnings("all")

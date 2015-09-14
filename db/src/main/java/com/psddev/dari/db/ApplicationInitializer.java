@@ -5,6 +5,7 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 
+// CHECKSTYLE:OFF
 /**
  * Automatically initializes all applications.
  *

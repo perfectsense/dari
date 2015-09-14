@@ -131,6 +131,9 @@ public abstract class AbstractStorageItem implements StorageItem {
     /** Returns the list of available base URLs that can be used to construct
      *  the {@linkplain #getSecurePublicUrl secure public URL}. */
     public List<String> getSecureBaseUrls() {
+        if (secureBaseUrls == null) {
+            secureBaseUrls = new ArrayList<>();
+        }
         return secureBaseUrls;
     }
 
@@ -239,8 +242,17 @@ public abstract class AbstractStorageItem implements StorageItem {
         if (!ObjectUtils.isBlank(contentType)) {
             return contentType;
         }
+
         String path = getPath();
+
         if (!ObjectUtils.isBlank(path)) {
+
+            try {
+                path = new URI(path).getPath();
+            } catch (URISyntaxException e) {
+                return null;
+            }
+
             return ObjectUtils.getContentType(path);
         } else {
             return null;
@@ -312,8 +324,8 @@ public abstract class AbstractStorageItem implements StorageItem {
                         url.getAuthority(),
                         url.getPath(),
                         url.getQuery(),
-                        url.getRef()).
-                        toASCIIString();
+                        url.getRef())
+                        .toASCIIString();
             } catch (MalformedURLException error) {
                 // Return the path as is if the given path is malformed.
             } catch (URISyntaxException error) {
@@ -355,8 +367,8 @@ public abstract class AbstractStorageItem implements StorageItem {
             return true;
         } else if (other instanceof StorageItem) {
             StorageItem otherItem = (StorageItem) other;
-            return ObjectUtils.equals(getStorage(), otherItem.getStorage()) &&
-                    ObjectUtils.equals(getPath(), otherItem.getPath());
+            return ObjectUtils.equals(getStorage(), otherItem.getStorage())
+                    && ObjectUtils.equals(getPath(), otherItem.getPath());
         } else {
             return false;
         }

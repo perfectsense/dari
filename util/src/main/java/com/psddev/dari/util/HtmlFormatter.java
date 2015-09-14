@@ -197,10 +197,10 @@ public interface HtmlFormatter<T> {
         public void format(HtmlWriter writer, StackTraceElement element) throws IOException {
             String className = element.getClassName();
             int lineNumber = element.getLineNumber();
-            String cssClass = className != null &&
-                    (className.startsWith("com.psddev.dari.util.AbstractFilter") ||
-                    className.startsWith("org.apache.catalina.core.ApplicationFilterChain")) ?
-                    "muted" : null;
+            String cssClass = className != null
+                    && (className.startsWith("com.psddev.dari.util.AbstractFilter")
+                    || className.startsWith("org.apache.catalina.core.ApplicationFilterChain"))
+                    ? "muted" : null;
 
             String jspServletPath = CodeUtils.getJspServletPath(className);
             if (jspServletPath != null) {

@@ -9,13 +9,13 @@
     <parent>
         <groupId>com.psddev</groupId>
         <artifactId>dari</artifactId>
-        <version>2.4-SNAPSHOT</version>
+        <version>3.1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <groupId>com.psddev</groupId>
     <artifactId>dari-reloader-tomcat6</artifactId>
-    <version>2.4-SNAPSHOT</version>
+    <version>3.1-SNAPSHOT</version>
     <packaging>war</packaging>
 
     <name>Dari: Web Application Reloader for Tomcat 6.x</name>
@@ -39,7 +39,7 @@
         <!-- Environmental -->
         <dependency>
             <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
+            <artifactId>javax.servlet-api</artifactId>
             <scope>provided</scope>
         </dependency>
 

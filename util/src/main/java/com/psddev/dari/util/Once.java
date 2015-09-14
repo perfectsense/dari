@@ -1,8 +1,8 @@
 package com.psddev.dari.util;
 
-import java.util.concurrent.locks.Lock;
+import com.google.common.base.Throwables;
+
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * For making sure that something runs only once safely and efficiently.
@@ -27,26 +27,22 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public abstract class Once {
 
-    private final Lock readLock;
-    private final Lock writeLock;
-    private Thread running;
-    private boolean ran;
+    private volatile boolean ran;
 
     /**
-     * Creates an instance based on the given {@code lock}.
+     * Creates an instance.
      *
-     * @param lock Can't be {@code null}.
+     * @param lock Not used.
+     * @deprecated Use {@link Once()} instead.
      */
+    @Deprecated
     public Once(ReadWriteLock lock) {
-        this.readLock = lock.readLock();
-        this.writeLock = lock.writeLock();
     }
 
     /**
-     * Creates an instance based on {@link ReentrantReadWriteLock}.
+     * Creates an instance.
      */
     public Once() {
-        this(new ReentrantReadWriteLock());
     }
 
     /**
@@ -58,44 +54,22 @@ public abstract class Once {
      * Ensures that {@link #run} has been called at least once.
      */
     public final void ensure() {
-        readLock.lock();
+        if (Thread.holdsLock(this)) {
+            return;
+        }
 
-        try {
-            if (ran ||
-                    Thread.currentThread().equals(running)) {
-                return;
-            }
+        if (!ran) {
+            synchronized (this) {
+                if (!ran) {
+                    try {
+                        run();
+                        ran = true;
 
-            readLock.unlock();
-
-            try {
-                writeLock.lock();
-
-                try {
-                    if (!ran) {
-                        try {
-                            running = Thread.currentThread();
-                            run();
-                            ran = true;
-
-                        } catch (Exception error) {
-                            ErrorUtils.rethrow(error);
-
-                        } finally {
-                            running = null;
-                        }
+                    } catch (Exception error) {
+                        throw Throwables.propagate(error);
                     }
-
-                } finally {
-                    writeLock.unlock();
                 }
-
-            } finally {
-                readLock.lock();
             }
-
-        } finally {
-            readLock.unlock();
         }
     }
 
@@ -104,13 +78,8 @@ public abstract class Once {
      * {@link #run} again.
      */
     public final void reset() {
-        writeLock.lock();
-
-        try {
+        synchronized (this) {
             ran = false;
-
-        } finally {
-            writeLock.unlock();
         }
     }
 }

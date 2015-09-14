@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS Record (
     data LONGBLOB NOT NULL,
     PRIMARY KEY (typeId, id),
     KEY k_id (id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED;
 
 CREATE OR REPLACE VIEW Record_d AS SELECT hex(id) AS id, hex(typeId) AS typeId, DATA FROM Record;
 
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS RecordNumber3 (
     value DOUBLE NOT NULL,
     PRIMARY KEY (symbolId, value, typeId, id),
     KEY k_id (id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED;
 
 CREATE OR REPLACE VIEW RecordNumber3_d AS SELECT hex(id) AS id, hex(typeId) AS typeId, symbolId, VALUE FROM RecordNumber3;
 
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS RecordString4 (
     value VARBINARY(500) NOT NULL,
     PRIMARY KEY (symbolId, value, typeId, id),
     KEY k_id (id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED;
 
 CREATE OR REPLACE VIEW RecordString4_d AS SELECT hex(id) AS id, hex(typeId) AS typeId, symbolId, VALUE FROM RecordString4;
 
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS RecordUpdate (
     PRIMARY KEY (id),
     KEY k_typeId_updateDate (typeId, updateDate),
     KEY k_updateDate (updateDate)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED;
 
 CREATE OR REPLACE VIEW RecordUpdate_d AS SELECT hex(id) AS id, hex(typeId) AS typeId, updateDate FROM RecordUpdate;
 
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS RecordUuid3 (
     value BINARY(16) NOT NULL,
     PRIMARY KEY (symbolId, value, typeId, id),
     KEY k_id (id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED;
 
 CREATE OR REPLACE VIEW RecordUuid3_d AS SELECT hex(id) AS id, hex(typeId) AS typeId, symbolId, hex(VALUE) AS VALUE FROM RecordUuid3;
 
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS Symbol (
     value VARBINARY(500) NOT NULL,
     PRIMARY KEY (symbolId),
     UNIQUE KEY k_value (value)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED;
 
 CREATE TABLE IF NOT EXISTS Metric (
     id BINARY(16) NOT NULL,
@@ -92,13 +92,13 @@ CREATE TABLE IF NOT EXISTS Metric (
     PRIMARY KEY (symbolId, id, dimensionId, data(4)),
     KEY k_metricAllDims (symbolId, typeId, id, data, dimensionId),
     KEY k_metricData (symbolId, typeId, id, dimensionId, data)
-) ENGINE=InnoDB DEFAULT CHARSET=binary;
+) ENGINE=InnoDB DEFAULT CHARSET=binary ROW_FORMAT=COMPRESSED;
 
 CREATE TABLE IF NOT EXISTS MetricDimension (
     dimensionId BINARY(16) NOT NULL PRIMARY KEY,
     value VARBINARY(500) NOT NULL,
     UNIQUE KEY k_metricDimensionValue (value)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED;
 
 CREATE OR REPLACE VIEW Metric_n AS
 SELECT c.id

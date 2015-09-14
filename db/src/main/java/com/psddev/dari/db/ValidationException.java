@@ -18,9 +18,9 @@ public class ValidationException extends IllegalArgumentException {
 
     /** Creates an instance with the given invalid {@code states}. */
     public ValidationException(List<State> states) {
-        this.states = states == null ?
-                Collections.<State>emptyList() :
-                Collections.unmodifiableList(states);
+        this.states = states == null
+                ? Collections.<State>emptyList()
+                : Collections.unmodifiableList(states);
     }
 
     /** Returns an unmodifiable list of invalid states. */
@@ -94,15 +94,17 @@ public class ValidationException extends IllegalArgumentException {
                         if (embeddedState != null) {
                             String embeddedMessagePrefix = embeddedFieldLabel + " #" + embeddedState.getId() + ": ";
                             for (ObjectField embeddedStateField : embeddedState.getErrorFields()) {
-                                String label = embeddedStateField.getLabel();
-                                for (String error : new LinkedHashSet<String>(embeddedState.getErrors(embeddedStateField))) {
-                                    message.append(" [");
-                                    message.append(messagePrefix);
-                                    message.append(embeddedMessagePrefix);
-                                    message.append(label);
-                                    message.append("] [");
-                                    message.append(error);
-                                    message.append("],");
+                                if (embeddedStateField != null) {
+                                    String label = embeddedStateField.getLabel();
+                                    for (String error : new LinkedHashSet<String>(embeddedState.getErrors(embeddedStateField))) {
+                                        message.append(" [");
+                                        message.append(messagePrefix);
+                                        message.append(embeddedMessagePrefix);
+                                        message.append(label);
+                                        message.append("] [");
+                                        message.append(error);
+                                        message.append("],");
+                                    }
                                 }
                             }
                             appendEmbeddedErrors(message, messagePrefix + embeddedMessagePrefix, embeddedState, embeddedState.getType().getFields());

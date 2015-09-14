@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import javax.servlet.ReadListener;
 import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
@@ -43,6 +44,21 @@ public class ReusableRequest extends HttpServletRequestWrapper {
         return new ServletInputStream() {
 
             private final InputStream stream = new ByteArrayInputStream(requestBytes);
+
+            @Override
+            public boolean isFinished() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public boolean isReady() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void setReadListener(ReadListener readListener) {
+                throw new UnsupportedOperationException();
+            }
 
             @Override
             public int read() throws IOException {

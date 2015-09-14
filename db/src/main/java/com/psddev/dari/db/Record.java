@@ -44,6 +44,11 @@ public class Record implements BeanInfo, Cloneable, Comparable<Record>, HtmlObje
                 ((Record) object).afterCreate();
             }
         }
+
+        @Override
+        public boolean isMissing(Class<?> cls) {
+            return !hasMethod(cls, "afterCreate");
+        }
     }
 
     /**
@@ -51,6 +56,13 @@ public class Record implements BeanInfo, Cloneable, Comparable<Record>, HtmlObje
      * of this method doesn't do anything.
      */
     protected void afterCreate() {
+    }
+
+    /**
+     * Triggers when this record is being validated. Default implementation
+     * of this method doesn't do anything.
+     */
+    protected void onValidate() {
     }
 
     /**
@@ -157,6 +169,7 @@ public class Record implements BeanInfo, Cloneable, Comparable<Record>, HtmlObje
         return null;
     }
 
+    // CHECKSTYLE:OFF
     @SuppressWarnings("unused") private Object getDynamicProperty0() { return getDynamicProperty(0); }
     @SuppressWarnings("unused") private Object getDynamicProperty1() { return getDynamicProperty(1); }
     @SuppressWarnings("unused") private Object getDynamicProperty2() { return getDynamicProperty(2); }
@@ -187,6 +200,27 @@ public class Record implements BeanInfo, Cloneable, Comparable<Record>, HtmlObje
     @SuppressWarnings("unused") private Object getDynamicProperty27() { return getDynamicProperty(27); }
     @SuppressWarnings("unused") private Object getDynamicProperty28() { return getDynamicProperty(28); }
     @SuppressWarnings("unused") private Object getDynamicProperty29() { return getDynamicProperty(29); }
+    @SuppressWarnings("unused") private Object getDynamicProperty30() { return getDynamicProperty(30); }
+    @SuppressWarnings("unused") private Object getDynamicProperty31() { return getDynamicProperty(31); }
+    @SuppressWarnings("unused") private Object getDynamicProperty32() { return getDynamicProperty(32); }
+    @SuppressWarnings("unused") private Object getDynamicProperty33() { return getDynamicProperty(33); }
+    @SuppressWarnings("unused") private Object getDynamicProperty34() { return getDynamicProperty(34); }
+    @SuppressWarnings("unused") private Object getDynamicProperty35() { return getDynamicProperty(35); }
+    @SuppressWarnings("unused") private Object getDynamicProperty36() { return getDynamicProperty(36); }
+    @SuppressWarnings("unused") private Object getDynamicProperty37() { return getDynamicProperty(37); }
+    @SuppressWarnings("unused") private Object getDynamicProperty38() { return getDynamicProperty(38); }
+    @SuppressWarnings("unused") private Object getDynamicProperty39() { return getDynamicProperty(39); }
+    @SuppressWarnings("unused") private Object getDynamicProperty40() { return getDynamicProperty(40); }
+    @SuppressWarnings("unused") private Object getDynamicProperty41() { return getDynamicProperty(41); }
+    @SuppressWarnings("unused") private Object getDynamicProperty42() { return getDynamicProperty(42); }
+    @SuppressWarnings("unused") private Object getDynamicProperty43() { return getDynamicProperty(43); }
+    @SuppressWarnings("unused") private Object getDynamicProperty44() { return getDynamicProperty(44); }
+    @SuppressWarnings("unused") private Object getDynamicProperty45() { return getDynamicProperty(45); }
+    @SuppressWarnings("unused") private Object getDynamicProperty46() { return getDynamicProperty(46); }
+    @SuppressWarnings("unused") private Object getDynamicProperty47() { return getDynamicProperty(47); }
+    @SuppressWarnings("unused") private Object getDynamicProperty48() { return getDynamicProperty(48); }
+    @SuppressWarnings("unused") private Object getDynamicProperty49() { return getDynamicProperty(49); }
+    // CHECKSTYLE:ON
 
     // --- Cloneable support ---
 

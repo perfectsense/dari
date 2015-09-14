@@ -10,7 +10,10 @@ import org.slf4j.helpers.MessageFormatter;
 /**
  * {@linkplain org.slf4j.Logger SLF4J logger} implementation that saves
  * the logs into a single string.
+ *
+ * @deprecated No replacement.
  */
+@Deprecated
 @SuppressWarnings("serial")
 public class StringLogger extends MarkerIgnoringBase {
 

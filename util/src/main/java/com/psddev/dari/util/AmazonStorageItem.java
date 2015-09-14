@@ -25,7 +25,11 @@ import org.jets3t.service.security.AWSCredentials;
  *    <artifactId>jets3t</artifactId>
  *    <version>0.8.0</version>
  *</dependency>}</code></pre></blockquote>
+ *
+ * @deprecated Use {@code com.psddev.dari.aws.S3StorageItem} in
+ * {@code com.psddev:dari-aws} instead.
  */
+@Deprecated
 public class AmazonStorageItem extends AbstractStorageItem {
 
     /** Setting key for S3 access key. */

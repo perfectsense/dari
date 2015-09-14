@@ -4,6 +4,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -25,6 +26,13 @@ public class DimsImageEditor extends AbstractImageEditor {
 
     /** Setting key for the base URL to the mod_dims installation. */
     public static final String BASE_URL_SETTING = "baseUrl";
+
+    /**
+     * Sub-setting key for the base URL that's used to construct the
+     * {@linkplain #getBaseUrl base URL} by distributing it across the
+     * defined base URLs.
+     */
+    public static final String BASE_URLS_SUB_SETTING = "baseUrls";
 
     /** Setting key for the shared secret to use when signing URLs. */
     public static final String SHARED_SECRET_SETTING = "sharedSecret";
@@ -50,10 +58,11 @@ public class DimsImageEditor extends AbstractImageEditor {
     /** Setting key for enabling the preservation of the image's metadata. */
     public static final String PRESERVE_METADATA_SETTING = "preserveMetadata";
 
-    /** Setting key for enabling appending image URLs instead of passing them as a parater. */
+    /** Setting key for enabling appending image URLs instead of passing them as a parameter. */
     public static final String APPEND_IMAGE_URLS_SETTING = "appendImageUrls";
 
     private String baseUrl;
+    private List<String> baseUrls;
     private String sharedSecret;
 
     private Date expireTimestamp;
@@ -67,12 +76,27 @@ public class DimsImageEditor extends AbstractImageEditor {
 
     /** Returns the base URL. */
     public String getBaseUrl() {
+        if (baseUrl == null && !ObjectUtils.isBlank(getBaseUrls())) {
+            return getBaseUrls().get(0);
+        }
+
         return baseUrl;
     }
 
     /** Sets the base URL. */
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public List<String> getBaseUrls() {
+        if (baseUrls == null) {
+            baseUrls = new ArrayList<String>();
+        }
+        return baseUrls;
+    }
+
+    public void setBaseUrls(List<String> baseUrls) {
+        this.baseUrls = baseUrls;
     }
 
     public String getSharedSecret() {
@@ -144,6 +168,13 @@ public class DimsImageEditor extends AbstractImageEditor {
     @Override
     public void initialize(String settingsKey, Map<String, Object> settings) {
         setBaseUrl(ObjectUtils.to(String.class, settings.get(BASE_URL_SETTING)));
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> baseUrls = (Map<String, String>) settings.get(BASE_URLS_SUB_SETTING);
+        if (baseUrls != null) {
+            setBaseUrls(new ArrayList<String>(baseUrls.values()));
+        }
+
         setSharedSecret(ObjectUtils.to(String.class, settings.get(SHARED_SECRET_SETTING)));
 
         setExpireTimestamp(ObjectUtils.to(Date.class, settings.get(EXPIRE_TIMESTAMP_SETTING)));
@@ -231,8 +262,8 @@ public class DimsImageEditor extends AbstractImageEditor {
                         Integer thumbnailWidth = thumbnailCommand.getWidth();
                         Integer thumbnailHeight = thumbnailCommand.getHeight();
 
-                        if (width != null && height != null &&
-                                width.equals(thumbnailWidth) && height.equals(thumbnailHeight)) {
+                        if (width != null && height != null
+                                && width.equals(thumbnailWidth) && height.equals(thumbnailHeight)) {
                             return image;
                         }
                     }
@@ -300,6 +331,44 @@ public class DimsImageEditor extends AbstractImageEditor {
         }
     }
 
+    /**
+     * Returns the appropriate DIMS base URL for the {@code imageUrl}. If the
+     * {@code imageUrl} is already a DIMS URL, then the DIMS base URL matching
+     * the base URL of the {@code imageUrl} is returned. Otherwise, the
+     * {@code imageUrl} is hashed and a DIMS base URL is picked from the pool.
+     *
+     * @param imageUrl the image URL to check.
+     * @return the base DIMS URL.
+     */
+    private String getBaseUrlForImageUrl(String imageUrl) {
+
+        String baseUrl = getBaseUrl();
+
+        List<String> baseUrls = getBaseUrls();
+        if (!baseUrls.isEmpty()) {
+
+            boolean isDimsUrl = false;
+            for (String baseUrlItem : baseUrls) {
+                if (imageUrl.startsWith(StringUtils.removeEnd(baseUrlItem, "/"))) {
+                    isDimsUrl = true;
+                    baseUrl = baseUrlItem;
+                    break;
+                }
+            }
+
+            if (!isDimsUrl) {
+                int bucketIndex = ByteBuffer.wrap(StringUtils.md5(imageUrl)).getInt() % baseUrls.size();
+                if (bucketIndex < 0) {
+                    bucketIndex *= -1;
+                }
+
+                baseUrl = baseUrls.get(bucketIndex);
+            }
+        }
+
+        return baseUrl;
+    }
+
     private class DimsUrl {
 
         /** DIMS specific path to the original width of the image in the metadata */
@@ -329,7 +398,7 @@ public class DimsImageEditor extends AbstractImageEditor {
                 url = "file:" + url;
             }
 
-            String baseUrl = StringUtils.removeEnd(DimsImageEditor.this.getBaseUrl(), "/");
+            String baseUrl = StringUtils.removeEnd(DimsImageEditor.this.getBaseUrlForImageUrl(url), "/");
             if (url.startsWith(baseUrl)) {
 
                 // It's an existing DIMS URL that we're further modifying
@@ -591,7 +660,7 @@ public class DimsImageEditor extends AbstractImageEditor {
             StringBuilder dimsUrlBuilder = new StringBuilder();
 
             String imageUrl = this.imageUrl.toString();
-            String baseUrl = StringUtils.ensureEnd(DimsImageEditor.this.getBaseUrl(), "/");
+            String baseUrl = StringUtils.ensureEnd(DimsImageEditor.this.getBaseUrlForImageUrl(imageUrl), "/");
 
             if (imageUrl.startsWith("file:")) {
                 imageUrl = imageUrl.substring(5);
@@ -763,9 +832,9 @@ public class DimsImageEditor extends AbstractImageEditor {
 
         @Override
         public Dimension getOutputDimension(Dimension dimension) {
-            if (dimension != null &&
-                    dimension.width != null && dimension.height != null &&
-                    this.width != null && this.height != null) {
+            if (dimension != null
+                    && dimension.width != null && dimension.height != null
+                    && this.width != null && this.height != null) {
                 return new Dimension(
                         Math.min(this.width, dimension.width),
                         Math.min(this.height, dimension.height));
@@ -826,9 +895,9 @@ public class DimsImageEditor extends AbstractImageEditor {
         @Override
         public Dimension getOutputDimension(Dimension dimension) {
 
-            if (dimension != null &&
-                    dimension.width != null && dimension.height != null &&
-                    this.width != null && this.height != null) {
+            if (dimension != null
+                    && dimension.width != null && dimension.height != null
+                    && this.width != null && this.height != null) {
 
                 if (option == null || option.equals("!") || option.equals("^")) {
                     return new Dimension(this.width, this.height);
@@ -913,9 +982,9 @@ public class DimsImageEditor extends AbstractImageEditor {
                     actualHeight = actualDimension.height;
 
                 } else if (">".equals(option)) { // only shrink larger images
-                    if ((this.height == null && this.width >= original.width) ||
-                            (this.width == null && this.height >= original.height) || //            -->  <-- this is an AND
-                            (this.width != null && this.height != null && this.width >= original.width && this.height >= original.height)) {
+                    if ((this.height == null && this.width >= original.width)
+                            || (this.width == null && this.height >= original.height) //               -->  <-- this is an AND
+                            || (this.width != null && this.height != null && this.width >= original.width && this.height >= original.height)) {
 
                         actualWidth = original.width;
                         actualHeight = original.height;
@@ -927,9 +996,9 @@ public class DimsImageEditor extends AbstractImageEditor {
                     }
 
                 } else if ("<".equals(option)) { // only enlarge smaller images
-                    if ((this.height == null && this.width <= original.width) ||
-                            (this.width == null && this.height <= original.height) || //             -->  <-- This is an OR
-                            (this.width != null && this.height != null && (this.width <= original.width || this.height <= original.height))) {
+                    if ((this.height == null && this.width <= original.width)
+                            || (this.width == null && this.height <= original.height) //                -->  <-- This is an OR
+                            || (this.width != null && this.height != null && (this.width <= original.width || this.height <= original.height))) {
 
                         actualWidth = original.width;
                         actualHeight = original.height;
@@ -953,8 +1022,8 @@ public class DimsImageEditor extends AbstractImageEditor {
             Integer actualWidth = null;
             Integer actualHeight = null;
 
-            if (originalWidth != null && originalHeight != null &&
-                    (requestedWidth != null || requestedHeight != null)) {
+            if (originalWidth != null && originalHeight != null
+                    && (requestedWidth != null || requestedHeight != null)) {
 
                 float originalRatio = (float) originalWidth / (float) originalHeight;
                 if (requestedWidth != null && requestedHeight != null) {
@@ -988,8 +1057,8 @@ public class DimsImageEditor extends AbstractImageEditor {
             Integer actualWidth = null;
             Integer actualHeight = null;
 
-            if (originalWidth != null && originalHeight != null &&
-                    (requestedWidth != null || requestedHeight != null)) {
+            if (originalWidth != null && originalHeight != null
+                    && (requestedWidth != null || requestedHeight != null)) {
 
                 float originalRatio = (float) originalWidth / (float) originalHeight;
                 if (requestedWidth != null && requestedHeight != null) {

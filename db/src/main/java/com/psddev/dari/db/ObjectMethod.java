@@ -1,8 +1,13 @@
 package com.psddev.dari.db;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 
 import com.google.common.cache.CacheBuilder;
@@ -18,7 +23,9 @@ public class ObjectMethod extends ObjectField {
 
     public static final String JAVA_METHOD_NAME_KEY = "java.method";
 
-    @InternalName("java.method")
+    private static final String HAS_SINGLE_OBJECT_METHOD_PARAMETER_EXTRA = "dari.objectMethod.hasSingleParam";
+
+    @InternalName(JAVA_METHOD_NAME_KEY)
     private String javaMethodName;
 
     public ObjectMethod(ObjectMethod method) {
@@ -42,20 +49,42 @@ public class ObjectMethod extends ObjectField {
         this.javaMethodName = javaMethodName;
     }
 
+    public List<String> getJavaParameterTypeNames() {
+        List<String> javaParameterTypeNames = new ArrayList<>();
+        Method method = getJavaMethod(ObjectUtils.getClassByName(getJavaDeclaringClassName()));
+        if (method != null) {
+            for (Class<?> cls : method.getParameterTypes()) {
+                javaParameterTypeNames.add(cls.getName());
+            }
+        }
+        return Collections.unmodifiableList(javaParameterTypeNames);
+    }
+
+    public boolean hasSingleObjectMethodParameter() {
+        Object hasSingleParam = getState().getExtra(HAS_SINGLE_OBJECT_METHOD_PARAMETER_EXTRA);
+        if (!(hasSingleParam instanceof Boolean)) {
+            List<String> params = getJavaParameterTypeNames();
+            hasSingleParam = params.size() == 1
+                        && ObjectMethod.class.getName().equals(params.get(0));
+            getState().getExtras().put(HAS_SINGLE_OBJECT_METHOD_PARAMETER_EXTRA, hasSingleParam);
+        }
+        return (Boolean) hasSingleParam;
+    }
+
     public Method getJavaMethod(Class<?> objectClass) {
         if (getJavaMethodName() == null) {
             return null;
         }
         Class<?> declaringClass = ObjectUtils.getClassByName(getJavaDeclaringClassName());
 
-        return declaringClass != null && declaringClass.isAssignableFrom(objectClass) ?
-                javaMethodCache.getUnchecked(objectClass) :
-                null;
+        return declaringClass != null && declaringClass.isAssignableFrom(objectClass)
+                ? javaMethodCache.getUnchecked(objectClass)
+                : null;
     }
 
-    private final transient LoadingCache<Class<?>, Method> javaMethodCache = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<Class<?>, Method>() {
+    private final transient LoadingCache<Class<?>, Method> javaMethodCache = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<Class<?>, Method>() {
 
         @Override
         public Method load(Class<?> objectClass) {
@@ -89,15 +118,15 @@ public class ObjectMethod extends ObjectField {
 
         Matcher nameMatcher = StringUtils.getMatcher(name, "^(get|(is|has))([^a-z])(.*)$");
         if (nameMatcher.matches()) {
-            name = ObjectUtils.isBlank(nameMatcher.group(2)) ?
-                nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4) :
-                name;
+            name = ObjectUtils.isBlank(nameMatcher.group(2))
+                    ? nameMatcher.group(3).toLowerCase(Locale.ENGLISH) + nameMatcher.group(4)
+                    : name;
         }
 
         name = StringUtils.toLabel(name);
 
-        if (!name.endsWith("?") &&
-                BOOLEAN_TYPE.equals(getInternalItemType())) {
+        if (!name.endsWith("?")
+                && BOOLEAN_TYPE.equals(getInternalItemType())) {
             name += "?";
         }
 
@@ -110,30 +139,29 @@ public class ObjectMethod extends ObjectField {
         }
         Database db = state.getDatabase();
 
-        for (ObjectIndex idx : state.getType().getIndexes()) {
-            if (idx.getFields().contains(getInternalName())) {
-                if (db instanceof AggregateDatabase) {
-                    ((AggregateDatabase) db).recalculate(state, idx);
-                } else if (db instanceof ForwardingDatabase) {
-                    ((ForwardingDatabase) db).recalculate(state, idx);
-                } else if (db instanceof AbstractDatabase) {
-                    ((AbstractDatabase<?>) db).recalculate(state, idx);
-                }
-            }
-        }
-
-        for (ObjectIndex idx : db.getEnvironment().getIndexes()) {
-            if (idx.getFields().contains(getInternalName())) {
-                if (db instanceof AggregateDatabase) {
-                    ((AggregateDatabase) db).recalculate(state, idx);
-                } else if (db instanceof ForwardingDatabase) {
-                    ((ForwardingDatabase) db).recalculate(state, idx);
-                } else if (db instanceof AbstractDatabase) {
-                    ((AbstractDatabase<?>) db).recalculate(state, idx);
-                }
-            }
-        }
-
+        Set<ObjectIndex> indexes = findIndexes(state.getType());
+        db.recalculate(state, indexes.toArray(new ObjectIndex[indexes.size()]));
     }
 
+    public Set<ObjectIndex> findIndexes(ObjectType type) {
+        Set<ObjectIndex> indexes = new HashSet<ObjectIndex>();
+        for (ObjectIndex idx : type.getIndexes()) {
+            if (idx.getFields().contains(getInternalName())) {
+                indexes.add(idx);
+            }
+        }
+        for (ObjectIndex idx : type.getEnvironment().getIndexes()) {
+            if (idx.getFields().contains(getInternalName())) {
+                indexes.add(idx);
+            }
+        }
+        return indexes;
+    }
+
+    @Deprecated
+    public static final String JAVA_PARAMETER_TYPES_KEY = "java.parameterTypes";
+
+    @Deprecated
+    public void setJavaParameterTypeNames(List<String> ignored) {
+    }
 }

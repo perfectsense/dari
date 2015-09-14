@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+// CHECKSTYLE:OFF
 /**
  * For when there are multiple illegal arguments.
  *

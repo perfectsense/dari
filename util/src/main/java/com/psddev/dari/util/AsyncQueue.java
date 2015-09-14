@@ -34,9 +34,9 @@ public class AsyncQueue<E> {
     /** Creates an instance with the given blocking {@code queue}. */
     public AsyncQueue(BlockingQueue<E> queue) {
         LOGGER.debug("Creating queue [{}]", this);
-        this.queue = queue == null ?
-                new ArrayBlockingQueue<E>(DEFAULT_QUEUE_CAPACITY) :
-                queue;
+        this.queue = queue == null
+                ? new ArrayBlockingQueue<E>(DEFAULT_QUEUE_CAPACITY)
+                : queue;
     }
 
     /** Creates an instance with a new blocking queue. */
@@ -69,7 +69,7 @@ public class AsyncQueue<E> {
                             return true;
                         }
                     } catch (InterruptedException ex) {
-                        close();
+                        handleInterrupt(item, ex);
                     }
                 }
             }
@@ -110,7 +110,7 @@ public class AsyncQueue<E> {
                             return item;
                         }
                     } catch (InterruptedException ex) {
-                        close();
+                        handleInterrupt(null, ex);
                     }
                 }
             }
@@ -174,6 +174,20 @@ public class AsyncQueue<E> {
 
     public long getRemoveWait() {
         return removeWait.get();
+    }
+
+    /**
+     * Called if the thread writing to this queue is interrupted and an
+     * InterruptedException is thrown. Subclasses may override this method
+     * to handle the interrupt differently. Default implementation closes the
+     * queue.
+     *
+     * @param item the item being added, or null if interrupted during a remove
+     *             operation.
+     * @param ex the exception thrown.
+     */
+    protected void handleInterrupt(E item, InterruptedException ex) {
+        close();
     }
 
     // --- Object support ---

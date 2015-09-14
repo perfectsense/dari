@@ -117,6 +117,11 @@ class MetricAccess {
         return data != null ? new DateTime(Static.timestampFromBytes(data)) : null;
     }
 
+    public DateTime getFirstUpdate(UUID id, String dimensionValue) throws SQLException {
+        List<byte[]> data = getMaxMinData(id, getDimensionId(dimensionValue), null, null);
+        return data != null && data.size() == 2 ? new DateTime(Static.timestampFromBytes(data.get(1))) : null;
+    }
+
     public Double getMetric(UUID id, String dimensionValue, Long startTimestamp, Long endTimestamp) throws SQLException {
         if (startTimestamp == null) {
             byte[] data = getMaxData(id, getDimensionId(dimensionValue), endTimestamp);
@@ -160,12 +165,16 @@ class MetricAccess {
      */
     private List<byte[]> getMaxMinData(UUID id, UUID dimensionId, Long startTimestamp, Long endTimestamp) throws SQLException {
         CachingDatabase cachingDb = Static.getCachingDatabase();
-        List<byte[]> result;
+        List<byte[]> result = null;
         if (hasCachedData(cachingDb, id, dimensionId, startTimestamp, CACHE_MIN) && hasCachedData(cachingDb, id, dimensionId, endTimestamp, CACHE_MAX)) {
             result = new ArrayList<byte[]>();
             result.add(getCachedData(cachingDb, id, dimensionId, endTimestamp, CACHE_MAX));
             result.add(getCachedData(cachingDb, id, dimensionId, startTimestamp, CACHE_MIN));
-        } else {
+            if ((result.get(0) == null) != (result.get(1) == null)) {
+                result = null;
+            }
+        }
+        if (result == null) {
             result = Static.getMaxMinDataByIdAndDimension(getDatabase(), id, getTypeId(), getSymbolId(), dimensionId, startTimestamp, endTimestamp, false);
             if (result.isEmpty()) {
                 result.add(null);
@@ -317,11 +326,18 @@ class MetricAccess {
             }
         }
         if (!immediateMethods.isEmpty()) {
-            Object obj = Query.fromAll().where("_id = ?", id).first();
+            Object obj = Query.fromAll().master().noCache().where("_id = ?", id).first();
             State state = State.getInstance(obj);
             if (state != null) {
-                for (ObjectMethod method : immediateMethods) {
-                    method.recalculate(state);
+                Database stateDb = state.getDatabase();
+                stateDb.beginIsolatedWrites();
+                try {
+                    for (ObjectMethod method : immediateMethods) {
+                        method.recalculate(state);
+                    }
+                    stateDb.commitWrites();
+                } finally {
+                    stateDb.endWrites();
                 }
             }
         }
@@ -1393,7 +1409,9 @@ class MetricAccess {
             return datas;
         }
 
-        public static class DistinctIdsIterator implements Iterator<List<UUID>> {
+        private static class DistinctIdsIterator implements Iterator<Metric.DistinctIds> {
+
+            private static final int QUERY_TIMEOUT = 0;
 
             private final SqlDatabase database;
             private final UUID typeId;
@@ -1401,7 +1419,7 @@ class MetricAccess {
             private final Long minEventDate;
             private final Long maxEventDate;
             private final int fetchSize;
-            private List<List<UUID>> items;
+            private List<Metric.DistinctIds> items;
             private boolean done = false;
 
             private int index = 0;
@@ -1420,9 +1438,9 @@ class MetricAccess {
             }
 
             @Override
-            public List<UUID> next() {
+            public Metric.DistinctIds next() {
                 if (hasNext()) {
-                    List<UUID> result = items.get(index);
+                    Metric.DistinctIds result = items.get(index);
                     ++ index;
                     return result;
 
@@ -1463,7 +1481,7 @@ class MetricAccess {
 
             private void fetchNext() throws SQLException {
                 String sql = getSql();
-                items = new ArrayList<List<UUID>>();
+                items = new ArrayList<Metric.DistinctIds>();
                 Connection connection = database.openConnection();
                 try {
                     Statement statement = connection.createStatement();
@@ -1479,7 +1497,7 @@ class MetricAccess {
                                 row.add(lastId);
                                 row.add(lastDimensionId);
                                 row.add(lastTypeId);
-                                items.add(row);
+                                items.add(new Metric.DistinctIds(lastId, lastTypeId, lastDimensionId));
                             }
                         } finally {
                             result.close();
@@ -1546,7 +1564,7 @@ class MetricAccess {
             }
         }
 
-        public static DistinctIdsIterator getDistinctIds(SqlDatabase database, UUID typeId, int symbolId, Long startTimestamp, Long endTimestamp) {
+        public static Iterator<Metric.DistinctIds> getDistinctIds(SqlDatabase database, UUID typeId, int symbolId, Long startTimestamp, Long endTimestamp) {
             return new DistinctIdsIterator(database, typeId, symbolId, startTimestamp, endTimestamp, 200);
         }
 
@@ -1731,7 +1749,6 @@ class MetricAccess {
 
         private boolean metricValue;
         private String eventDateProcessorClassName;
-        private String recalculableFieldName;
 
         public boolean isMetricValue() {
             return metricValue;
@@ -1775,11 +1792,11 @@ class MetricAccess {
         }
 
         public String getRecalculableFieldName() {
-            return recalculableFieldName;
+            return getOriginalObject().as(RecalculationFieldData.class).getMetricFieldName();
         }
 
         public void setRecalculableFieldName(String fieldName) {
-            this.recalculableFieldName = fieldName;
+            getOriginalObject().as(RecalculationFieldData.class).setMetricFieldName(fieldName);
         }
 
         public Set<ObjectMethod> getRecalculableObjectMethods(ObjectType type) {
@@ -1862,7 +1879,7 @@ class ResummarizeTask extends Task {
     private final int numConsumers;
     private final String executor;
     private final String name;
-    private final AsyncQueue<List<UUID>> queue = new AsyncQueue<List<UUID>>(new ArrayBlockingQueue<List<UUID>>(QUEUE_SIZE));
+    private final AsyncQueue<Metric.DistinctIds> queue = new AsyncQueue<Metric.DistinctIds>(new ArrayBlockingQueue<Metric.DistinctIds>(QUEUE_SIZE));
     private final List<ResummarizeConsumer> consumers = new ArrayList<ResummarizeConsumer>();
 
     public ResummarizeTask(SqlDatabase database, int symbolId, MetricInterval interval, Long startTimestamp, Long endTimestamp, int numConsumers, String executor, String name) {
@@ -1888,11 +1905,11 @@ class ResummarizeTask extends Task {
                     consumers.add(consumer);
                     consumer.submit();
                 }
-                MetricAccess.Static.DistinctIdsIterator iter = MetricAccess.Static.getDistinctIds(database, null, symbolId, startTimestamp, endTimestamp);
+                Iterator<Metric.DistinctIds> iter = MetricAccess.Static.getDistinctIds(database, null, symbolId, startTimestamp, endTimestamp);
                 int i = 0;
                 while (shouldContinue() && iter.hasNext()) {
                     this.setProgressIndex(++i);
-                    List<UUID> tuple = iter.next();
+                    Metric.DistinctIds tuple = iter.next();
                     queue.add(tuple);
                 }
                 this.setProgressTotal(i);
@@ -1914,17 +1931,16 @@ class ResummarizeTask extends Task {
             }
         }
     }
-
 }
 
-class ResummarizeConsumer extends AsyncConsumer<List<UUID>> {
+class ResummarizeConsumer extends AsyncConsumer<Metric.DistinctIds> {
     private final SqlDatabase database;
     private final int symbolId;
     private final MetricInterval interval;
     private final Long startTimestamp;
     private final Long endTimestamp;
 
-    public ResummarizeConsumer(SqlDatabase database, int symbolId, MetricInterval interval, Long startTimestamp, Long endTimestamp, AsyncQueue<List<UUID>> input, String executor) {
+    public ResummarizeConsumer(SqlDatabase database, int symbolId, MetricInterval interval, Long startTimestamp, Long endTimestamp, AsyncQueue<Metric.DistinctIds> input, String executor) {
         super(executor, input);
         this.database = database;
         this.symbolId = symbolId;
@@ -1934,11 +1950,8 @@ class ResummarizeConsumer extends AsyncConsumer<List<UUID>> {
     }
 
     @Override
-    protected void consume(List<UUID> tuple) throws Exception {
-        UUID id = tuple.get(0);
-        UUID dimensionId = tuple.get(1);
-        UUID typeId = tuple.get(2);
-        MetricAccess.Static.doResummarize(database, id, typeId, symbolId, dimensionId, interval, startTimestamp, endTimestamp);
+    protected void consume(Metric.DistinctIds tuple) throws Exception {
+        MetricAccess.Static.doResummarize(database, tuple.id, tuple.typeId, symbolId, tuple.dimensionId, interval, startTimestamp, endTimestamp);
     }
 
 }

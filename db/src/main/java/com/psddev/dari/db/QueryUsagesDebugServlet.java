@@ -15,8 +15,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.objectweb.asm.Opcodes;
-
 import com.psddev.dari.util.ClassFinder;
 import com.psddev.dari.util.CodeUtils;
 import com.psddev.dari.util.CompactMap;
@@ -25,6 +23,7 @@ import com.psddev.dari.util.HtmlObject;
 import com.psddev.dari.util.HtmlWriter;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.WebPageContext;
+import com.psddev.dari.util.asm.Opcodes;
 import com.psddev.dari.util.sa.Jvm;
 import com.psddev.dari.util.sa.JvmMethodListener;
 import com.psddev.dari.util.sa.JvmObject;
@@ -57,19 +56,19 @@ public class QueryUsagesDebugServlet extends HttpServlet {
 
             int mods = queryMethod.getModifiers();
 
-            if (Modifier.isStatic(mods) ||
-                    !Modifier.isPublic(mods)) {
+            if (Modifier.isStatic(mods)
+                    || !Modifier.isPublic(mods)) {
                 continue;
             }
 
             String name = queryMethod.getName();
 
-            if (name.startsWith("get") ||
-                    name.startsWith("is") ||
-                    name.startsWith("set") ||
-                    name.startsWith("create") ||
-                    name.startsWith("find") ||
-                    name.startsWith("map")) {
+            if (name.startsWith("get")
+                    || name.startsWith("is")
+                    || name.startsWith("set")
+                    || name.startsWith("create")
+                    || name.startsWith("find")
+                    || name.startsWith("map")) {
                 continue;
             }
 
@@ -78,7 +77,7 @@ public class QueryUsagesDebugServlet extends HttpServlet {
 
         List<Class<?>> allClasses = new ArrayList<Class<?>>();
 
-        for (Class<?> c : ClassFinder.Static.findClasses(Object.class)) {
+        for (Class<?> c : ClassFinder.findClasses(Object.class)) {
             String cn = c.getName();
 
             if (!cn.startsWith("com.psddev.")) {
@@ -265,8 +264,8 @@ public class QueryUsagesDebugServlet extends HttpServlet {
                     for (Sorter sorter : query.getSorters()) {
                         String op = sorter.getOperator();
 
-                        if (Sorter.ASCENDING_OPERATOR.equals(op) ||
-                                Sorter.DESCENDING_OPERATOR.equals(op)) {
+                        if (Sorter.ASCENDING_OPERATOR.equals(op)
+                                || Sorter.DESCENDING_OPERATOR.equals(op)) {
                             List<Object> options = sorter.getOptions();
 
                             if (!options.isEmpty()) {
@@ -294,8 +293,8 @@ public class QueryUsagesDebugServlet extends HttpServlet {
                         }
                     }
 
-                    if (query.getPredicate() == null &&
-                            "selectAll".equals(calledMethod.getName())) {
+                    if (query.getPredicate() == null
+                            && "selectAll".equals(calledMethod.getName())) {
                         /*
                         writer.writeStart("div", "class", "alert alert-warning");
                             writer.writeHtml("Calling ");

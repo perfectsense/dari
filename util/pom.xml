@@ -9,26 +9,31 @@
     <parent>
         <groupId>com.psddev</groupId>
         <artifactId>dari</artifactId>
-        <version>2.4-SNAPSHOT</version>
+        <version>3.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>com.psddev</groupId>
     <artifactId>dari-util</artifactId>
-    <version>2.4-SNAPSHOT</version>
+    <version>3.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Dari: Utility Library</name>
 
     <dependencies>
         <dependency>
-            <groupId>asm</groupId>
+            <groupId>org.ow2.asm</groupId>
             <artifactId>asm</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>asm</groupId>
+            <groupId>org.ow2.asm</groupId>
             <artifactId>asm-tree</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
         </dependency>
 
         <dependency>
@@ -111,7 +116,7 @@
 
         <!-- Storage -->
         <dependency>
-            <groupId>org.jclouds</groupId>
+            <groupId>org.apache.jclouds</groupId>
             <artifactId>jclouds-all</artifactId>
             <optional>true</optional>
         </dependency>
@@ -126,17 +131,29 @@
         <!-- Environmental -->
         <dependency>
             <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
+            <artifactId>javax.servlet-api</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>javax.servlet.jsp</groupId>
-            <artifactId>jsp-api</artifactId>
+            <artifactId>javax.servlet.jsp-api</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <!-- Test -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava-testlib</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>commons-collections</groupId>
             <artifactId>commons-collections</artifactId>
@@ -150,49 +167,44 @@
         </dependency>
 
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-jdk14</artifactId>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest-all</artifactId>
             <scope>test</scope>
         </dependency>
 
-        <!-- ImageIO Tiff Support -->
         <dependency>
-            <groupId>com.sun.media</groupId>
-            <artifactId>jai_imageio</artifactId>
-            <version>1.1</version>
-            <optional>true</optional>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>clirr-maven-plugin</artifactId>
-                <version>2.6.1</version>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.4</version>
                 <executions>
                     <execution>
-                        <id>verify-api</id>
-                        <phase>verify</phase>
+                        <id>shade-asm</id>
+                        <phase>package</phase>
                         <goals>
-                            <goal>check</goal>
+                            <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <ignored>
-                                <difference>
-                                    <className>com/psddev/dari/util/DependencyResolver</className>
-                                    <differenceType>6010</differenceType>
-                                    <field>*</field>
-                                </difference>
+                            <artifactSet>
+                                <includes>
+                                    <include>org.ow2.asm:asm*</include>
+                                </includes>
+                            </artifactSet>
 
-                                <difference>
-                                    <className>com/psddev/dari/util/Stats$Measurement</className>
-                                    <differenceType>6010</differenceType>
-                                    <field>*</field>
-                                </difference>
-                            </ignored>
-
-                            <logResults>true</logResults>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.objectweb.asm</pattern>
+                                    <shadedPattern>com.psddev.dari.util.asm</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>

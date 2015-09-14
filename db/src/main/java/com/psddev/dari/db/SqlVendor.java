@@ -2,6 +2,7 @@ package com.psddev.dari.db;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -109,7 +110,7 @@ public class SqlVendor {
                 return;
             }
 
-            for (String ddl : IoUtils.toString(resourceInput, StringUtils.UTF_8).trim().split("(?:\r\n?|\n){2,}")) {
+            for (String ddl : IoUtils.toString(resourceInput, StandardCharsets.UTF_8).trim().split("(?:\r\n?|\n){2,}")) {
                 Statement statement = connection.createStatement();
 
                 try {
@@ -265,7 +266,7 @@ public class SqlVendor {
     public void appendBindString(StringBuilder builder, String value, List<Object> parameters) {
         builder.append('?');
         if (parameters != null) {
-            parameters.add(value == null ? null : value.getBytes(StringUtils.UTF_8));
+            parameters.add(value == null ? null : value.getBytes(StandardCharsets.UTF_8));
         }
     }
 
@@ -346,7 +347,7 @@ public class SqlVendor {
 
             builder.append("))')");
         } else {
-            appendBytes(builder, value.toString().getBytes(StringUtils.UTF_8));
+            appendBytes(builder, value.toString().getBytes(StandardCharsets.UTF_8));
         }
     }
 
@@ -842,9 +843,9 @@ public class SqlVendor {
 
                         if (statementReplication) {
                             LOGGER.warn(
-                                    "Using REPEATABLE READ transaction isolation due to statement-based replication." +
-                                    " This may cause reduced performance under load." +
-                                    " Please use mixed-mode replication (Add 'binlog_format = mixed' to my.cnf).");
+                                    "Using REPEATABLE READ transaction isolation due to statement-based replication."
+                                            + " This may cause reduced performance under load."
+                                            + " Please use mixed-mode replication (Add 'binlog_format = mixed' to my.cnf).");
                         }
 
                     } finally {
@@ -1372,7 +1373,7 @@ public class SqlVendor {
         @Override
         protected void appendBytes(StringBuilder builder, byte[] value) {
             builder.append('\'');
-            builder.append(new String(value, StringUtils.UTF_8).replace("'", "''"));
+            builder.append(new String(value, StandardCharsets.UTF_8).replace("'", "''"));
             builder.append('\'');
         }
 
@@ -1686,12 +1687,11 @@ public class SqlVendor {
 
         @Override
         protected String rewriteQueryWithLimitClause(String query, int limit, long offset) {
-            return String.format(
-                    "SELECT * FROM " +
-                    "    (SELECT a.*, ROWNUM rnum FROM " +
-                    "        (%s) a " +
-                    "      WHERE ROWNUM <= %d)" +
-                    " WHERE rnum  >= %d", query, offset + limit, offset);
+            return String.format("SELECT * FROM "
+                    + "    (SELECT a.*, ROWNUM rnum FROM "
+                    + "        (%s) a "
+                    + "      WHERE ROWNUM <= %d)"
+                    + " WHERE rnum  >= %d", query, offset + limit, offset);
         }
 
         @Override

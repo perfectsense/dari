@@ -20,18 +20,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ConversionException;
 import com.psddev.dari.util.ConversionFunction;
 import com.psddev.dari.util.Converter;
-import com.psddev.dari.util.ErrorUtils;
 import com.psddev.dari.util.LoadingCacheMap;
-import com.psddev.dari.util.LocaleUtils;
 import com.psddev.dari.util.ObjectToIterable;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Profiler;
@@ -39,6 +39,9 @@ import com.psddev.dari.util.StorageItem;
 import com.psddev.dari.util.StringUtils;
 import com.psddev.dari.util.TypeDefinition;
 import com.psddev.dari.util.UuidUtils;
+
+import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 
 /** Represents the state of an object stored in the database. */
 public class State implements Map<String, Object> {
@@ -68,19 +71,19 @@ public class State implements Map<String, Object> {
 
     private static final int STATUS_FLAG_OFFSET = 16;
     private static final int STATUS_FLAG_MASK = -1 >>> STATUS_FLAG_OFFSET;
-    private static final int ALL_RESOLVED_FLAG = 1 << 0;
+    private static final int ALL_RESOLVED_FLAG = 1;
     private static final int RESOLVE_TO_REFERENCE_ONLY_FLAG = 1 << 1;
     private static final int RESOLVE_WITHOUT_CACHE = 1 << 2;
     private static final int RESOLVE_USING_MASTER = 1 << 3;
     private static final int RESOLVE_INVISIBLE = 1 << 4;
 
-    private static final ThreadLocal<List<Listener>> LISTENERS_LOCAL = new ThreadLocal<List<Listener>>();
+    private static final ThreadLocal<List<Listener>> LISTENERS_LOCAL = new ThreadLocal<>();
 
-    private final Map<Class<?>, Object> linkedObjects = new CompactMap<Class<?>, Object>();
+    private final Map<Class<?>, Object> linkedObjects = new CompactMap<>();
     private Database database;
     private UUID id;
     private UUID typeId;
-    private final Map<String, Object> rawValues = new CompactMap<String, Object>();
+    private final Map<String, Object> rawValues = new CompactMap<>();
     private Map<String, Object> extras;
     private Map<ObjectField, List<String>> errors;
     private volatile int flags;
@@ -178,15 +181,26 @@ public class State implements Map<String, Object> {
         this.database = database;
     }
 
-    /** Returns the unique ID. */
+    /**
+     * Returns the unique ID.
+     *
+     * @return Never {@code null}.
+     */
     public UUID getId() {
         if (id == null) {
-            setId(UuidUtils.createSequentialUuid());
+            this.id = UuidUtils.createSequentialUuid();
         }
+
         return this.id;
     }
 
-    /** Sets the unique ID. */
+    /**
+     * Sets the unique ID.
+     *
+     * @param id
+     *        If {@code null}, next call to {@link #getId} will generate
+     *        a new unique ID.
+     */
     public void setId(UUID id) {
         this.id = id;
     }
@@ -265,7 +279,7 @@ public class State implements Map<String, Object> {
 
                 } else {
                     if (visibilities == null) {
-                        visibilities = new ArrayList<String>();
+                        visibilities = new ArrayList<>();
                         put("dari.visibilities", visibilities);
                     }
 
@@ -320,6 +334,7 @@ public class State implements Map<String, Object> {
      * fields are {@code null}).
      */
     public boolean isVisible() {
+        getVisibilityAwareTypeId();
         return ObjectUtils.isBlank(get("dari.visibilities"));
     }
 
@@ -424,7 +439,7 @@ public class State implements Map<String, Object> {
 
     public Map<String, Object> getSimpleValues(boolean withTypeNames) {
         Set<Map.Entry<String, Object>> entries = getValues().entrySet();
-        Map<String, Object> values = new CompactMap<String, Object>();
+        Map<String, Object> values = new CompactMap<>();
 
         for (Object entryObject : entries.toArray()) {
             if (entryObject == null) {
@@ -462,7 +477,7 @@ public class State implements Map<String, Object> {
      */
     @Deprecated
     public Map<String, Object> getSimpleFieldedValues() {
-        Map<String, Object> values = new CompactMap<String, Object>();
+        Map<String, Object> values = new CompactMap<>();
         for (Map.Entry<String, Object> e : getValues().entrySet()) {
             String name = e.getKey();
             ObjectField field = getField(name);
@@ -479,21 +494,22 @@ public class State implements Map<String, Object> {
      * Converts the given {@code value} into an instance of one of
      * the simple types listed in {@link #getSimpleValues}.
      */
-    private static Object toSimpleValue(Object value, boolean isEmbedded, boolean withTypeNames) {
+    protected static Object toSimpleValue(Object value, boolean isEmbedded, boolean withTypeNames) {
+
         if (value == null) {
             return null;
         }
 
         Iterable<Object> valueIterable = ObjectToIterable.iterable(value);
         if (valueIterable != null) {
-            List<Object> list = new ArrayList<Object>();
+            List<Object> list = new ArrayList<>();
             for (Object item : valueIterable) {
                 list.add(toSimpleValue(item, isEmbedded, withTypeNames));
             }
             return list;
 
         } else if (value instanceof Map) {
-            Map<String, Object> map = new CompactMap<String, Object>();
+            Map<String, Object> map = new CompactMap<>();
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
                 Object key = entry.getKey();
                 if (key != null) {
@@ -512,14 +528,14 @@ public class State implements Map<String, Object> {
             State valueState = ((Recordable) value).getState();
             if (valueState.isNew()) {
                 ObjectType type;
-                if (isEmbedded ||
-                        ((type = valueState.getType()) != null &&
-                        type.isEmbedded())) {
+                if (isEmbedded
+                        || ((type = valueState.getType()) != null
+                        && type.isEmbedded())) {
                     return valueState.getSimpleValues(withTypeNames);
                 }
             }
 
-            Map<String, Object> map = new CompactMap<String, Object>();
+            Map<String, Object> map = new CompactMap<>();
             map.put(StateValueUtils.REFERENCE_KEY, valueState.getId().toString());
             if (withTypeNames && valueState.getType() != null) {
                 map.put(StateValueUtils.TYPE_KEY, valueState.getType().getInternalName());
@@ -528,17 +544,16 @@ public class State implements Map<String, Object> {
             }
             return map;
 
-        } else if (value instanceof Boolean ||
-                value instanceof Number ||
-                value instanceof String) {
+        } else if (value instanceof Boolean
+                || value instanceof Number
+                || value instanceof String) {
             return value;
 
-        } else if (value instanceof Character ||
-                value instanceof CharSequence ||
-                value instanceof String ||
-                value instanceof URI ||
-                value instanceof URL ||
-                value instanceof UUID) {
+        } else if (value instanceof Character
+                || value instanceof CharSequence
+                || value instanceof URI
+                || value instanceof URL
+                || value instanceof UUID) {
             return value.toString();
 
         } else if (value instanceof Date) {
@@ -548,7 +563,10 @@ public class State implements Map<String, Object> {
             return ((Enum<?>) value).name();
 
         } else if (value instanceof Locale) {
-            return LocaleUtils.toLanguageTag((Locale) value);
+            return ((Locale) value).toLanguageTag();
+
+        } else if (Query.MISSING_VALUE.equals(value)) {
+            return Query.SERIALIZED_MISSING_VALUE;
 
         } else {
             return toSimpleValue(ObjectUtils.to(Map.class, value), isEmbedded, withTypeNames);
@@ -581,8 +599,8 @@ public class State implements Map<String, Object> {
                 path = null;
             }
 
-            if (key.indexOf('.') > -1 &&
-                    environment.getTypeByName(key) != null) {
+            if (key.indexOf('.') > -1
+                    && environment.getTypeByName(key) != null) {
                 continue;
             }
 
@@ -590,7 +608,10 @@ public class State implements Map<String, Object> {
                 value = ((Recordable) value).getState();
             }
 
-            if (key.endsWith("()") || (value instanceof State && ((State) value).isMethod(key))) {
+            if (key.endsWith("()")
+                    || ((key.startsWith("get") || key.startsWith("is") || key.startsWith("has")
+                    || key.contains(".get") || key.contains(".is") || key.contains(".has"))
+                    && (value instanceof State && ((State) value).isMethod(key)))) {
                 if (value instanceof State) {
 
                     Class<?> keyClass = null;
@@ -619,7 +640,7 @@ public class State implements Map<String, Object> {
                         value = ((State) value).as(keyClass);
                     }
 
-                    Set<String> checkedMods = new HashSet<String>();
+                    Set<String> checkedMods = new HashSet<>();
                     for (Class<?> c = keyClass; c != null; c = c.getSuperclass()) {
                         try {
                             Class<?> modC = null;
@@ -654,14 +675,20 @@ public class State implements Map<String, Object> {
                                 continue;
                             }
                             keyMethod.setAccessible(false);
-                            value = keyMethod.invoke(State.getInstance(value).as(modC != null ? modC : c));
+                            State valueState = State.getInstance(value);
+                            Object invokeValue = modC != null ? valueState.as(modC) : valueState.as(c);
+                            if (objMethod != null && objMethod.hasSingleObjectMethodParameter()) {
+                                value = keyMethod.invoke(invokeValue, objMethod);
+                            } else {
+                                value = keyMethod.invoke(invokeValue);
+                            }
                             continue KEY;
 
                         } catch (IllegalAccessException error) {
                             throw new IllegalStateException(error);
 
                         } catch (InvocationTargetException error) {
-                            ErrorUtils.rethrow(error.getCause());
+                            throw Throwables.propagate(error.getCause());
 
                         } catch (NoSuchMethodException error) {
                             // Try to find the method in the super class.
@@ -749,7 +776,7 @@ public class State implements Map<String, Object> {
                 break;
 
             } else if (value instanceof Recordable) {
-                value = ((Recordable) value).getState().getValue(part);
+                value = ((Recordable) value).getState().getByPath(part);
 
             } else if (value instanceof Map) {
                 value = ((Map<?, ?>) value).get(part);
@@ -797,7 +824,7 @@ public class State implements Map<String, Object> {
     /** Returns the indexes for the ObjectType returned by {@link #getType()}
      *  as well as any embedded indexes on this State. */
     public Set<ObjectIndex> getIndexes() {
-        Set<ObjectIndex> indexes = new LinkedHashSet<ObjectIndex>();
+        Set<ObjectIndex> indexes = new LinkedHashSet<>();
         ObjectType type = getType();
         if (type != null) {
             indexes.addAll(type.getIndexes());
@@ -902,7 +929,7 @@ public class State implements Map<String, Object> {
         List<AtomicOperation> ops = (List<AtomicOperation>) extras.get(ATOMIC_OPERATIONS_EXTRA);
 
         if (ops == null) {
-            ops = new ArrayList<AtomicOperation>();
+            ops = new ArrayList<>();
             extras.put(ATOMIC_OPERATIONS_EXTRA, ops);
         }
 
@@ -956,7 +983,7 @@ public class State implements Map<String, Object> {
      * will be thrown.
      */
     public void replaceAtomically(String name, Object value) {
-        queueAtomicOperation(new AtomicOperation.Replace(name, getValue(name), value));
+        queueAtomicOperation(new AtomicOperation.Replace(name, getByPath(name), value));
     }
 
     /**
@@ -969,9 +996,9 @@ public class State implements Map<String, Object> {
 
     /** Returns all the fields with validation errors from this record. */
     public Set<ObjectField> getErrorFields() {
-        return errors != null ?
-                Collections.unmodifiableSet(errors.keySet()) :
-                Collections.<ObjectField>emptySet();
+        return errors != null
+                ? Collections.unmodifiableSet(errors.keySet())
+                : Collections.<ObjectField>emptySet();
     }
 
     /**
@@ -1056,7 +1083,7 @@ public class State implements Map<String, Object> {
     /** Returns a modifiable map of all the extras values from this state. */
     public Map<String, Object> getExtras() {
         if (extras == null) {
-            extras = new CompactMap<String, Object>();
+            extras = new CompactMap<>();
         }
         return extras;
     }
@@ -1072,12 +1099,12 @@ public class State implements Map<String, Object> {
     public void addError(ObjectField field, String message) {
 
         if (errors == null) {
-            errors = new CompactMap<ObjectField, List<String>>();
+            errors = new CompactMap<>();
         }
 
         List<String> messages = errors.get(field);
         if (messages == null) {
-            messages = new ArrayList<String>();
+            messages = new ArrayList<>();
             errors.put(field, messages);
         }
         messages.add(message);
@@ -1148,13 +1175,13 @@ public class State implements Map<String, Object> {
             }
         }
 
-        return ObjectUtils.isBlank(label) ?
-                getDefaultLabel() :
-                label;
+        return ObjectUtils.isBlank(label)
+                ? getDefaultLabel()
+                : label;
     }
 
     // To check for circular references in resolving labels.
-    private static final ThreadLocal<Map<UUID, String>> LABEL_CACHE = new ThreadLocal<Map<UUID, String>>();
+    private static final ThreadLocal<Map<UUID, String>> LABEL_CACHE = new ThreadLocal<>();
 
     /**
      * Returns the default, descriptive label for this state.
@@ -1168,7 +1195,7 @@ public class State implements Map<String, Object> {
 
             StringBuilder label = new StringBuilder();
             for (String field : type.getLabelFields()) {
-                Object value = getValue(field);
+                Object value = getByPath(field);
                 if (value != null) {
 
                     String valueString;
@@ -1179,7 +1206,7 @@ public class State implements Map<String, Object> {
                         Map<UUID, String> cache = LABEL_CACHE.get();
                         boolean isFirst = false;
                         if (cache == null) {
-                            cache = new HashMap<UUID, String>();
+                            cache = new HashMap<>();
                             LABEL_CACHE.set(cache);
                             isFirst = true;
                         }
@@ -1248,7 +1275,8 @@ public class State implements Map<String, Object> {
         if (type != null) {
             String field = type.getPreviewField();
             if (!ObjectUtils.isBlank(field)) {
-                return (StorageItem) getValue(field);
+                Object previewObject = getByPath(field);
+                return previewObject instanceof StorageItem ? (StorageItem) previewObject : null;
             }
         }
         return null;
@@ -1271,8 +1299,8 @@ public class State implements Map<String, Object> {
             if (field != null) {
                 Class<?> fieldDeclaring = ObjectUtils.getClassByName(field.getJavaDeclaringClassName());
 
-                if (fieldDeclaring != null &&
-                        VisibilityLabel.class.isAssignableFrom(fieldDeclaring)) {
+                if (fieldDeclaring != null
+                        && VisibilityLabel.class.isAssignableFrom(fieldDeclaring)) {
                     return ((VisibilityLabel) as(fieldDeclaring)).createVisibilityLabel(field);
                 }
             }
@@ -1335,42 +1363,70 @@ public class State implements Map<String, Object> {
     @SuppressWarnings("unchecked")
     public void fireTrigger(Trigger trigger, boolean recursive) {
 
-        // Global modifications.
-        for (ObjectType modType : getDatabase().getEnvironment().getTypesByGroup(Modification.class.getName())) {
-            if (modType.isAbstract()) {
-                continue;
+        List<Class<?>> triggerGlobalModifications = getType() == null ? null : (List<Class<?>>) getType().getState().getExtra("trigger.globalModifications." + trigger.getClass().getName());
+
+        if (triggerGlobalModifications == null) {
+            triggerGlobalModifications = new ArrayList<>();
+            for (ObjectType modType : getDatabase().getEnvironment().getTypesByGroup(Modification.class.getName())) {
+                if (modType.isAbstract()) {
+                    continue;
+                }
+
+                Class<?> modClass = modType.getObjectClass();
+
+                if (modClass != null
+                        && Modification.class.isAssignableFrom(modClass)
+                        && Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)
+                        && !trigger.isMissing(modClass)) {
+                    triggerGlobalModifications.add(modClass);
+                }
             }
+            if (getType() != null) {
+                synchronized (getType().getState().getExtras()) {
+                    getType().getState().getExtras().put("trigger.globalModifications." + trigger.getClass().getName(), triggerGlobalModifications);
+                }
+            }
+        }
 
-            Class<?> modClass = modType.getObjectClass();
-
-            if (modClass != null &&
-                    Modification.class.isAssignableFrom(modClass) &&
-                    Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)) {
+        for (Class<?> modClass : triggerGlobalModifications) {
+            if (modClass != null
+                    && Modification.class.isAssignableFrom(modClass)
+                    && Modification.Static.getModifiedClasses((Class<? extends Modification<?>>) modClass).contains(Object.class)) {
                 fireModificationTrigger(trigger, modClass);
             }
         }
 
         ObjectType type = getType();
 
-        if (type == null ||
-                type.isAbstract()) {
+        if (type == null
+                || type.isAbstract()) {
             return;
         }
 
         // Type-specific modifications.
         TYPE_CHANGE: while (true) {
-            for (String modClassName : type.getModificationClassNames()) {
-                Class<?> modClass = ObjectUtils.getClassByName(modClassName);
+            List<Class<?>> triggerTypeModifications = (List<Class<?>>) type.getState().getExtra("trigger.typeModifications." + trigger.getClass().getName());
+            if (triggerTypeModifications == null) {
+                triggerTypeModifications = new ArrayList<>();
+                for (String modClassName : type.getModificationClassNames()) {
+                    Class<?> modClass = ObjectUtils.getClassByName(modClassName);
 
-                if (modClass != null) {
-                    fireModificationTrigger(trigger, modClass);
-
-                    ObjectType newType = getType();
-
-                    if (!type.equals(newType)) {
-                        type = newType;
-                        continue TYPE_CHANGE;
+                    if (modClass != null && !trigger.isMissing(modClass)) {
+                        triggerTypeModifications.add(modClass);
                     }
+                }
+                synchronized (type.getState().getExtras()) {
+                    type.getState().getExtras().put("trigger.typeModifications." + trigger.getClass().getName(), triggerTypeModifications);
+                }
+            }
+            for (Class<?> modClass : triggerTypeModifications) {
+                fireModificationTrigger(trigger, modClass);
+
+                ObjectType newType = getType();
+
+                if (!type.equals(newType)) {
+                    type = newType;
+                    continue TYPE_CHANGE;
                 }
             }
 
@@ -1379,13 +1435,31 @@ public class State implements Map<String, Object> {
 
         // Embedded objects.
         if (recursive) {
-            for (ObjectField field : type.getFields()) {
-                fireValueTrigger(trigger, get(field.getInternalName()), field.isEmbedded());
+            List<ObjectField> recordFields = (List<ObjectField>) type.getState().getExtra("trigger.recordFields");
+            if (recordFields == null) {
+                recordFields = new ArrayList<>();
+                for (ObjectField field : type.getFields()) {
+                    if (ObjectField.RECORD_TYPE.equals(field.getInternalItemType())) {
+                        recordFields.add(field);
+                    }
+                }
+                synchronized (type.getState().getExtras()) {
+                    type.getState().getExtras().put("trigger.recordFields", recordFields);
+                }
+            }
+            for (ObjectField field : recordFields) {
+                Object value = get(field.getInternalName());
+                if (value != null) {
+                    fireValueTrigger(trigger, value, field.isEmbedded());
+                }
             }
         }
     }
 
     private void fireModificationTrigger(Trigger trigger, Class<?> modClass) {
+        if (trigger.isMissing(modClass)) {
+            return;
+        }
         Object modObject;
 
         try {
@@ -1395,10 +1469,13 @@ public class State implements Map<String, Object> {
             return;
         }
 
-        LOGGER.debug(
-                "Firing trigger [{}] from [{}] on [{}]",
-                new Object[] { trigger, modClass.getName(), State.getInstance(modObject) });
-
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(
+                    "Firing trigger [{}] from [{}] on [{}]",
+                    trigger,
+                    modClass.getName(),
+                    State.getInstance(modObject));
+        }
         trigger.execute(modObject);
     }
 
@@ -1414,6 +1491,11 @@ public class State implements Map<String, Object> {
 
         } else if (value instanceof Recordable) {
             State valueState = ((Recordable) value).getState();
+
+            Class<?> valueClass = valueState.getType() != null ? valueState.getType().getObjectClass() : null;
+            if (valueClass == null || trigger.isMissing(valueClass)) {
+                return;
+            }
 
             if (embedded) {
                 valueState.fireTrigger(trigger);
@@ -1552,21 +1634,36 @@ public class State implements Map<String, Object> {
                 return;
             }
 
+            flags |= ALL_RESOLVED_FLAG;
+
+            if (linkedObjects.isEmpty()) {
+                return;
+            }
+
+            boolean hasPotentialRefs = false;
+            Collection<Object> rawValuesValues = rawValues.values();
+
+            for (Object rawValue : rawValuesValues) {
+                if (rawValue instanceof Map
+                        && ((Map<?, ?>) rawValue).containsKey(StateValueUtils.REFERENCE_KEY)) {
+                    hasPotentialRefs = true;
+                    break;
+                }
+            }
+
+            if (!hasPotentialRefs) {
+                return;
+            }
+
             Profiler.Static.startThreadEvent(RESOLVE_REFERENCE_PROFILER_EVENT, this);
 
             try {
-                flags |= ALL_RESOLVED_FLAG;
-
-                if (linkedObjects.isEmpty()) {
-                    return;
-                }
-
                 Object object = linkedObjects.values().iterator().next();
-                Map<UUID, Object> references = StateValueUtils.resolveReferences(getDatabase(), object, rawValues.values(), field);
-                Map<String, Object> resolved = new HashMap<String, Object>();
+                Map<UUID, Object> references = StateValueUtils.resolveReferences(getDatabase(), object, rawValuesValues, field);
+                Map<String, Object> resolved = new HashMap<>();
                 resolveMetricReferences(resolved);
 
-                for (Map.Entry<? extends String, ? extends Object> e : rawValues.entrySet()) {
+                for (Map.Entry<? extends String, ?> e : rawValues.entrySet()) {
                     UUID id = StateValueUtils.toIdIfReference(e.getValue());
                     if (id != null) {
                         resolved.put(e.getKey(), references.get(id));
@@ -1610,10 +1707,20 @@ public class State implements Map<String, Object> {
         resolveReference(null);
     }
 
+    private static class OnValidateTrigger extends TriggerOnce {
+
+        @Override
+        public void executeOnce(Object object) {
+            if (object instanceof Record) {
+                ((Record) object).onValidate();
+            }
+        }
+    }
+
     /**
      * Returns {@code true} if the field values in this state is valid.
      * The validation rules are typically read from annotations such as
-     * {@link Recordable.FieldRequired}.
+     * {@link Recordable.Required}.
      */
     public boolean validate() {
         ObjectType type = getType();
@@ -1628,6 +1735,8 @@ public class State implements Map<String, Object> {
         for (ObjectField field : environment.getFields()) {
             field.validate(this);
         }
+
+        fireTrigger(new OnValidateTrigger());
 
         return !hasAnyErrors();
     }
@@ -1669,8 +1778,8 @@ public class State implements Map<String, Object> {
 
             for (ObjectField field : type.getFields()) {
                 Field javaField = field.getJavaField(objectClass);
-                if (javaField == null ||
-                        !javaField.getDeclaringClass().getName().equals(field.getJavaDeclaringClassName())) {
+                if (javaField == null
+                        || !javaField.getDeclaringClass().getName().equals(field.getJavaDeclaringClassName())) {
                     continue;
                 }
 
@@ -1733,13 +1842,13 @@ public class State implements Map<String, Object> {
         try {
             Type javaFieldType = javaField.getGenericType();
 
-            if ((!javaField.getType().isPrimitive() &&
-                    !Number.class.isAssignableFrom(javaField.getType())) &&
-                    (javaFieldType instanceof Class ||
-                    ((value instanceof StateValueList ||
-                    value instanceof StateValueMap ||
-                    value instanceof StateValueSet) &&
-                    ObjectField.RECORD_TYPE.equals(field.getInternalItemType())))) {
+            if ((!javaField.getType().isPrimitive()
+                    && !Number.class.isAssignableFrom(javaField.getType()))
+                    && (javaFieldType instanceof Class
+                    || ((value instanceof StateValueList
+                    || value instanceof StateValueMap
+                    || value instanceof StateValueSet)
+                    && ObjectField.RECORD_TYPE.equals(field.getInternalItemType())))) {
                 try {
                     javaField.set(object, value);
                     return;
@@ -1753,8 +1862,8 @@ public class State implements Map<String, Object> {
                 if (javaFieldType instanceof TypeVariable) {
                     javaField.set(object, value);
 
-                } else if (javaFieldType instanceof Class &&
-                        ((Class<?>) javaFieldType).isPrimitive()) {
+                } else if (javaFieldType instanceof Class
+                        && ((Class<?>) javaFieldType).isPrimitive()) {
                     javaField.set(object, ObjectUtils.to(javaFieldType, value));
 
                 } else {
@@ -1821,9 +1930,10 @@ public class State implements Map<String, Object> {
     @Override
     public boolean containsValue(Object value) {
         copyJavaFieldsToRawValues();
-        return rawValues.containsKey(value);
+        return rawValues.containsValue(value);
     }
 
+    @Nonnull
     @Override
     public Set<Map.Entry<String, Object>> entrySet() {
         copyJavaFieldsToRawValues();
@@ -1838,11 +1948,19 @@ public class State implements Map<String, Object> {
 
         resolveReferences();
 
+        Object originalObject = getOriginalObjectOrNull();
+
         for (Object object : linkedObjects.values()) {
             Class<?> objectClass = object.getClass();
 
             ObjectType type = getDatabase().getEnvironment().getTypeByClass(objectClass);
             if (type == null) {
+                continue;
+            }
+
+            if (!Modification.class.isAssignableFrom(objectClass)
+                    && (originalObject == null
+                    || !originalObject.getClass().equals(objectClass))) {
                 continue;
             }
 
@@ -1875,6 +1993,7 @@ public class State implements Map<String, Object> {
         return false;
     }
 
+    @Nonnull
     @Override
     public Set<String> keySet() {
         return rawValues.keySet();
@@ -1927,12 +2046,14 @@ public class State implements Map<String, Object> {
     }
 
     @Override
-    public void putAll(Map<? extends String, ? extends Object> map) {
+    public void putAll(@Nonnull Map<? extends String, ?> map) {
+        Preconditions.checkNotNull(map);
+
         if (!linkedObjects.isEmpty()) {
             Object object = linkedObjects.values().iterator().next();
 
             if (object != null && getType() != null && getType().isLazyLoaded()) {
-                for (Map.Entry<? extends String, ? extends Object> e : map.entrySet()) {
+                for (Map.Entry<? extends String, ?> e : map.entrySet()) {
                     String key = e.getKey();
                     Object value = e.getValue();
                     if (StateValueUtils.toIdIfReference(value) != null) {
@@ -1941,9 +2062,9 @@ public class State implements Map<String, Object> {
                         put(key, value);
                     }
                 }
-                Map<String, Object> metricObjects = new HashMap<String, Object>();
+                Map<String, Object> metricObjects = new HashMap<>();
                 resolveMetricReferences(metricObjects);
-                for (Map.Entry<? extends String, ? extends Object> e : metricObjects.entrySet()) {
+                for (Map.Entry<? extends String, ?> e : metricObjects.entrySet()) {
                     put(e.getKey(), e.getValue());
                 }
                 flags &= ~ALL_RESOLVED_FLAG;
@@ -1955,7 +2076,7 @@ public class State implements Map<String, Object> {
             }
         }
 
-        for (Map.Entry<? extends String, ? extends Object> e : map.entrySet()) {
+        for (Map.Entry<? extends String, ?> e : map.entrySet()) {
             put(e.getKey(), e.getValue());
         }
     }
@@ -1977,6 +2098,7 @@ public class State implements Map<String, Object> {
         return rawValues.size() + 2;
     }
 
+    @Nonnull
     @Override
     public Collection<Object> values() {
         copyJavaFieldsToRawValues();
@@ -2007,16 +2129,15 @@ public class State implements Map<String, Object> {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{database=").append(getDatabase());
-        sb.append(", status=").append(getStatus());
-        sb.append(", id=").append(getId());
-        sb.append(", typeId=").append(getTypeId());
-        sb.append(", simpleValues=").append(getSimpleValues());
-        sb.append(", extras=").append(extras);
-        sb.append(", errors=").append(errors);
-        sb.append('}');
-        return sb.toString();
+        return MoreObjects.toStringHelper(this)
+                .add("database", getDatabase())
+                .add("status", getStatus())
+                .add("id", getId())
+                .add("typeId", getTypeId())
+                .add("simpleValues", getSimpleValues())
+                .add("extras", extras)
+                .add("errors", errors)
+                .toString();
     }
 
     // --- JSTL support ---
@@ -2026,11 +2147,12 @@ public class State implements Map<String, Object> {
         Map<String, Object> as = (Map<String, Object>) getExtras().get(MODIFICATIONS_EXTRA);
 
         if (as == null) {
-            as = new LoadingCacheMap<String, Object>(String.class, CacheBuilder.
-                    newBuilder().
-                    <String, Object>build(new CacheLoader<String, Object>() {
+            as = new LoadingCacheMap<>(String.class, CacheBuilder
+                    .newBuilder()
+                    .<String, Object>build(new CacheLoader<String, Object>() {
 
                 @Override
+                @ParametersAreNonnullByDefault
                 public Object load(String modificationClassName) {
                     Class<?> modificationClass = ObjectUtils.getClassByName(modificationClassName);
 
@@ -2156,7 +2278,7 @@ public class State implements Map<String, Object> {
             }
         }
 
-        ErrorUtils.rethrow(lastError);
+        throw Throwables.propagate(lastError);
     }
 
     /**
@@ -2202,7 +2324,7 @@ public class State implements Map<String, Object> {
             List<Listener> listeners = LISTENERS_LOCAL.get();
 
             if (listeners == null) {
-                listeners = new ArrayList<Listener>();
+                listeners = new ArrayList<>();
                 LISTENERS_LOCAL.set(listeners);
             }
 
@@ -2261,7 +2383,7 @@ public class State implements Map<String, Object> {
         setStatus(StateStatus.REFERENCE_ONLY);
     }
 
-    /** @deprecated Use {@link #isResolveReferenceOnly} instead. */
+    /** @deprecated Use {@link #isResolveToReferenceOnly} instead. */
     @Deprecated
     public boolean isResolveReferenceOnly() {
         return isResolveToReferenceOnly();

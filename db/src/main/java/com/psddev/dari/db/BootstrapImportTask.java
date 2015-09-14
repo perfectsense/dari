@@ -105,9 +105,9 @@ class BootstrapImportTask extends Task {
                     throw new RuntimeException("Missing " + BootstrapPackage.Static.TYPES_HEADER + " header");
                 }
             }
-            if (!(!headers.containsKey(BootstrapPackage.Static.ROW_COUNT_HEADER) ||
-                    headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER) == null ||
-                    "".equals(headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER).trim()))) {
+            if (!(!headers.containsKey(BootstrapPackage.Static.ROW_COUNT_HEADER)
+                    || headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER) == null
+                    || "".equals(headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER).trim()))) {
                 setProgressTotal(ObjectUtils.to(Long.class, headers.get(BootstrapPackage.Static.ROW_COUNT_HEADER)));
             }
             UUID localObjTypeId = database.getEnvironment().getTypeByClass(ObjectType.class).getId();
@@ -140,7 +140,11 @@ class BootstrapImportTask extends Task {
                         localType.setDisplayName("Unknown Type: " + remoteTypeName);
                         unknownTypes.put(localType.getId(), localType);
                     } else {
-                        typeIds.add(localType.getId());
+                        if (localType.getGroups().contains(Singleton.class.getName())) {
+                            typeMapTypeFields.put(remoteTypeName, "dari.singleton.key");
+                        } else {
+                            typeIds.add(localType.getId());
+                        }
                     }
                 }
                 if (deleteFirst) {
@@ -193,7 +197,7 @@ class BootstrapImportTask extends Task {
             }
             LOGGER.info("Importing data from " + filename + " . . . ");
             int numRows = 0;
-            boolean afterMappingTypes = false;
+            boolean afterObjectTypes = false;
             ObjectType objType = database.getEnvironment().getTypeByClass(ObjectType.class);
             while (null != (line = reader.readLine())) {
                 if (!shouldContinue()) {
@@ -241,7 +245,15 @@ class BootstrapImportTask extends Task {
                         continue;
                     }
 
-                    if (!afterMappingTypes && (typeMapTypeFields.containsKey(ObjectUtils.to(String.class, stateMap.get("_type"))) || objType.equals(type))) {
+                    if (!afterObjectTypes && !objType.equals(type)) {
+                        afterObjectTypes = true;
+                        // this is the first line after all of the objectTypes, potentially need to re-parse it.
+                        prepareIdTranslation();
+                        line = translateIds(line);
+                        stateMap = ObjectUtils.to(MAP_STRING_OBJECT_TYPE, ObjectUtils.fromJson(line));
+                    }
+
+                    if ((typeMapTypeFields.containsKey(ObjectUtils.to(String.class, stateMap.get("_type"))) || objType.equals(type))) {
                         String typeMapField = typeMapTypeFields.get(ObjectUtils.to(String.class, stateMap.get("_type")));
                         Object localObj;
                         if (objType.equals(type)) {
@@ -252,24 +264,13 @@ class BootstrapImportTask extends Task {
                         if (localObj instanceof Recordable) {
                             UUID localId = ((Recordable) localObj).getState().getId();
                             remoteToLocalIdMap.put(ObjectUtils.to(UUID.class, stateMap.get("_id")), localId);
-                            if (objType.equals(type)) {
-                                stateMap.put("_id", localId);
-                            }
+                            stateMap.put("_id", localId);
                         }
                         if (localObj == null || isAllTypes || typeNames.contains(type.getInternalName())) {
                             record.getState().setResolveToReferenceOnly(true);
                             record.getState().setValues(stateMap);
                             saveQueue.add(record);
                         }
-                    } else if (!afterMappingTypes) {
-                        afterMappingTypes = true;
-                        // this is the first line after all of the objectTypes, potentially need to re-parse it.
-                        prepareIdTranslation();
-                        line = translateIds(line);
-                        stateMap = ObjectUtils.to(MAP_STRING_OBJECT_TYPE, ObjectUtils.fromJson(line));
-                        record.getState().setResolveToReferenceOnly(true);
-                        record.getState().setValues(stateMap);
-                        saveQueue.add(record);
                     } else {
                         record.getState().setResolveToReferenceOnly(true);
                         record.getState().setValues(stateMap);

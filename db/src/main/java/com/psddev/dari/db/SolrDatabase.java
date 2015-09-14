@@ -7,7 +7,6 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,7 +25,7 @@ import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
+import org.apache.solr.client.solrj.impl.HttpSolrServer;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
@@ -62,6 +61,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     public static final String COMMIT_WITHIN_SUB_SETTING = "commitWithin";
     public static final String VERSION_SUB_SETTING = "version";
     public static final String SAVE_DATA_SUB_SETTING = "saveData";
+    public static final String AUTO_COMMIT_SUB_SETTING = "autoCommit";
 
     public static final double DEFAULT_COMMIT_WITHIN = 0.0;
 
@@ -92,6 +92,13 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     private static final String COMMIT_PROFILER_EVENT = SHORT_NAME + " " + COMMIT_STATS_OPERATION;
     private static final String DELETE_PROFILER_EVENT = SHORT_NAME + " " + DELETE_STATS_OPERATION;
     private static final String QUERY_PROFILER_EVENT = SHORT_NAME + " " + QUERY_STATS_OPERATION;
+    private static final int MAX_BINARY_FIELD_LENGTH = 500;
+    private static final Set<String> TRUNCATE_FIELD_PREFIXES = new HashSet<>();
+
+    static {
+        TRUNCATE_FIELD_PREFIXES.add("_sl_");
+        TRUNCATE_FIELD_PREFIXES.add("_ss_");
+    }
 
     private volatile SolrServer server;
     private volatile SolrServer readServer;
@@ -99,6 +106,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     private volatile Double commitWithin;
     private volatile String version;
     private volatile boolean saveData = true;
+    private volatile boolean autoCommit;
 
     /** Returns the underlying Solr server. */
     public SolrServer getServer() {
@@ -163,6 +171,14 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
 
     public void setSaveData(boolean saveData) {
         this.saveData = saveData;
+    }
+
+    public boolean isAutoCommit() {
+        return autoCommit;
+    }
+
+    public void setAutoCommit(boolean autoCommit) {
+        this.autoCommit = autoCommit;
     }
 
     private static class SolrSchema {
@@ -477,7 +493,26 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                 continue;
 
             } else if (Sorter.RELEVANT_OPERATOR.equals(operator)) {
-                Predicate sortPredicate = (Predicate) sorter.getOptions().get(1);
+
+                Predicate sortPredicate = null;
+
+                Object predicateObject = sorter.getOptions().get(1);
+                if (predicateObject instanceof Predicate) {
+                    sortPredicate = (Predicate) predicateObject;
+
+                } else {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> simpleValues = (Map<String, Object>) predicateObject;
+
+                    ObjectType type = ObjectType.getInstance(ObjectUtils.to(UUID.class, simpleValues.get(StateValueUtils.TYPE_KEY)));
+                    Object object = type.createObject(ObjectUtils.to(UUID.class, simpleValues.get(StateValueUtils.ID_KEY)));
+                    State state = State.getInstance(object);
+                    state.putAll(simpleValues);
+
+                    if (object instanceof Predicate) {
+                        sortPredicate = (Predicate) object;
+                    }
+                }
                 double boost = ObjectUtils.to(double.class, sorter.getOptions().get(0));
                 if (boost < 0.0) {
                     boost = -boost;
@@ -597,8 +632,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                 } else {
                     values = new ArrayList<Object>();
                     for (Object item : readPartial(
-                            valueQuery, 0, Settings.getOrDefault(int.class, "dari/subQueryResolveLimit", 100)).
-                            getItems()) {
+                            valueQuery, 0, Settings.getOrDefault(int.class, "dari/subQueryResolveLimit", 100))
+                            .getItems()) {
                         values.add(State.getInstance(item).getId());
                     }
                 }
@@ -762,10 +797,9 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         protected abstract void addValue(StringBuilder comparisonBuilder, String solrField, Object value);
 
         protected String changeSolrField(String solrField) {
-            return solrField.startsWith("_t_") ?
-                    (schema.get().version >= 8 ? "_sl_" : "_s_") +
-                    solrField.substring(3) :
-                    solrField;
+            return solrField.startsWith("_t_")
+                    ? (schema.get().version >= 8 ? "_sl_" : "_s_") + solrField.substring(3)
+                    : solrField;
         }
 
         protected String escapeValue(Object value) {
@@ -983,8 +1017,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     }
 
     private void addToStreamBody(StringBuilder streamBody, Object value) {
-        if (value == null ||
-                value instanceof Boolean) {
+        if (value == null
+                || value instanceof Boolean) {
             // No need to search against null or a boolean.
 
         } else if (value instanceof Iterable) {
@@ -1125,6 +1159,10 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     }
 
     private void doCommit(SolrServer server) {
+        if (isAutoCommit()) {
+            return;
+        }
+
         Throwable error = null;
 
         try {
@@ -1164,14 +1202,14 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         }
 
         try {
-            setServer(new CommonsHttpSolrServer(url));
+            setServer(new HttpSolrServer(url));
 
             String readUrl = ObjectUtils.to(String.class, settings.get(READ_SERVER_URL_SUB_SETTING));
             if (!ObjectUtils.isBlank(readUrl)) {
-                setReadServer(new CommonsHttpSolrServer(readUrl));
+                setReadServer(new HttpSolrServer(readUrl));
             }
 
-        } catch (MalformedURLException ex) {
+        } catch (Exception ex) {
             throw new SettingsException(
                     settingsKey + "/" + SERVER_URL_SUB_SETTING,
                     String.format("[%s] is not a valid URL!", url));
@@ -1184,6 +1222,12 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         Boolean saveData = ObjectUtils.to(Boolean.class, settings.get(SAVE_DATA_SUB_SETTING));
         if (saveData != null) {
             setSaveData(saveData);
+        }
+
+        Boolean autoCommit = ObjectUtils.to(Boolean.class, settings.get(AUTO_COMMIT_SUB_SETTING));
+
+        if (autoCommit != null) {
+            setAutoCommit(autoCommit);
         }
     }
 
@@ -1481,14 +1525,16 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                         entry.getValue());
             }
 
-            for (ObjectMethod method : state.getType().getMethods()) {
+            List<ObjectMethod> methods = new ArrayList<>(state.getType().getMethods());
+            methods.addAll(getEnvironment().getMethods());
+            for (ObjectMethod method : methods) {
                 addDocumentValues(
                         document,
                         allBuilder,
                         true,
                         method,
                         method.getUniqueName(),
-                        state.getByPath(method.getInternalName())
+                        Static.getStateMethodValue(state, method)
                         );
             }
 
@@ -1546,6 +1592,26 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         }
     }
 
+    // Pass through distinct set of States to doSaves.
+    @Override
+    protected void doWriteRecalculations(SolrServer server, boolean isImmediate, Map<ObjectIndex, List<State>> recalculations) throws Exception {
+        if (recalculations != null) {
+            Set<State> states = new HashSet<State>();
+            for (Map.Entry<ObjectIndex, List<State>> entry : recalculations.entrySet()) {
+                states.addAll(entry.getValue());
+            }
+            doSaves(server, isImmediate, new ArrayList<State>(states));
+        }
+    }
+
+    // Pass through to doWriteRecalculations.
+    @Override
+    protected void doRecalculations(SolrServer server, boolean isImmediate, ObjectIndex index, List<State> states) throws Exception {
+        Map<ObjectIndex, List<State>> recalculations = new HashMap<ObjectIndex, List<State>>();
+        recalculations.put(index, states);
+        doWriteRecalculations(server, isImmediate, recalculations);
+    }
+
     // Adds all items within the given {@code value} to the given
     // {@code document} at the given {@code name}.
     private void addDocumentValues(
@@ -1560,16 +1626,16 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
             return;
         }
 
-        if (value instanceof List) {
-            for (Object item : (List<?>) value) {
+        if (value instanceof Iterable) {
+            for (Object item : (Iterable<?>) value) {
                 addDocumentValues(document, allBuilder, includeInAny, field, name, item);
             }
             return;
         }
 
         if (includeInAny) {
-            includeInAny = field == null ||
-                    !field.as(FieldData.class).isExcludeFromAny();
+            includeInAny = field == null
+                    || !field.as(FieldData.class).isExcludeFromAny();
         }
 
         if (value instanceof Recordable) {
@@ -1606,6 +1672,12 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                         ObjectType valueType = getEnvironment().getTypeById(valueTypeId);
 
                         if (valueType != null) {
+                            State valueState = null;
+                            if (!valueType.getMethods().isEmpty()) {
+                                valueState = new State();
+                                valueState.setType(valueType);
+                                valueState.setId(ObjectUtils.to(UUID.class, valueMap.get(StateValueUtils.ID_KEY)));
+                            }
                             for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
                                 String subName = entry.getKey().toString();
                                 ObjectField subField = valueType.getField(subName);
@@ -1618,6 +1690,21 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                                             subField,
                                             name + "/" + subName,
                                             entry.getValue());
+                                }
+                                if (valueState != null) {
+                                    valueState.putByPath(subName, entry.getValue());
+                                }
+                            }
+                            if (valueState != null) {
+                                for (ObjectMethod method : valueType.getMethods()) {
+                                    addDocumentValues(
+                                            document,
+                                            allBuilder,
+                                            includeInAny,
+                                            method,
+                                            name + "/" + method.getInternalName(),
+                                            Static.getStateMethodValue(valueState, method)
+                                    );
                                 }
                             }
                         }
@@ -1674,12 +1761,19 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
             value = ((String) value).trim().toLowerCase(Locale.ENGLISH);
         }
 
+        Object truncatedValue = value;
+        if (value instanceof String) {
+            if (((String) value).length() > MAX_BINARY_FIELD_LENGTH) {
+                truncatedValue = ((String) value).substring(0, MAX_BINARY_FIELD_LENGTH);
+            }
+        }
+
         SolrField solrField = getSolrField(field.getInternalItemType());
         for (String prefix : solrField.addPrefixes) {
-            document.addField(prefix + name, value);
+            document.addField(prefix + name, TRUNCATE_FIELD_PREFIXES.contains(prefix) ? truncatedValue : value);
         }
         for (String prefix : solrField.setPrefixes) {
-            document.setField(prefix + name, value);
+            document.setField(prefix + name, TRUNCATE_FIELD_PREFIXES.contains(prefix) ? truncatedValue : value);
         }
     }
 
@@ -1756,6 +1850,14 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
          */
         public static Float getNormalizedScore(Object object) {
             return (Float) State.getInstance(object).getExtra(NORMALIZED_SCORE_EXTRA);
+        }
+
+        /**
+         * Execute an ObjectMethod on the given State and return the result as a value or reference.
+         */
+        private static Object getStateMethodValue(State state, ObjectMethod method) {
+            Object methodResult = state.getByPath(method.getInternalName());
+            return State.toSimpleValue(methodResult, method.isEmbedded(), false);
         }
     }
 

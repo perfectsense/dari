@@ -2,6 +2,7 @@ package com.psddev.dari.db;
 
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -16,7 +17,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import com.psddev.dari.util.LocaleUtils;
 import com.psddev.dari.util.ObjectToIterable;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.StringUtils;
@@ -199,6 +199,13 @@ public enum SqlIndex {
                 Connection connection,
                 ObjectIndex index) throws SQLException;
 
+        public default String prepareUpdateStatement(
+                SqlDatabase database,
+                Connection connection,
+                ObjectIndex index) throws SQLException {
+            throw new UnsupportedOperationException();
+        }
+
         public void bindInsertValues(
                 SqlDatabase database,
                 ObjectIndex index,
@@ -208,6 +215,16 @@ public enum SqlIndex {
                 Set<String> bindKeys,
                 List<List<Object>> parameters) throws SQLException;
 
+        public default void bindUpdateValues(
+                SqlDatabase database,
+                ObjectIndex index,
+                UUID id,
+                UUID typeId,
+                IndexValue indexValue,
+                Set<String> bindKeys,
+                List<List<Object>> parameters) throws SQLException {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private abstract static class AbstractTable implements Table {
@@ -259,8 +276,8 @@ public enum SqlIndex {
             for (String fieldName : indexFieldNames) {
                 ObjectField field = parent.getField(fieldName);
 
-                if (field != null &&
-                        field.as(SqlDatabase.FieldData.class).isIndexTableSameColumnNames()) {
+                if (field != null
+                        && field.as(SqlDatabase.FieldData.class).isIndexTableSameColumnNames()) {
                     String valueFieldName = indexFieldNames.get(fieldIndex);
                     int dotAt = valueFieldName.lastIndexOf(".");
 
@@ -269,8 +286,8 @@ public enum SqlIndex {
                     }
 
                     return valueFieldName;
-                } else if (field != null &&
-                        field.as(SqlDatabase.FieldData.class).getIndexTableColumnName() != null) {
+                } else if (field != null
+                        && field.as(SqlDatabase.FieldData.class).getIndexTableColumnName() != null) {
                     return field.as(SqlDatabase.FieldData.class).getIndexTableColumnName();
                 }
             }
@@ -288,10 +305,10 @@ public enum SqlIndex {
             ObjectField field = parent.getField(index.getFields().get(fieldIndex));
             String type = field.getInternalItemType();
 
-            if (ObjectField.DATE_TYPE.equals(type) ||
-                    ObjectField.NUMBER_TYPE.equals(type) ||
-                    ObjectField.LOCATION_TYPE.equals(type) ||
-                    ObjectField.REGION_TYPE.equals(type)) {
+            if (ObjectField.DATE_TYPE.equals(type)
+                    || ObjectField.NUMBER_TYPE.equals(type)
+                    || ObjectField.LOCATION_TYPE.equals(type)
+                    || ObjectField.REGION_TYPE.equals(type)) {
                 return value;
 
             } else if (value instanceof UUID) {
@@ -310,7 +327,7 @@ public enum SqlIndex {
         }
 
         protected static byte[] stringToBytes(String value, int length) {
-            byte[] bytes = value.getBytes(StringUtils.UTF_8);
+            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
 
             if (bytes.length <= length) {
                 return bytes;
@@ -638,8 +655,8 @@ public enum SqlIndex {
          * of the given field {@code type}.
          */
         public static SqlIndex getByType(String type) {
-            if (ObjectField.DATE_TYPE.equals(type) ||
-                    ObjectField.NUMBER_TYPE.equals(type)) {
+            if (ObjectField.DATE_TYPE.equals(type)
+                    || ObjectField.NUMBER_TYPE.equals(type)) {
                 return SqlIndex.NUMBER;
 
             } else if (ObjectField.LOCATION_TYPE.equals(type)) {
@@ -648,8 +665,8 @@ public enum SqlIndex {
             } else if (ObjectField.REGION_TYPE.equals(type)) {
                 return SqlIndex.REGION;
 
-            } else if (ObjectField.RECORD_TYPE.equals(type) ||
-                    ObjectField.UUID_TYPE.equals(type)) {
+            } else if (ObjectField.RECORD_TYPE.equals(type)
+                    || ObjectField.UUID_TYPE.equals(type)) {
                 return SqlIndex.UUID;
 
             } else {
@@ -665,9 +682,9 @@ public enum SqlIndex {
             List<String> fieldNames = index.getFields();
             ObjectField field = index.getParent().getField(fieldNames.get(0));
 
-            if (fieldNames.size() > 1 ||
-                    (field != null &&
-                    field.as(SqlDatabase.FieldData.class).getIndexTable() != null)) {
+            if (fieldNames.size() > 1
+                    || (field != null
+                    && field.as(SqlDatabase.FieldData.class).getIndexTable() != null)) {
                 return SqlIndex.CUSTOM;
 
             } else {
@@ -683,6 +700,15 @@ public enum SqlIndex {
         public static void deleteByStates(
                 SqlDatabase database,
                 Connection connection,
+                List<State> states)
+                throws SQLException {
+            deleteByStates(database, connection, null, states);
+        }
+
+        private static void deleteByStates(
+                SqlDatabase database,
+                Connection connection,
+                ObjectIndex onlyIndex,
                 List<State> states)
                 throws SQLException {
 
@@ -712,9 +738,9 @@ public enum SqlIndex {
             for (ObjectStruct struct : structs) {
                 for (ObjectIndex index : struct.getIndexes()) {
                     ObjectField field = index.getParent().getField(index.getFields().get(0));
-                    if (field != null &&
-                            (index.getFields().size() > 1 ||
-                            field.as(SqlDatabase.FieldData.class).getIndexTable() != null)) {
+                    if (field != null
+                            && (index.getFields().size() > 1
+                            || field.as(SqlDatabase.FieldData.class).getIndexTable() != null)) {
                         customIndexes.add(index);
                     }
                 }
@@ -725,16 +751,25 @@ public enum SqlIndex {
                     for (Table table : sqlIndex.getWriteTables(database, null)) {
                         StringBuilder deleteBuilder = new StringBuilder();
                         deleteBuilder.append("DELETE FROM ");
-                        vendor.appendIdentifier(deleteBuilder, table.getName(database, null));
+                        vendor.appendIdentifier(deleteBuilder, table.getName(database, onlyIndex));
                         deleteBuilder.append(" WHERE ");
-                        vendor.appendIdentifier(deleteBuilder, table.getIdField(database, null));
+                        vendor.appendIdentifier(deleteBuilder, table.getIdField(database, onlyIndex));
                         deleteBuilder.append(idsBuilder);
+                        if (onlyIndex != null && table.getKeyField(database, onlyIndex) != null) {
+                            deleteBuilder.append(" AND ");
+                            vendor.appendIdentifier(deleteBuilder, table.getKeyField(database, onlyIndex));
+                            deleteBuilder.append(" = ");
+                            deleteBuilder.append(database.getSymbolId(onlyIndex.getUniqueName()));
+                        }
                         SqlDatabase.Static.executeUpdateWithArray(connection, deleteBuilder.toString());
                     }
                 }
             }
 
             for (ObjectIndex index : customIndexes) {
+                if (onlyIndex != null && !onlyIndex.equals(index)) {
+                    continue;
+                }
                 for (Table table : CUSTOM.getWriteTables(database, index)) {
                     StringBuilder deleteBuilder = new StringBuilder();
                     deleteBuilder.append("DELETE FROM ");
@@ -742,6 +777,12 @@ public enum SqlIndex {
                     deleteBuilder.append(" WHERE ");
                     vendor.appendIdentifier(deleteBuilder, table.getIdField(database, index));
                     deleteBuilder.append(idsBuilder);
+                    if (onlyIndex != null && table.getKeyField(database, onlyIndex) != null) {
+                        deleteBuilder.append(" AND ");
+                        vendor.appendIdentifier(deleteBuilder, table.getKeyField(database, onlyIndex));
+                        deleteBuilder.append(" = ");
+                        deleteBuilder.append(database.getSymbolId(onlyIndex.getUniqueName()));
+                    }
                     SqlDatabase.Static.executeUpdateWithArray(connection, deleteBuilder.toString());
                 }
             }
@@ -757,6 +798,9 @@ public enum SqlIndex {
             Map<String, String> updateQueries = new HashMap<String, String>();
             Map<String, List<List<Object>>> updateParameters = new HashMap<String, List<List<Object>>>();
             Map<String, Set<String>> updateBindKeys = new HashMap<String, Set<String>>();
+            Map<String, List<State>> updateStates = new HashMap<String, List<State>>();
+            Set<State> needDeletes = new HashSet<State>();
+            Set<State> needInserts = new HashSet<State>();
 
             for (State state : states) {
                 UUID id = state.getId();
@@ -767,6 +811,11 @@ public enum SqlIndex {
                 collectIndexValues(state, indexValues, null, state.getDatabase().getEnvironment(), stateValues, index);
                 ObjectType type = state.getType();
                 if (type != null) {
+                    ObjectField field = type.getField(index.getField());
+                    if (field != null && field.isInternalCollectionType()) {
+                        needInserts.add(state);
+                        continue;
+                    }
                     collectIndexValues(state, indexValues, null, type, stateValues, index);
                 }
 
@@ -777,7 +826,8 @@ public enum SqlIndex {
                         String sqlQuery = updateQueries.get(name);
                         List<List<Object>> parameters = updateParameters.get(name);
                         Set<String> bindKeys = updateBindKeys.get(name);
-                        if (sqlQuery == null && parameters == null) {
+                        List<State> tableStates = updateStates.get(name);
+                        if (sqlQuery == null && parameters == null && tableStates == null) {
                             if (table instanceof AbstractTable) {
                                 sqlQuery = ((AbstractTable) table).prepareUpdateStatement(database, connection, index);
                             } else {
@@ -790,14 +840,21 @@ public enum SqlIndex {
 
                             bindKeys = new HashSet<String>();
                             updateBindKeys.put(name, bindKeys);
+
+                            tableStates = new ArrayList<State>();
+                            updateStates.put(name, tableStates);
                         }
 
                         if (table instanceof AbstractTable) {
                             ((AbstractTable) table).bindUpdateValues(database, index, id, typeId, indexValue, bindKeys, parameters);
+                            tableStates.add(state);
                         } else {
                             throw new IllegalStateException("Table " + table.getName(database, index) + " does not support updates.");
                         }
                     }
+                }
+                if (indexValues.isEmpty()) {
+                    needDeletes.add(state);
                 }
 
             }
@@ -806,16 +863,29 @@ public enum SqlIndex {
                 String name = entry.getKey();
                 String sqlQuery = entry.getValue();
                 List<List<Object>> parameters = updateParameters.get(name);
+                List<State> tableStates = updateStates.get(name);
                 try {
                     if (!parameters.isEmpty()) {
-                        SqlDatabase.Static.executeBatchUpdate(connection, sqlQuery, parameters);
+                        int[] rows = SqlDatabase.Static.executeBatchUpdate(connection, sqlQuery, parameters);
+                        for (int i = 0; i < rows.length; i++) {
+                            if (rows[i] == 0) {
+                                needInserts.add(tableStates.get(i));
+                            }
+                        }
                     }
                 } catch (BatchUpdateException bue) {
                     SqlDatabase.Static.logBatchUpdateException(bue, sqlQuery, parameters);
                     throw bue;
                 }
             }
-
+            if (!needDeletes.isEmpty()) {
+                deleteByStates(database, connection, index, new ArrayList<State>(needDeletes));
+            }
+            if (!needInserts.isEmpty()) {
+                List<State> insertStates = new ArrayList<State>(needInserts);
+                deleteByStates(database, connection, index, insertStates);
+                insertByStates(database, connection, index, insertStates);
+            }
         }
 
         /**
@@ -824,6 +894,15 @@ public enum SqlIndex {
         public static Map<State, String> insertByStates(
                 SqlDatabase database,
                 Connection connection,
+                List<State> states)
+                throws SQLException {
+            return insertByStates(database, connection, null, states);
+        }
+
+        private static Map<State, String> insertByStates(
+                SqlDatabase database,
+                Connection connection,
+                ObjectIndex onlyIndex,
                 List<State> states)
                 throws SQLException {
 
@@ -842,6 +921,9 @@ public enum SqlIndex {
 
                 for (IndexValue indexValue : getIndexValues(state)) {
                     ObjectIndex index = indexValue.getIndex();
+                    if (onlyIndex != null && !onlyIndex.equals(index)) {
+                        continue;
+                    }
 
                     if (database.hasInRowIndex() && index.isShortConstant()) {
                         StringBuilder inRowIndex = new StringBuilder();
@@ -945,7 +1027,21 @@ public enum SqlIndex {
                 }
 
                 Set<Object> values = new HashSet<Object>();
-                Object fieldValue = field instanceof ObjectMethod ? state.getByPath(field.getInternalName()) : stateValues.get(field.getInternalName());
+                Object fieldValue;
+                if (field instanceof ObjectMethod) {
+                    StringBuilder path = new StringBuilder();
+                    if (prefixes != null) {
+                        for (ObjectField fieldPrefix : prefixes) {
+                            path.append(fieldPrefix.getInternalName());
+                            path.append("/");
+                        }
+                    }
+                    path.append(field.getInternalName());
+                    fieldValue = state.getByPath(path.toString());
+                } else {
+                    fieldValue = stateValues.get(field.getInternalName());
+                }
+
                 collectFieldValues(state, indexValues, prefixes, struct, field, values, fieldValue);
                 if (values.isEmpty()) {
                     return;
@@ -1022,8 +1118,8 @@ public enum SqlIndex {
                 if (ObjectField.RECORD_TYPE.equals(field.getInternalItemType())) {
                     ObjectType valueType = valueState.getType();
 
-                    if (field.isEmbedded() ||
-                            (valueType != null && valueType.isEmbedded())) {
+                    if (field.isEmbedded()
+                            || (valueType != null && valueType.isEmbedded())) {
                         int last;
                         ObjectField[] newPrefixes;
 
@@ -1049,10 +1145,10 @@ public enum SqlIndex {
                     values.add(valueState.getId());
                 }
 
-            } else if (value instanceof Character ||
-                    value instanceof CharSequence ||
-                    value instanceof URI ||
-                    value instanceof URL) {
+            } else if (value instanceof Character
+                    || value instanceof CharSequence
+                    || value instanceof URI
+                    || value instanceof URL) {
                 values.add(value.toString());
 
             } else if (value instanceof Date) {
@@ -1062,7 +1158,7 @@ public enum SqlIndex {
                 values.add(((Enum<?>) value).name());
 
             } else if (value instanceof Locale) {
-                values.add(LocaleUtils.toLanguageTag((Locale) value));
+                values.add(((Locale) value).toLanguageTag());
 
             } else {
                 values.add(value);

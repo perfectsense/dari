@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -331,7 +332,7 @@ public interface StorageItem extends SettingsBackedObject {
 
                                 // Look into CSS files and change all the URLs.
                                 if ("text/css".equals(contentType)) {
-                                    String css = new String(source, StringUtils.UTF_8);
+                                    String css = new String(source, StandardCharsets.UTF_8);
                                     StringBuilder newCssBuilder = new StringBuilder();
                                     Matcher urlMatcher = CSS_URL_PATTERN.matcher(css);
                                     int previous = 0;
@@ -352,8 +353,8 @@ public interface StorageItem extends SettingsBackedObject {
                                         if (childPath.length() == 0) {
                                             newCssBuilder.append("''");
 
-                                        } else if (childPath.startsWith("data:") ||
-                                                childPath.endsWith(".htc")) {
+                                        } else if (childPath.startsWith("data:")
+                                                || childPath.endsWith(".htc")) {
                                             newCssBuilder.append(childPath);
 
                                         } else {
@@ -379,7 +380,7 @@ public interface StorageItem extends SettingsBackedObject {
                                     }
 
                                     newCssBuilder.append(css.substring(previous, css.length()));
-                                    source = newCssBuilder.toString().getBytes(StringUtils.UTF_8);
+                                    source = newCssBuilder.toString().getBytes(StandardCharsets.UTF_8);
                                 }
 
                                 StorageItem item = createIn(storage);
@@ -430,10 +431,10 @@ public interface StorageItem extends SettingsBackedObject {
                 return null;
             }
 
-            StorageItem item = resources.
-                    get(storage != null ? storage : "").
-                    get(servletContext).
-                    get(servletPath);
+            StorageItem item = resources
+                    .get(storage != null ? storage : "")
+                    .get(servletContext)
+                    .get(servletPath);
 
             return item;
         }

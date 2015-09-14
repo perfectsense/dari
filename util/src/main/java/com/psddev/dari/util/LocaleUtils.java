@@ -6,6 +6,10 @@ import java.util.Locale;
 
 import com.google.common.base.Throwables;
 
+/**
+ * Use {@link Locale} instead.
+ */
+@Deprecated
 public class LocaleUtils {
 
     private static final Method FOR_LANGUAGE_TAG_METHOD = getLocaleMethod("forLanguageTag", String.class);
@@ -20,6 +24,10 @@ public class LocaleUtils {
         }
     }
 
+    /**
+     * @deprecated Use {@link Locale#forLanguageTag(String)} instead.
+     */
+    @Deprecated
     public static Locale forLanguageTag(String languageTag) {
         if (FOR_LANGUAGE_TAG_METHOD != null) {
             try {
@@ -44,6 +52,10 @@ public class LocaleUtils {
         }
     }
 
+    /**
+     * @deprecated Use {@link Locale#toLanguageTag()} instead.
+     */
+    @Deprecated
     public static String toLanguageTag(Locale locale) {
         if (TO_LANGUAGE_TAG_METHOD != null) {
             try {

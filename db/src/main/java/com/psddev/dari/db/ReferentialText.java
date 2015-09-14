@@ -5,7 +5,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import com.google.common.base.Preconditions;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -13,12 +16,14 @@ import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.parser.Tag;
 
-import com.psddev.dari.util.ErrorUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.StringUtils;
 
 /** Contains strings and references to other objects. */
 public class ReferentialText extends AbstractList<Object> {
+
+    private static final Pattern ENHANCEMENT_PATTERN = Pattern.compile("(?i)<(\\S+)[^>]*class\\s*=[^>]*enhancement[^>]*>.*?</\\1>");
+    private static final Pattern DUPLICATE_PROTOCOL_PATTERN = Pattern.compile("^(?:(?:https?:/?/?)*(https?://))?");
 
     private static final Tag BR_TAG = Tag.valueOf("br");
     private static final Tag DIV_TAG = Tag.valueOf("div");
@@ -61,57 +66,28 @@ public class ReferentialText extends AbstractList<Object> {
             return;
         }
 
-        Document document = Jsoup.parseBodyFragment(html);
-        Element body = document.body();
+        // Look for anything that looks like enhancement markup.
+        Matcher enhancementMatcher = ENHANCEMENT_PATTERN.matcher(html);
+        int lastEnhancementEnd = 0;
 
-        document.outputSettings().prettyPrint(false);
+        while (enhancementMatcher.find()) {
+            addString(html.substring(lastEnhancementEnd, enhancementMatcher.start()));
 
-        // Remove Microsoft-specific tags.
-        for (Element element : body.select("*")) {
-            String tagName = element.tagName();
+            // Parse the markup to verify that it really is an enhancement.
+            lastEnhancementEnd = enhancementMatcher.end();
+            String enhancement = enhancementMatcher.group(0);
+            Document enhancementDocument = Jsoup.parseBodyFragment(enhancement);
+            Element enhancementElement = enhancementDocument.getElementsByClass("enhancement").first();
 
-            if (tagName.startsWith("o:")) {
-                element.unwrap();
+            if (enhancementElement != null) {
 
-            } else if (tagName.equals("span")) {
-                if (element.attributes().size() == 0 ||
-                        element.attr("class").contains("Mso") ||
-                        element.hasAttr("color")) {
-                    element.unwrap();
+                // Don't do anything if enhancement is flagged to be removed.
+                if (enhancementElement.hasClass("state-removing")) {
+                    continue;
                 }
-            }
-        }
 
-        // Convert '<p>text</p>' to 'text<br><br>'.
-        for (Element p : body.getElementsByTag("p")) {
-            if (p.hasText() || !p.children().isEmpty()) {
-                p.appendChild(new Element(BR_TAG, ""));
-                p.appendChild(new Element(BR_TAG, ""));
-                p.unwrap();
-
-            // Remove empty paragraphs.
-            } else {
-                p.remove();
-            }
-        }
-
-        // Find mistakes in <a> hrefs.
-        for (Element a : body.getElementsByTag("a")) {
-            String href = a.attr("href");
-
-            if (!ObjectUtils.isBlank(href)) {
-                a.attr("href", href.replaceAll("^(?:(?:https?:/?/?)*(https?://))?", "$1"));
-            }
-        }
-
-        // Find object references.
-        List<Reference> references = new ArrayList<Reference>();
-        String boundary = UUID.randomUUID().toString();
-
-        for (Element enhancement : body.getElementsByClass("enhancement")) {
-            if (!enhancement.hasClass("state-removing")) {
                 Reference reference = null;
-                String referenceData = enhancement.dataset().remove("reference");
+                String referenceData = enhancementElement.dataset().remove("reference");
 
                 if (!StringUtils.isBlank(referenceData)) {
                     Map<?, ?> referenceMap = (Map<?, ?>) ObjectUtils.fromJson(referenceData);
@@ -137,21 +113,23 @@ public class ReferentialText extends AbstractList<Object> {
                 }
 
                 if (reference != null) {
-                    references.add(reference);
-                    enhancement.before(boundary);
+                    list.add(reference);
+                    continue;
                 }
             }
 
-            enhancement.remove();
+            // Looks like an enhancement but it really isn't.
+            addString(enhancement);
         }
 
-        StringBuilder cleaned = new StringBuilder();
+        // Trailing markup.
+        addString(html.substring(lastEnhancementEnd));
+    }
 
-        for (Node child : body.childNodes()) {
-            cleaned.append(child.toString());
+    private void addString(String string) {
+        if (string != null && string.length() > 0) {
+            list.add(string);
         }
-
-        addByBoundary(this, cleaned.toString(), boundary, references);
     }
 
     /**
@@ -221,6 +199,15 @@ public class ReferentialText extends AbstractList<Object> {
             cleaner.before(body);
         }
 
+        // Find mistakes in <a> hrefs.
+        for (Element a : body.getElementsByTag("a")) {
+            String href = a.attr("href");
+
+            if (!ObjectUtils.isBlank(href)) {
+                a.attr("href", DUPLICATE_PROTOCOL_PATTERN.matcher(href).replaceAll("$1"));
+            }
+        }
+
         // Remove editorial markups.
         body.getElementsByTag("del").remove();
         body.getElementsByTag("ins").unwrap();
@@ -245,8 +232,8 @@ public class ReferentialText extends AbstractList<Object> {
 
                         break;
 
-                    } else if (previousNode instanceof TextNode &&
-                            !((TextNode) previousNode).isBlank()) {
+                    } else if (previousNode instanceof TextNode
+                            && !((TextNode) previousNode).isBlank()) {
                         break;
                     }
                 }
@@ -260,8 +247,8 @@ public class ReferentialText extends AbstractList<Object> {
                 for (Node previous = previousBr;
                         (previous = previous.previousSibling()) != null;
                         ) {
-                    if (previous instanceof Element &&
-                            ((Element) previous).isBlock()) {
+                    if (previous instanceof Element
+                            && ((Element) previous).isBlock()) {
                         break;
 
                     } else {
@@ -287,8 +274,8 @@ public class ReferentialText extends AbstractList<Object> {
                 Node next = body.childNode(0);
 
                 do {
-                    if (!(next instanceof TextNode &&
-                            ((TextNode) next).isBlank())) {
+                    if (!(next instanceof TextNode
+                            && ((TextNode) next).isBlank())) {
                         break;
                     }
                 } while ((next = next.nextSibling()) != null);
@@ -308,8 +295,8 @@ public class ReferentialText extends AbstractList<Object> {
                 Node next = paragraph;
 
                 while ((next = next.nextSibling()) != null) {
-                    if (!(next instanceof TextNode &&
-                            ((TextNode) next).isBlank())) {
+                    if (!(next instanceof TextNode
+                            && ((TextNode) next).isBlank())) {
                         break;
                     }
                 }
@@ -340,8 +327,8 @@ public class ReferentialText extends AbstractList<Object> {
                             continue DIV;
                         }
 
-                    } else if (child instanceof Element &&
-                            BR_TAG.equals(((Element) child).tag())) {
+                    } else if (child instanceof Element
+                            && BR_TAG.equals(((Element) child).tag())) {
                         if (sawBr) {
                             continue DIV;
 
@@ -413,9 +400,9 @@ public class ReferentialText extends AbstractList<Object> {
             if (child instanceof Element) {
                 Element childElement = (Element) child;
 
-                if (P_TAG.equals(childElement.tag()) &&
-                        !childElement.hasText() &&
-                        childElement.children().isEmpty()) {
+                if (P_TAG.equals(childElement.tag())
+                        && !childElement.hasText()
+                        && childElement.children().isEmpty()) {
                     continue;
                 }
             }
@@ -445,8 +432,8 @@ public class ReferentialText extends AbstractList<Object> {
 
                 break;
 
-            } else if (nextNode instanceof TextNode &&
-                    !((TextNode) nextNode).isBlank()) {
+            } else if (nextNode instanceof TextNode
+                    && !((TextNode) nextNode).isBlank()) {
                 break;
             }
         }
@@ -462,8 +449,8 @@ public class ReferentialText extends AbstractList<Object> {
         List<Node> paragraphChildren = new ArrayList<Node>();
 
         do {
-            if (next instanceof Element &&
-                    ((Element) next).isBlock()) {
+            if (next instanceof Element
+                    && ((Element) next).isBlock()) {
                 break;
 
             } else {
@@ -488,7 +475,7 @@ public class ReferentialText extends AbstractList<Object> {
     // --- AbstractList support ---
 
     private Object checkItem(Object item) {
-        ErrorUtils.errorIfNull(item, "item");
+        Preconditions.checkNotNull(item);
 
         if (item instanceof Reference) {
             return item;

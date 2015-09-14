@@ -1,7 +1,6 @@
 package com.psddev.dari.db;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -10,7 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +28,12 @@ import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.SettingsException;
 import com.psddev.dari.util.SparseSet;
 
-/** Group of databases that acts as one. */
+import javax.annotation.ParametersAreNonnullByDefault;
+
+/**
+ * Database implementation that aggregates multiple databases so that they
+ * act as one.
+ */
 public class AggregateDatabase implements Database, Iterable<Database> {
 
     public static final String DEFAULT_DELEGATE_SETTING = "defaultDelegate";
@@ -35,75 +44,139 @@ public class AggregateDatabase implements Database, Iterable<Database> {
     private static final String FAKE_GROUP = UUID.randomUUID().toString();
     private static final Logger LOGGER = LoggerFactory.getLogger(AggregateDatabase.class);
 
+    private static final LoadingCache<Database, DatabaseEnvironment> ENVIRONMENTS = CacheBuilder
+            .newBuilder()
+            .build(new CacheLoader<Database, DatabaseEnvironment>() {
+
+                @Override
+                @ParametersAreNonnullByDefault
+                public DatabaseEnvironment load(Database database) {
+                    return new DatabaseEnvironment(database);
+                }
+            });
+
     private volatile Database defaultDelegate;
     private volatile Database defaultReadDelegate;
-    private final Map<Database, Set<String>> delegateGroupsMap = new CompactMap<Database, Set<String>>();
+    private final Map<Database, Set<String>> delegateGroupsMap = new CompactMap<>();
     private volatile Map<String, Database> delegates;
     private volatile Map<String, Database> readDelegates;
 
     private volatile String name;
     private volatile DatabaseEnvironment environment;
 
-    /** Returns the default delegate database. */
+    /**
+     * Returns the default delegate.
+     *
+     * @return May be {@code null}.
+     */
     public Database getDefaultDelegate() {
         return defaultDelegate;
     }
 
-    /** Sets the default delegate database. */
+    /**
+     * Sets the default delegate.
+     *
+     * @param defaultDelegate
+     *        May be {@code null}.
+     */
     public void setDefaultDelegate(Database defaultDelegate) {
         this.defaultDelegate = defaultDelegate;
     }
 
-    /** Returns the default read delegate database. */
+    /**
+     * Returns the default delegate used by the read methods.
+     *
+     * @return May be {@code null}.
+     */
     public Database getDefaultReadDelegate() {
         return defaultReadDelegate != null ? defaultReadDelegate : getDefaultDelegate();
     }
 
-    /** Sets the default read delegate database. */
+    /**
+     * Sets the default delegate used by the read methods.
+     *
+     * @param defaultReadDelegate
+     *        May be {@code null}.
+     */
     public void setDefaultReadDelegate(Database defaultReadDelegate) {
         this.defaultReadDelegate = defaultReadDelegate;
     }
 
-    /** Returns the unmodifiable map of all delegate databases. */
+    /**
+     * Returns the map of all delegates.
+     *
+     * @return Never {@code null}.
+     */
     public Map<String, Database> getDelegates() {
-        return delegates == null ?
-                Collections.<String, Database>emptyMap() :
-                delegates;
+        return delegates != null ? delegates : ImmutableMap.of();
     }
 
     /**
-     * Returns a list of all delegate databases of the given
+     * Sets the map of all delegates.
+     *
+     * @param delegates
+     *        May be {@code null} to clear.
+     */
+    public void setDelegates(Map<String, Database> delegates) {
+        this.delegates = delegates != null
+                ? ImmutableMap.copyOf(delegates)
+                : null;
+    }
+
+    /**
+     * Returns the map of delegates used by the read methods.
+     *
+     * @return Never {@code null}.
+     */
+    public Map<String, Database> getReadDelegates() {
+        return readDelegates != null ? readDelegates : ImmutableMap.of();
+    }
+
+    /**
+     * Sets the map of all delegates used by the read methods.
+     *
+     * @param readDelegates
+     *        May be {@code null} to clear.
+     */
+    public void setReadDelegates(Map<String, Database> readDelegates) {
+        this.readDelegates = readDelegates != null
+                ? ImmutableMap.copyOf(readDelegates)
+                : null;
+    }
+
+    /**
+     * Returns a list of all delegates that's an instance of the given
      * {@code databaseClass}.
+     *
+     * @param databaseClass
+     *        Can't be {@code null}.
+     *
+     * @return Never {@code null}.
      */
     @SuppressWarnings("unchecked")
     public <T extends Database> List<T> getDelegatesByClass(Class<T> databaseClass) {
-        List<T> matched = new ArrayList<T>();
-        for (Database delegate : getDelegates().values()) {
-            if (databaseClass.isInstance(delegate)) {
-                matched.add((T) delegate);
-            }
-        }
-        return matched;
+        Preconditions.checkNotNull(databaseClass);
+
+        return (List<T>) getDelegates().values().stream()
+                .filter(databaseClass::isInstance)
+                .collect(Collectors.toList());
     }
 
     /**
-     * Returns the first delegate databases of the given
+     * Returns the first delegate that's an instance of the given
      * {@code databaseClass}.
+     *
+     * @param databaseClass
+     *        Can't be {@code null}.
      */
     @SuppressWarnings("unchecked")
     public <T extends Database> T getFirstDelegateByClass(Class<T> databaseClass) {
-        for (Database delegate : getDelegates().values()) {
-            if (databaseClass.isInstance(delegate)) {
-                return (T) delegate;
-            }
-        }
-        return null;
-    }
+        Preconditions.checkNotNull(databaseClass);
 
-    /** Sets the map of all delegate databases. */
-    public void setDelegates(Map<String, Database> delegates) {
-        this.delegates = Collections.unmodifiableMap(
-                new CompactMap<String, Database>(delegates));
+        return (T) getDelegates().values().stream()
+                .filter(databaseClass::isInstance)
+                .findFirst()
+                .orElse(null);
     }
 
     /**
@@ -116,27 +189,14 @@ public class AggregateDatabase implements Database, Iterable<Database> {
     public void addDelegate(Database delegate, Set<String> groups) {
         delegate.setEnvironment(getEnvironment());
 
-        Map<String, Database> newDelegates = delegates != null ?
-                new CompactMap<String, Database>(delegates) :
-                new CompactMap<String, Database>();
+        Map<String, Database> newDelegates = delegates != null
+                ? new CompactMap<>(delegates)
+                : new CompactMap<>();
 
         newDelegates.put(delegate.getName(), delegate);
         delegateGroupsMap.put(delegate, groups);
 
         delegates = Collections.unmodifiableMap(newDelegates);
-    }
-
-    /** Returns the unmodifiable map of all delegate databases used for reading. */
-    public Map<String, Database> getReadDelegates() {
-        return readDelegates == null ?
-                Collections.<String, Database>emptyMap() :
-                readDelegates;
-    }
-
-    /** Sets the map of all delegate databases used for reading. */
-    public void setReadDelegates(Map<String, Database> readDelegates) {
-        this.readDelegates = Collections.unmodifiableMap(
-                new CompactMap<String, Database>(readDelegates));
     }
 
     // --- Database support ---
@@ -186,12 +246,12 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         setDefaultReadDelegate(delegates.get(settings.get(DEFAULT_DELEGATE_SETTING)));
     }
 
-    /** Creates database delegates based on the given {@code settings}. */
+    // Creates database delegates based on the given settings.
     private Map<String, Database> createDelegates(
             String namePrefix,
             Map<?, ?> settings) {
 
-        Map<String, Database> delegates = new CompactMap<String, Database>();
+        Map<String, Database> delegates = new CompactMap<>();
         DatabaseEnvironment environment = getEnvironment();
 
         for (Map.Entry<?, ?> e : settings.entrySet()) {
@@ -221,20 +281,12 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         this.name = name;
     }
 
-    private static final LoadingCache<Database, DatabaseEnvironment> DEFAULT_ENVIRONMENTS = CacheBuilder.
-            newBuilder().
-            build(new CacheLoader<Database, DatabaseEnvironment>() {
-                @Override
-                public DatabaseEnvironment load(Database database) {
-                    return new DatabaseEnvironment(database);
-                }
-            });
-
     @Override
     public DatabaseEnvironment getEnvironment() {
         if (environment == null) {
-            environment = DEFAULT_ENVIRONMENTS.getUnchecked(this);
+            environment = ENVIRONMENTS.getUnchecked(this);
         }
+
         return environment;
     }
 
@@ -243,75 +295,117 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         this.environment = environment;
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> List<T> readAll(Query<T> query) {
-        return (List<T>) READ_ALL.execute(this, query);
+    private <T> T read(String group, Function<Database, T> function) {
+        List<UnsupportedOperationException> errors;
+
+        try {
+            return function.apply(getDefaultReadDelegate());
+
+        } catch (UnsupportedOperationException error) {
+            errors = new ArrayList<>();
+
+            errors.add(error);
+        }
+
+        for (Database delegate : findDelegatesByTypes(
+                getReadDelegates().values(),
+                getEnvironment().getTypesByGroup(group))) {
+
+            try {
+                return function.apply(delegate);
+
+            } catch (UnsupportedOperationException error) {
+                errors.add(error);
+            }
+        }
+
+        throw new AggregateException(errors);
     }
 
     @Override
-    @SuppressWarnings("unchecked")
+    public <T> List<T> readAll(Query<T> query) {
+        return read(query.getGroup(), delegate -> delegate.readAll(query));
+    }
+
+    @Override
     public <T> List<Grouping<T>> readAllGrouped(Query<T> query, String... fields) {
-        return (List<Grouping<T>>) READ_ALL_GROUPED.execute(this, query, (Object) fields);
+        return read(query.getGroup(), delegate -> delegate.readAllGrouped(query, fields));
     }
 
     @Override
     public long readCount(Query<?> query) {
-        return (Long) READ_COUNT.execute(this, query);
+        return read(query.getGroup(), delegate -> delegate.readCount(query));
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <T> T readFirst(Query<T> query) {
-        return (T) READ_FIRST.execute(this, query);
+        return read(query.getGroup(), delegate -> delegate.readFirst(query));
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <T> Iterable<T> readIterable(Query<T> query, int fetchSize) {
-        return (Iterable<T>) READ_ITERABLE.execute(this, query, fetchSize);
+        return read(query.getGroup(), delegate -> delegate.readIterable(query, fetchSize));
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <T> PaginatedResult<T> readPartial(Query<T> query, long offset, int limit) {
-        return (PaginatedResult<T>) READ_PARTIAL.execute(this, query, offset, limit);
+        return read(query.getGroup(), delegate -> delegate.readPartial(query, offset, limit));
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <T> PaginatedResult<Grouping<T>> readPartialGrouped(Query<T> query, long offset, int limit, String... fields) {
-        return (PaginatedResult<Grouping<T>>) READ_PARTIAL_GROUPED.execute(this, query, offset, limit, (Object) fields);
+        return read(query.getGroup(), delegate -> delegate.readPartialGrouped(query, offset, limit, fields));
     }
 
     @Override
     public Date readLastUpdate(Query<?> query) {
-        return (Date) READ_LAST_UPDATE.execute(this, query);
+        return read(query.getGroup(), delegate -> delegate.readLastUpdate(query));
+    }
+
+    private boolean batch(java.util.function.Predicate<Database> predicate) {
+        Database defaultDelegate = getDefaultDelegate();
+        boolean result = predicate.test(defaultDelegate);
+
+        getDelegates().values().stream()
+                .filter(delegate -> !delegate.equals(defaultDelegate))
+                .forEach(delegate -> {
+                    try {
+                        predicate.test(delegate);
+
+                    } catch (Exception error) {
+                        LOGGER.warn(String.format("Can't batch in [%s]", delegate), error);
+                    }
+                });
+
+        return result;
     }
 
     @Override
     public boolean beginWrites() {
-        return BEGIN_WRITES.execute(this);
+        return batch(Database::beginWrites);
     }
 
     @Override
     public void beginIsolatedWrites() {
-        BEGIN_ISOLATED_WRITES.execute(this);
+        batch(delegate -> {
+            delegate.beginIsolatedWrites();
+            return true;
+        });
     }
 
     @Override
     public boolean commitWrites() {
-        return COMMIT_WRITES.execute(this);
+        return batch(Database::commitWrites);
     }
 
     @Override
     public boolean commitWritesEventually() {
-        return COMMIT_WRITES_EVENTUALLY.execute(this);
+        return batch(Database::commitWritesEventually);
     }
 
     @Override
     public boolean endWrites() {
-        return END_WRITES.execute(this);
+        return batch(Database::endWrites);
     }
 
     @Override
@@ -320,96 +414,98 @@ public class AggregateDatabase implements Database, Iterable<Database> {
 
         for (Database delegate : findDelegatesByTypes(
                 getDelegates().values(),
-                Arrays.asList(state.getType()))) {
+                Collections.singletonList(state.getType()))) {
+
             try {
                 delegate.saveUnsafely(state);
-            } catch (Exception ex) {
-                LOGGER.warn(String.format("Can't write to [%s]", delegate), ex);
+
+            } catch (Exception error) {
+                LOGGER.warn(String.format("Can't write to [%s]", delegate), error);
+            }
+        }
+    }
+
+    private void writeOne(ObjectType type, Consumer<Database> consumer) {
+        consumer.accept(getDefaultDelegate());
+
+        for (Database delegate : findDelegatesByTypes(
+                getDelegates().values(),
+                Collections.singletonList(type))) {
+
+            try {
+                consumer.accept(delegate);
+
+            } catch (Exception error) {
+                LOGGER.warn(String.format("Can't write to [%s]", delegate), error);
             }
         }
     }
 
     @Override
     public void saveUnsafely(State state) {
-        SAVE_UNSAFELY.execute(this, state);
+        writeOne(state.getType(), delegate -> delegate.saveUnsafely(state));
     }
 
     @Override
     public void index(State state) {
-        INDEX.execute(this, state);
+        writeOne(state.getType(), delegate -> delegate.index(state));
     }
 
     @Override
-    public void indexAll(ObjectIndex index) {
-        Database defaultDelegate = getDefaultDelegate();
-        defaultDelegate.indexAll(index);
-        for (Database delegate : getDelegates().values()) {
-            if (!delegate.equals(defaultDelegate)) {
-                try {
-                    delegate.indexAll(index);
-                } catch (Exception ex) {
-                    LOGGER.warn(String.format("Can't write to [%s]", delegate), ex);
-                }
-            }
-        }
-    }
-
-    public void recalculate(State state, ObjectIndex index) {
-        Database defaultDelegate = getDefaultDelegate();
-        if (defaultDelegate instanceof AggregateDatabase) {
-            ((AggregateDatabase) defaultDelegate).recalculate(state, index);
-        } else if (defaultDelegate instanceof ForwardingDatabase) {
-            ((ForwardingDatabase) defaultDelegate).recalculate(state, index);
-        } else if (defaultDelegate instanceof AbstractDatabase) {
-            ((AbstractDatabase<?>) defaultDelegate).recalculate(state, index);
-        }
-        for (Database delegate : getDelegates().values()) {
-            if (!delegate.equals(defaultDelegate)) {
-                try {
-                    if (delegate instanceof AggregateDatabase) {
-                        ((AggregateDatabase) delegate).recalculate(state, index);
-                    } else if (delegate instanceof ForwardingDatabase) {
-                        ((ForwardingDatabase) delegate).recalculate(state, index);
-                    } else if (delegate instanceof AbstractDatabase) {
-                        ((AbstractDatabase<?>) delegate).recalculate(state, index);
-                    }
-                } catch (Exception ex) {
-                    LOGGER.warn(String.format("Can't write to [%s]", delegate), ex);
-                }
-            }
-        }
+    public void recalculate(State state, ObjectIndex... indexes) {
+        writeOne(state.getType(), delegate -> delegate.recalculate(state, indexes));
     }
 
     @Override
     public void delete(State state) {
-        DELETE.execute(this, state);
+        writeOne(state.getType(), delegate -> delegate.delete(state));
+    }
+
+    private void writeAll(Consumer<Database> consumer) {
+        Database defaultDelegate = getDefaultDelegate();
+
+        consumer.accept(defaultDelegate);
+
+        getDelegates().values().stream()
+                .filter(delegate -> !delegate.equals(defaultDelegate))
+                .forEach(delegate -> {
+                    try {
+                        consumer.accept(delegate);
+
+                    } catch (Exception error) {
+                        LOGGER.warn(String.format("Can't write to [%s]", delegate), error);
+                    }
+                });
+    }
+
+    @Override
+    public void indexAll(ObjectIndex index) {
+        writeAll(delegate -> delegate.indexAll(index));
     }
 
     @Override
     public void deleteByQuery(Query<?> query) {
-        Database defaultDelegate = getDefaultDelegate();
-        defaultDelegate.deleteByQuery(query);
-        for (Database delegate : getDelegates().values()) {
-            if (!delegate.equals(defaultDelegate)) {
-                try {
-                    delegate.deleteByQuery(query);
-                } catch (Exception ex) {
-                    LOGGER.warn(String.format("Can't write to [%s]", delegate), ex);
-                }
-            }
-        }
+        writeAll(delegate -> delegate.deleteByQuery(query));
     }
 
     /**
-     * Finds all non-default delegate databases that can be used
-     * with the given {@code types} based on their groups.
+     * Finds all non-default delegates that should be used for the given
+     * {@code types} based on their groups.
+     *
+     * @param delegates
+     *        Can't be {@code null}.
+     *
+     * @param types
+     *        Can't be {@code null}.
+     *
+     * @return Never {@code null}.
      */
     public List<Database> findDelegatesByTypes(
             Collection<Database> delegates,
             Collection<ObjectType> types) {
 
         Database defaultDelegate = getDefaultDelegate();
-        List<Database> found = new ArrayList<Database>();
+        List<Database> found = new ArrayList<>();
         for (Database delegate : delegates) {
 
             if (delegate.equals(defaultDelegate)) {
@@ -453,220 +549,25 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         return found;
     }
 
-    /** Common logic for all read operations. */
-    private abstract static class ReadOperation {
-
-        protected abstract Object read(Database delegate, Query<?> query, Object... arguments);
-
-        public final Object execute(
-                AggregateDatabase database,
-                Query<?> query,
-                Object... arguments) {
-
-            List<UnsupportedOperationException> exceptions = null;
-            try {
-                return read(database.getDefaultReadDelegate(), query, arguments);
-            } catch (UnsupportedOperationException ex) {
-                exceptions = addException(exceptions, ex);
-            }
-
-            for (Database delegate : database.findDelegatesByTypes(
-                    database.getReadDelegates().values(),
-                    database.getEnvironment().getTypesByGroup(query.getGroup()))) {
-                try {
-                    return read(delegate, query, arguments);
-                } catch (UnsupportedOperationException ex) {
-                    exceptions = addException(exceptions, ex);
-                }
-            }
-
-            throw new AggregateException(exceptions);
-        }
-
-        private List<UnsupportedOperationException> addException(
-                List<UnsupportedOperationException> exceptions,
-                UnsupportedOperationException exception) {
-
-            if (exceptions == null) {
-                exceptions = new ArrayList<UnsupportedOperationException>();
-            }
-            exceptions.add(exception);
-            return exceptions;
-        }
+    @Override
+    public long now() {
+        return getDefaultDelegate().now();
     }
 
-    private static final ReadOperation READ_COUNT = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readCount(query);
-        }
-    };
-
-    private static final ReadOperation READ_ALL = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readAll(query);
-        }
-    };
-
-    private static final ReadOperation READ_ALL_GROUPED = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readAllGrouped(query, (String[]) arguments[0]);
-        }
-    };
-
-    private static final ReadOperation READ_GROUPED_COUNT = new ReadOperation() {
-        @Override
-        @SuppressWarnings("deprecation")
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readGroupedCount(query, (String) arguments[0]);
-        }
-    };
-
-    private static final ReadOperation READ_FIRST = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readFirst(query);
-        }
-    };
-
-    private static final ReadOperation READ_ITERABLE = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readIterable(query, (Integer) arguments[0]);
-        }
-    };
-
-    private static final ReadOperation READ_PARTIAL = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readPartial(query, (Long) arguments[0], (Integer) arguments[1]);
-        }
-    };
-
-    private static final ReadOperation READ_PARTIAL_GROUPED = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readPartialGrouped(query, (Long) arguments[0], (Integer) arguments[1], (String[]) arguments[2]);
-        }
-    };
-
-    private static final ReadOperation READ_LAST_UPDATE = new ReadOperation() {
-        @Override
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readLastUpdate(query);
-        }
-    };
-
-    /** Common logic for all batch operations. */
-    private abstract static class BatchOperation {
-
-        protected abstract boolean batch(Database delegate);
-
-        public final boolean execute(AggregateDatabase database) {
-            Database defaultDelegate = database.getDefaultDelegate();
-            boolean result = batch(defaultDelegate);
-
-            for (Database delegate : database.getDelegates().values()) {
-                if (!delegate.equals(defaultDelegate)) {
-                    try {
-                        batch(delegate);
-                    } catch (Exception ex) {
-                        LOGGER.warn(String.format("Can't batch in [%s]", delegate), ex);
-                    }
-                }
-            }
-
-            return result;
-        }
+    @Override
+    public void addUpdateNotifier(UpdateNotifier notifier) {
+        getDefaultDelegate().addUpdateNotifier(notifier);
     }
 
-    private static final BatchOperation BEGIN_WRITES = new BatchOperation() {
-        @Override
-        protected boolean batch(Database delegate) {
-            return delegate.beginWrites();
-        }
-    };
-
-    private static final BatchOperation BEGIN_ISOLATED_WRITES = new BatchOperation() {
-        @Override
-        protected boolean batch(Database delegate) {
-            delegate.beginIsolatedWrites();
-            return true;
-        }
-    };
-
-    private static final BatchOperation COMMIT_WRITES = new BatchOperation() {
-        @Override
-        protected boolean batch(Database delegate) {
-            return delegate.commitWrites();
-        }
-    };
-
-    private static final BatchOperation COMMIT_WRITES_EVENTUALLY = new BatchOperation() {
-        @Override
-        protected boolean batch(Database delegate) {
-            return delegate.commitWritesEventually();
-        }
-    };
-
-    private static final BatchOperation END_WRITES = new BatchOperation() {
-        @Override
-        protected boolean batch(Database delegate) {
-            return delegate.endWrites();
-        }
-    };
-
-    /** Common logic for all write operations. */
-    private abstract static class WriteOperation {
-
-        protected abstract void write(Database delegate, State state);
-
-        public final void execute(AggregateDatabase database, State state) {
-            write(database.getDefaultDelegate(), state);
-
-            for (Database delegate : database.findDelegatesByTypes(
-                    database.getDelegates().values(),
-                    Arrays.asList(state.getType()))) {
-                try {
-                    write(delegate, state);
-                } catch (Exception ex) {
-                    LOGGER.warn(String.format("Can't write to [%s]", delegate), ex);
-                }
-            }
-        }
+    @Override
+    public void removeUpdateNotifier(UpdateNotifier notifier) {
+        getDefaultDelegate().removeUpdateNotifier(notifier);
     }
-
-    private static final WriteOperation SAVE_UNSAFELY = new WriteOperation() {
-        @Override
-        protected void write(Database delegate, State state) {
-            delegate.saveUnsafely(state);
-        }
-    };
-
-    private static final WriteOperation INDEX = new WriteOperation() {
-        @Override
-        protected void write(Database delegate, State state) {
-            delegate.index(state);
-        }
-    };
-
-    private static final WriteOperation DELETE = new WriteOperation() {
-        @Override
-        protected void write(Database delegate, State state) {
-            delegate.delete(state);
-        }
-    };
-
-    // --- Iterable support ---
 
     @Override
     public Iterator<Database> iterator() {
         return getDelegates().values().iterator();
     }
-
-    // --- Object support ---
 
     @Override
     public String toString() {
@@ -685,29 +586,5 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         }
 
         return sb.toString();
-    }
-
-    // --- Deprecated ---
-
-    @Deprecated
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> List<T> readList(Query<T> query) {
-        return (List<T>) READ_LIST.execute(this, query);
-    }
-
-    private static final ReadOperation READ_LIST = new ReadOperation() {
-        @Override
-        @SuppressWarnings("deprecation")
-        protected Object read(Database delegate, Query<?> query, Object... arguments) {
-            return delegate.readList(query);
-        }
-    };
-
-    @Deprecated
-    @Override
-    @SuppressWarnings("unchecked")
-    public Map<Object, Long> readGroupedCount(Query<?> query, String field) {
-        return (Map<Object, Long>) READ_GROUPED_COUNT.execute(this, query, field);
     }
 }

@@ -5,6 +5,7 @@ import java.util.*;
 
 import org.junit.*;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
@@ -356,5 +357,141 @@ public class TypeDefinitionTest {
 
         public void setQux(Object qux) {
         }
+    }
+
+    @Test
+    public void test_getInferredGenericTypeArgumentClass_noSuperClass() {
+        assertNull(gigtac(Zero.class, Red.class, 0));
+    }
+
+    @Test
+    public void test_getInferredGenericTypeArgumentClass_noArgIndex() {
+        assertNull(gigtac(Zero.class, Alpha.class, 13));
+    }
+
+    @Test
+    public void test_getInferredGenericTypeArgumentClass_superClasses() {
+        TypeDefinition<Zero> zero = TypeDefinition.getInstance(Zero.class);
+
+        // test super classes
+        Class<?>[] superClasses = { One.class, Two.class, Three.class, Four.class, Five.class, Six.class };
+        Class<?>[][] allExpected = {
+                // class One
+                // A         B             C             D            E           F
+                { Red.class, Orange.class, Yellow.class, Green.class, Blue.class, Purple.class },
+                // class Two
+                // A            B           C            D             E             F          G
+                { Purple.class, Blue.class, Green.class, Yellow.class, Orange.class, Red.class, Red.class },
+                // class Three
+                // A         B          C             D             E            F           G             H
+                { Red.class, Red.class, Orange.class, Yellow.class, Green.class, Blue.class, Purple.class, Orange.class },
+                // class Four
+                // A            B             C           D            E             F             G          H          I
+                { Orange.class, Purple.class, Blue.class, Green.class, Yellow.class, Orange.class, Red.class, Red.class, Yellow.class },
+                // class Five
+                // A            B          C          D             E             F            G           H             I             J
+                { Yellow.class, Red.class, Red.class, Orange.class, Yellow.class, Green.class, Blue.class, Purple.class, Orange.class, Green.class },
+                // class Six
+                // A           B             C             D           E            F             G             H          I          J             K
+                { Green.class, Orange.class, Purple.class, Blue.class, Green.class, Yellow.class, Orange.class, Red.class, Red.class, Yellow.class, Blue.class }
+        };
+
+        int superClassIndex = 0;
+        for (Class<?> superClass : superClasses) {
+
+            Class<?>[] superClassExpected = allExpected[superClassIndex];
+
+            int argIndex = 0;
+            for (Class<?> expected : superClassExpected) {
+                assertEquals(expected, zero.getInferredGenericTypeArgumentClass(superClass, argIndex));
+                argIndex++;
+            }
+
+            superClassIndex++;
+        }
+    }
+
+    @Test
+    public void test_getInferredGenericTypeArgumentClass_interfaces() {
+        assertEquals(Red.class, gigtac(Zero.class, Alpha.class, 0));
+        assertEquals(Blue.class, gigtac(Zero.class, Beta.class, 0));
+        assertEquals(Red.class, gigtac(Zero.class, Gamma.class, 0));
+        assertEquals(Yellow.class, gigtac(Zero.class, Delta.class, 0));
+        assertEquals(Yellow.class, gigtac(Zero.class, Epsilon.class, 0));
+        assertEquals(Yellow.class, gigtac(Zero.class, Zeta.class, 0));
+        assertEquals(Orange.class, gigtac(Zero.class, Eta.class, 0));
+        assertEquals(Green.class, gigtac(Zero.class, Theta.class, 0));
+        assertEquals(Yellow.class, gigtac(Zero.class, Kappa.class, 0));
+    }
+
+    @Test
+    public void test_getInferredGenericTypeArgumentClass_noGenerics() {
+        assertEquals(Charlie.class, gigtac(Bravo.class, Foxtrot.class, 0));
+        assertEquals(Charlie.class, gigtac(Charlie.class, Foxtrot.class, 0));
+        assertEquals(Bravo.class, gigtac(Echo.class, Foxtrot.class, 0));
+    }
+
+    // Helper method for test_getInferredGenericTypeArgumentClass* tests
+    private Class<?> gigtac(Class<?> sourceClass, Class<?> superClass, int argIndex) {
+        return TypeDefinition.getInstance(sourceClass).getInferredGenericTypeArgumentClass(superClass, argIndex);
+    }
+
+    /**
+     * utility code for testing method getInferredGenericTypeArgumentClass()
+     */
+    private static interface Alpha<A> {
+    }
+    private static interface Beta<B> {
+    }
+    private static interface Gamma<G> {
+    }
+    private static interface Delta<D> extends Kappa<D> {
+    }
+    private static interface Epsilon<E> extends Zeta<E> {
+    }
+    private static interface Zeta<Z> {
+    }
+    private static interface Eta<I> {
+    }
+    private static interface Theta<T> {
+    }
+    private static interface Kappa<K> {
+    }
+
+    private static class Zero extends One<Red, Orange, Yellow, Green, Blue, Purple> {
+    }
+    private static class One<A, B, C, D, E, F> extends Two<F, E, D, C, B, A, Red> implements Alpha<A> {
+    }
+    private static class Two<A, B, C, D, E, F, G> extends Three<G, F, E, D, C, B, A, Orange> implements Beta<B>, Gamma<G> {
+    }
+    private static class Three<A, B, C, D, E, F, G, H> extends Four<H, G, F, E, D, C, B, A, Yellow> implements Delta<D> {
+    }
+    private static class Four<A, B, C, D, E, F, G, H, I> extends Five<I, H, G, F, E, D, C, B, A, Green> {
+    }
+    private static class Five<A, B, C, D, E, F, G, H, I, J> extends Six<J, I, H, G, F, E, D, C, B, A, Blue> implements Epsilon<E>, Eta<I> {
+    }
+    private static class Six<A, B, C, D, E, F, G, H, I, J, K> implements Theta<E> {
+    }
+
+    private static class Red<R> extends Orange {
+    }
+    private static class Orange extends Yellow {
+    }
+    private static class Yellow extends Green {
+    }
+    private static class Green extends Blue {
+    }
+    private static class Blue extends Purple {
+    }
+    private static class Purple {
+    }
+
+    private static class Bravo extends Charlie {
+    }
+    private static class Charlie extends Echo {
+    }
+    private static class Echo<T extends Bravo> implements Foxtrot<T> {
+    }
+    private static interface Foxtrot<T extends Charlie> {
     }
 }

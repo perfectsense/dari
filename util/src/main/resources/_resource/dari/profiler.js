@@ -111,6 +111,8 @@
             'margin': 0,
             'padding': 0,
             'position': 'relative',
+            'top': '0',
+            'left': '0',
             'width': '100%',
             'z-index': 1000000
         });
@@ -326,6 +328,14 @@
                 }));
             });
 
+            $profileBody.on('click', '#_profile-overview tr', function() {
+                var $checkbox = $(this).find(':checkbox');
+
+                $checkbox.prop('checked', !$checkbox.prop('checked'));
+                $checkbox.change();
+                return false;
+            });
+
             $profileBody.find('#_profile-overview :checkbox').live('change', function() {
                 var $checkbox = $(this);
                 var $events = $profileBody.find('#_profile-eventTimeline .' + $checkbox.val());
@@ -334,6 +344,22 @@
                     $events.show();
                 } else {
                     $events.hide();
+                }
+            });
+
+            $profileBody.on('click', '#_profile-eventTimeline .tree', function() {
+                var $tree = $(this);
+                var $tr = $tree.closest('tr');
+
+                if ($tree.is('.icon-chevron-down')) {
+                    $tree.removeClass('icon-chevron-down');
+                    $tree.addClass('icon-chevron-right');
+                    $tr.nextUntil('[data-depth=' + $tr.attr('data-depth') + ']').hide();
+
+                } else {
+                    $tree.removeClass('icon-chevron-right');
+                    $tree.addClass('icon-chevron-down');
+                    $tr.nextUntil('[data-depth=' + $tr.attr('data-depth') + ']').show();
                 }
             });
         });

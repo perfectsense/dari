@@ -29,9 +29,9 @@ public interface AuthenticationPolicy extends SettingsBackedObject {
      */
     public static final class Static {
 
-        private static final LoadingCache<String, AuthenticationPolicy> INSTANCES = CacheBuilder.
-                newBuilder().
-                build(new CacheLoader<String, AuthenticationPolicy>() {
+        private static final LoadingCache<String, AuthenticationPolicy> INSTANCES = CacheBuilder
+                .newBuilder()
+                .build(new CacheLoader<String, AuthenticationPolicy>() {
 
             @Override
             public AuthenticationPolicy load(String name) {

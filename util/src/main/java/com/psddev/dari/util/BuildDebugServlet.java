@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,6 +39,7 @@ public class BuildDebugServlet extends HttpServlet {
     public static final String PROPERTIES_FILE_NAME = "build.properties";
     public static final String PROPERTIES_FILE = "/WEB-INF/classes/" + PROPERTIES_FILE_NAME;
     public static final String LIB_PATH = "/WEB-INF/lib";
+    private static final String GIT_CONNECTION_PREFIX = "scm:git:";
     private static final Cache<String, Properties> PROPERTIES_CACHE = CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.HOURS).build();
 
     /** Returns all the properties in the build file. */
@@ -171,9 +174,9 @@ public class BuildDebugServlet extends HttpServlet {
                     if (prefixAt > -1) {
                         prefixAt += prefix.length();
                         int slashAt = issueUrl.indexOf('/', prefixAt);
-                        String jiraId = slashAt > -1 ?
-                                issueUrl.substring(prefixAt, slashAt) :
-                                issueUrl.substring(prefixAt);
+                        String jiraId = slashAt > -1
+                                ? issueUrl.substring(prefixAt, slashAt)
+                                : issueUrl.substring(prefixAt);
                         issuePattern = Pattern.compile("\\Q" + jiraId + "\\E-\\d+");
                         issueUrlFormat = issueUrl.substring(0, prefixAt) + "%s";
                     }
@@ -333,8 +336,22 @@ public class BuildDebugServlet extends HttpServlet {
                         scmConnection = build.getProperty("scmDeveloperConnection");
                     }
                     if (!ObjectUtils.isBlank(scmConnection)) {
-                        if (scmConnection.startsWith("scm:git:")) {
-                            scmUrlFormat = build.getProperty("scmUrl") + "/commit/%s";
+                        if (scmConnection.startsWith(GIT_CONNECTION_PREFIX)) {
+
+                            scmUrlFormat = build.getProperty("scmUrl");
+
+                            try {
+                                URI uri = new URI(scmConnection.substring(GIT_CONNECTION_PREFIX.length()));
+
+                                if (uri.getHost() != null && uri.getHost().toLowerCase().endsWith("bitbucket.org")) {
+                                    scmUrlFormat += "/commits/%s"; // bitbucket.org uses "/commits/"
+                                } else {
+                                    scmUrlFormat += "/commit/%s"; // github.com uses "/commit/"
+                                }
+
+                            } catch (URISyntaxException e) {
+                                scmUrlFormat += "/commit/%s";
+                            }
                         }
                     }
 

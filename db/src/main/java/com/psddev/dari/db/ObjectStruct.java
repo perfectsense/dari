@@ -1,62 +1,117 @@
 package com.psddev.dari.db;
 
-import java.util.HashSet;
-import java.util.Iterator;
+import com.google.common.base.Preconditions;
+
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+/**
+ * Object that can contain fields and indexes.
+ */
 public interface ObjectStruct {
 
-    /** Returns the environment that owns this object. */
-    public DatabaseEnvironment getEnvironment();
+    /**
+     * Finds all fields that are indexed in the given {@code struct}.
+     *
+     * @param struct
+     *        Can't be {@code null}.
+     *
+     * @return Never {@code null}.
+     */
+    static List<ObjectField> findIndexedFields(ObjectStruct struct) {
+        Preconditions.checkNotNull(struct);
 
-    /** Returns a list of all fields. */
-    public List<ObjectField> getFields();
+        Set<String> indexed = struct.getIndexes().stream()
+                .flatMap(index -> index.getFields().stream())
+                .collect(Collectors.toSet());
 
-    /** Returns the field with the given {@code name}. */
-    public ObjectField getField(String name);
+        List<ObjectField> fields = struct.getFields();
 
-    /** Sets the list of all the fields. */
-    public void setFields(List<ObjectField> fields);
+        fields.removeIf(field -> !indexed.contains(field.getInternalName()));
 
-    /** Returns a list of all indexes. */
-    public List<ObjectIndex> getIndexes();
+        return fields;
+    }
 
-    /** Returns the index with the given {@code name}. */
-    public ObjectIndex getIndex(String name);
+    /**
+     * Returns the environment that owns this struct.
+     *
+     * @return Never {@code null}.
+     */
+    DatabaseEnvironment getEnvironment();
 
-    /** Sets the list of all indexes. */
-    public void setIndexes(List<ObjectIndex> indexes);
+    /**
+     * Returns a list of all fields.
+     *
+     * @return Never {@code null}.
+     */
+    List<ObjectField> getFields();
+
+    /**
+     * Returns the field with the given {@code name}.
+     *
+     * @param name
+     *        If {@code null}, returns {@code null}.
+     *
+     * @return May be {@code null}.
+     */
+    ObjectField getField(String name);
+
+    /**
+     * Sets the list of all fields.
+     *
+     * @param fields
+     *        {@code null} to clear.
+     */
+    void setFields(List<ObjectField> fields);
+
+    /**
+     * Returns a list of all indexes.
+     *
+     * @return Never {@code null}.
+     */
+    List<ObjectIndex> getIndexes();
+
+    /**
+     * Returns the index with the given {@code name}.
+     *
+     * @param name
+     *        If {@code null}, returns {@code null}.
+     *
+     * @return May be {@code null}.
+     */
+    ObjectIndex getIndex(String name);
+
+    /**
+     * Sets the list of all indexes.
+     *
+     * @param indexes
+     *        {@code null} to clear.
+     */
+    void setIndexes(List<ObjectIndex> indexes);
 
     /**
      * {@link ObjectStruct} utility methods.
+     *
+     * @deprecated Use {@link ObjectStruct} instead.
      */
-    public static final class Static {
+    @Deprecated
+    final class Static {
 
         /**
          * Returns all fields that are indexed in the given {@code struct}.
          *
-         * @param struct Can't be {@code null}.
+         * @param struct
+         *        Can't be {@code null}.
+         *
          * @return Never {@code null}.
+         *
+         * @deprecated Use {@link ObjectStruct#findIndexedFields(ObjectStruct)}
+         *             instead.
          */
+        @Deprecated
         public static List<ObjectField> findIndexedFields(ObjectStruct struct) {
-            Set<String> indexed = new HashSet<String>();
-
-            for (ObjectIndex index : struct.getIndexes()) {
-                indexed.addAll(index.getFields());
-            }
-
-            List<ObjectField> fields = struct.getFields();
-
-            for (Iterator<ObjectField> i = fields.iterator(); i.hasNext();) {
-                ObjectField field = i.next();
-
-                if (!indexed.contains(field.getInternalName())) {
-                    i.remove();
-                }
-            }
-
-            return fields;
+            return ObjectStruct.findIndexedFields(struct);
         }
     }
 }

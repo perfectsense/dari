@@ -6,9 +6,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 
-import org.objectweb.asm.Opcodes;
-
 import com.psddev.dari.util.ObjectUtils;
+import com.psddev.dari.util.asm.Opcodes;
 import com.psddev.dari.util.sa.Jvm;
 import com.psddev.dari.util.sa.JvmAnalyzer;
 import com.psddev.dari.util.sa.JvmLogger;
@@ -30,19 +29,19 @@ public class QueryJvmAnalyzer extends JvmAnalyzer {
 
             int mods = queryMethod.getModifiers();
 
-            if (Modifier.isStatic(mods) ||
-                    !Modifier.isPublic(mods)) {
+            if (Modifier.isStatic(mods)
+                    || !Modifier.isPublic(mods)) {
                 continue;
             }
 
             String name = queryMethod.getName();
 
-            if (name.startsWith("get") ||
-                    name.startsWith("is") ||
-                    name.startsWith("set") ||
-                    name.startsWith("create") ||
-                    name.startsWith("find") ||
-                    name.startsWith("map")) {
+            if (name.startsWith("get")
+                    || name.startsWith("is")
+                    || name.startsWith("set")
+                    || name.startsWith("create")
+                    || name.startsWith("find")
+                    || name.startsWith("map")) {
                 continue;
             }
 
@@ -110,8 +109,8 @@ public class QueryJvmAnalyzer extends JvmAnalyzer {
                 for (Sorter sorter : query.getSorters()) {
                     String op = sorter.getOperator();
 
-                    if (Sorter.ASCENDING_OPERATOR.equals(op) ||
-                            Sorter.DESCENDING_OPERATOR.equals(op)) {
+                    if (Sorter.ASCENDING_OPERATOR.equals(op)
+                            || Sorter.DESCENDING_OPERATOR.equals(op)) {
                         List<Object> options = sorter.getOptions();
 
                         if (!options.isEmpty()) {

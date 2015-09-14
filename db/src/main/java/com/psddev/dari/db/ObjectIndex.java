@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Set;
 
 import com.psddev.dari.util.CompactMap;
-import com.psddev.dari.util.LocaleUtils;
 import com.psddev.dari.util.ObjectToIterable;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.TypeReference;
@@ -133,9 +132,9 @@ public class ObjectIndex {
 
             if (fields.size() == 1) {
                 ObjectField field = getParent().getField(fields.get(0));
-                return field != null &&
-                        (ObjectField.BOOLEAN_TYPE.equals(field.getInternalItemType()) ||
-                        !ObjectUtils.isBlank(field.getValues()));
+                return field != null
+                        && (ObjectField.BOOLEAN_TYPE.equals(field.getInternalItemType())
+                        || !ObjectUtils.isBlank(field.getValues()));
             }
         }
 
@@ -243,7 +242,7 @@ public class ObjectIndex {
     private Object getValue(State state, String field) {
         int index = field.indexOf('/');
         if (index != -1) {
-            Object value = state.get(field.substring(0, index));
+            Object value = state.getByPath(field.substring(0, index));
 
             if (value instanceof Iterable || value instanceof Map) {
                 Iterable<?> iterable;
@@ -272,7 +271,7 @@ public class ObjectIndex {
                 return null;
             }
         } else {
-            return state.get(field);
+            return state.getByPath(field);
         }
     }
 
@@ -285,7 +284,7 @@ public class ObjectIndex {
         for (int i = 0; i < fieldsSize; ++ i) {
             String fieldName = fields.get(i);
             ObjectField field = getParent().getField(fieldName);
-            Object value = state.get(fieldName);
+            Object value = state.getByPath(fieldName);
 
             if (!ObjectUtils.isBlank(value)) {
                 Set<Object> values = new HashSet<Object>();
@@ -339,18 +338,18 @@ public class ObjectIndex {
         } else if (value instanceof Recordable) {
             State valueState = ((Recordable) value).getState();
             ObjectType valueType = valueState.getType();
-            if (!((valueType != null &&
-                    valueType.isEmbedded()) ||
-                    (field != null &&
-                    ObjectField.RECORD_TYPE.equals(field.getInternalItemType()) &&
-                    field.isEmbedded()))) {
+            if (!((valueType != null
+                    && valueType.isEmbedded())
+                    || (field != null
+                    && ObjectField.RECORD_TYPE.equals(field.getInternalItemType())
+                    && field.isEmbedded()))) {
                 values.add(valueState.getId());
             }
 
-        } else if (value instanceof Character ||
-                value instanceof CharSequence ||
-                value instanceof URI ||
-                value instanceof URL) {
+        } else if (value instanceof Character
+                || value instanceof CharSequence
+                || value instanceof URI
+                || value instanceof URL) {
             values.add(value.toString());
 
         } else if (value instanceof Date) {
@@ -360,7 +359,7 @@ public class ObjectIndex {
             values.add(((Enum<?>) value).name());
 
         } else if (value instanceof Locale) {
-            values.add(LocaleUtils.toLanguageTag((Locale) value));
+            values.add(((Locale) value).toLanguageTag());
 
         } else {
             values.add(value);
@@ -378,13 +377,13 @@ public class ObjectIndex {
             Object value = getValue(state);
             if (!ObjectUtils.isBlank(value)) {
 
-                Object duplicate = Query.
-                        from(Object.class).
-                        where("id != ?", state.getId()).
-                        and(getUniqueName() + " = ?", value).
-                        using(state.getDatabase()).
-                        referenceOnly().
-                        first();
+                Object duplicate = Query
+                        .from(Object.class)
+                        .where("id != ?", state.getId())
+                        .and(getUniqueName() + " = ?", value)
+                        .using(state.getDatabase())
+                        .referenceOnly()
+                        .first();
 
                 if (duplicate != null) {
                     state.addError(state.getField(getField()), "Must be unique!");
@@ -433,8 +432,8 @@ public class ObjectIndex {
 
         } else if (other instanceof ObjectIndex) {
             ObjectIndex otherIndex = (ObjectIndex) other;
-            return ObjectUtils.equals(getParent(), otherIndex.getParent()) &&
-                    getFields().equals(otherIndex.getFields());
+            return ObjectUtils.equals(getParent(), otherIndex.getParent())
+                    && getFields().equals(otherIndex.getFields());
 
         } else {
             return false;
@@ -478,8 +477,10 @@ public class ObjectIndex {
          */
         public static List<Map<String, Object>> convertInstancesToDefinitions(List<ObjectIndex> instances) {
             List<Map<String, Object>> definitions = new ArrayList<Map<String, Object>>();
-            for (ObjectIndex instance : instances) {
-                definitions.add(instance.toDefinition());
+            if (instances != null) {
+                for (ObjectIndex instance : instances) {
+                    definitions.add(instance.toDefinition());
+                }
             }
             return definitions;
         }

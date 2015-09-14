@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import javax.xml.bind.DatatypeConverter;
@@ -61,12 +62,12 @@ public class TwilioSmsProvider implements SmsProvider {
 
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(
-                    "https://api.twilio.com/2010-04-01/Accounts/" +
-                    getAccountSid() +
-                    "/SMS/Messages.json").openConnection();
+                    "https://api.twilio.com/2010-04-01/Accounts/"
+                    + getAccountSid()
+                    + "/SMS/Messages.json").openConnection();
 
             conn.setRequestMethod("POST");
-            conn.setRequestProperty("Authorization", "Basic " + DatatypeConverter.printBase64Binary((getAccountSid() + ":" + getAuthToken()).getBytes(StringUtils.UTF_8)));
+            conn.setRequestProperty("Authorization", "Basic " + DatatypeConverter.printBase64Binary((getAccountSid() + ":" + getAuthToken()).getBytes(StandardCharsets.UTF_8)));
             conn.setDoOutput(true);
 
             OutputStream output = conn.getOutputStream();
@@ -85,7 +86,7 @@ public class TwilioSmsProvider implements SmsProvider {
             InputStream input = conn.getInputStream();
 
             try {
-                IoUtils.toString(input, StringUtils.UTF_8);
+                IoUtils.toString(input, StandardCharsets.UTF_8);
 
             } finally {
                 input.close();
@@ -97,8 +98,8 @@ public class TwilioSmsProvider implements SmsProvider {
     }
 
     private void writeParameter(OutputStream output, String name, String value) throws IOException {
-        output.write(StringUtils.encodeUri(name).getBytes(StringUtils.UTF_8));
+        output.write(StringUtils.encodeUri(name).getBytes(StandardCharsets.UTF_8));
         output.write('=');
-        output.write(StringUtils.encodeUri(value).getBytes(StringUtils.UTF_8));
+        output.write(StringUtils.encodeUri(value).getBytes(StandardCharsets.UTF_8));
     }
 }

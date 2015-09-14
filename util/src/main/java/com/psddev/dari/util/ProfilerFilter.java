@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -219,6 +221,7 @@ public class ProfilerFilter extends AbstractFilter {
 
                         writer.writeStart("thead");
                             writer.writeStart("tr");
+                                writer.writeStart("th", "style", "width: 30px;").writeEnd();
                                 writer.writeStart("th").writeHtml("#").writeEnd();
                                 writer.writeStart("th").writeHtml("Start").writeEnd();
                                 writer.writeStart("th").writeHtml("Total").writeEnd();
@@ -262,7 +265,12 @@ public class ProfilerFilter extends AbstractFilter {
 
         String name = event.getName();
 
-        writer.writeStart("tr", "class", nameClasses.get(name));
+        writer.writeStart("tr", "class", nameClasses.get(name), "data-depth", depth);
+
+            writer.writeStart("td");
+                writer.writeStart("i", "class", "tree icon icon-chevron-down");
+                writer.writeEnd();
+            writer.writeEnd();
 
             writer.writeStart("td").writeHtml(profiler.getEventIndexes().get(event)).writeEnd();
             writer.writeStart("td").writeObject((event.getStart() - profiler.getStart()) / 1e6).writeEnd();
@@ -303,7 +311,7 @@ public class ProfilerFilter extends AbstractFilter {
          * @return Never {@code null}.
          */
         public static HtmlWriter getResultWriter(HttpServletRequest request, HttpServletResponse response) throws IOException {
-            ErrorUtils.errorIfNull(request, "request");
+            Preconditions.checkNotNull(request);
 
             HtmlWriter writer = (HtmlWriter) request.getAttribute(RESULT_WRITER_ATTRIBUTE);
 
@@ -325,7 +333,7 @@ public class ProfilerFilter extends AbstractFilter {
          * @param writer {@code null} unsets the result writer.
          */
         public static void setResultWriter(HttpServletRequest request, HtmlWriter writer) {
-            ErrorUtils.errorIfNull(request, "request");
+            Preconditions.checkNotNull(request);
 
             request.setAttribute(RESULT_WRITER_ATTRIBUTE, writer);
         }

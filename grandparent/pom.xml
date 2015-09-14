@@ -8,7 +8,7 @@
 
     <groupId>com.psddev</groupId>
     <artifactId>dari-grandparent</artifactId>
-    <version>2.4-SNAPSHOT</version>
+    <version>3.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Dari: Grandparent POM</name>
@@ -39,8 +39,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.3.2</version>
                 <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                     <showDeprecation>true</showDeprecation>
                     <showWarnings>true</showWarnings>
                 </configuration>
@@ -65,6 +65,12 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <version>2.6</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.18.1</version>
             </plugin>
 
             <plugin>
@@ -148,8 +154,14 @@ try {
         }
     }
 
-    if (env.BUILD_NUMBER) {
-        properties['buildNumber'] = env.BUILD_NUMBER
+    def buildNumber = env.BUILD_NUMBER
+
+    if (!buildNumber) {
+        buildNumber = env.TRAVIS_BUILD_NUMBER
+    }
+
+    if (buildNumber) {
+        properties['buildNumber'] = buildNumber
 
         try {
             def git = 'git'
@@ -196,6 +208,15 @@ try {
                     <path>${tomcat.path}</path>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.9.1</version>
+                <configuration>
+                    <additionalparam>-Xdoclint:none</additionalparam>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
@@ -228,11 +249,15 @@ try {
     }
 
     def newVersion = project.version.toString().replace('-SNAPSHOT', '') +
-            '.' + ([ git, 'rev-list', '--count', 'HEAD' ].execute().in.text.trim()) +
-            '-' + ([ git, 'rev-parse', 'HEAD' ].execute().in.text.trim().substring(0, 6))
+            '.' + ([ git, 'rev-list', '--count', 'HEAD' ].execute().in.text.trim())
 
     project.properties['newVersion'] = newVersion
     project.properties['generateBackupPoms'] = 'false'
+
+    new File('newVersion').withWriter('UTF-8') {
+        it.write(newVersion);
+    }
+
     log.info("Set newVersion to ${newVersion}.")
 
 } catch (Exception error) {
@@ -276,7 +301,7 @@ try {
                     <plugin>
                         <groupId>com.github.eirslett</groupId>
                         <artifactId>frontend-maven-plugin</artifactId>
-                        <version>0.0.14</version>
+                        <version>0.0.23</version>
 
                         <executions>
                             <execution>
@@ -286,8 +311,8 @@ try {
                                     <goal>install-node-and-npm</goal>
                                 </goals>
                                 <configuration>
-                                    <nodeVersion>v0.10.26</nodeVersion>
-                                    <npmVersion>1.4.7</npmVersion>
+                                    <nodeVersion>v0.12.7</nodeVersion>
+                                    <npmVersion>2.12.1</npmVersion>
                                 </configuration>
                             </execution>
 
@@ -325,6 +350,13 @@ try {
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-checkstyle-plugin</artifactId>
                         <version>2.12</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.puppycrawl.tools</groupId>
+                                <artifactId>checkstyle</artifactId>
+                                <version>5.9</version>
+                            </dependency>
+                        </dependencies>
                         <executions>
                             <execution>
                                 <id>verify-style</id>
@@ -351,15 +383,9 @@ try {
                                             </module>
 
                                             <module name="SuppressionCommentFilter"/>
-                                            <module name="Translation"/>
 
                                             <module name="TreeWalker">
                                                 <module name="ArrayTypeStyle"/>
-
-                                                <module name="AvoidNestedBlocks">
-                                                    <property name="allowInSwitchCase" value="true"/>
-                                                </module>
-
                                                 <module name="AvoidStarImport"/>
                                                 <module name="ConstantName"/>
 
@@ -394,7 +420,7 @@ try {
                                                 </module>
 
                                                 <module name="OperatorWrap">
-                                                    <property name="option" value="eol"/>
+                                                    <property name="option" value="NL"/>
                                                 </module>
 
                                                 <module name="PackageName"/>
@@ -407,6 +433,17 @@ try {
                                                 </module>
 
                                                 <module name="RightCurly"/>
+
+                                                <module name="SeparatorWrap">
+                                                    <property name="option" value="NL"/>
+                                                    <property name="tokens" value="DOT"/>
+                                                </module>
+
+                                                <module name="SeparatorWrap">
+                                                    <property name="option" value="EOL"/>
+                                                    <property name="tokens" value="COMMA"/>
+                                                </module>
+
                                                 <module name="SimplifyBooleanExpression"/>
                                                 <module name="SimplifyBooleanReturn"/>
                                                 <module name="StaticVariableName"/>
@@ -415,7 +452,10 @@ try {
                                                 <module name="UnusedImports"/>
                                                 <module name="UpperEll"/>
                                                 <module name="WhitespaceAfter"/>
-                                                <module name="WhitespaceAround"/>
+
+                                                <module name="WhitespaceAround">
+                                                    <property name="ignoreEnhancedForColon" value="false"/>
+                                                </module>
                                             </module>
                                         </module>
                                     </checkstyleRules>
@@ -438,10 +478,65 @@ try {
                                     <goal>check-no-fork</goal>
                                 </goals>
                                 <configuration>
+                                    <ignoredDifferencesFile>etc/clirr-ignored.xml</ignoredDifferencesFile>
                                     <logResults>true</logResults>
                                 </configuration>
                             </execution>
                         </executions>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.google.code.findbugs</groupId>
+                                <artifactId>bcel-findbugs</artifactId>
+                                <version>6.0</version>
+                            </dependency>
+                        </dependencies>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>deploy</id>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>2.9.1</version>
+                        <executions>
+                            <execution>
+                                <id>deploy-javadoc-package</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>aggregate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>2.4</version>
+                        <executions>
+                            <execution>
+                                <id>deploy-source-package</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>aggregate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>2.18.1</version>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

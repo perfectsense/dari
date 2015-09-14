@@ -59,7 +59,7 @@ public abstract class JvmAnalyzer {
                 List<Class<?>> classesList = new ArrayList<Class<?>>();
                 classes = classesList;
 
-                for (Class<?> c : ClassFinder.Static.findClasses(Object.class)) {
+                for (Class<?> c : ClassFinder.findClasses(Object.class)) {
                     if (!c.getName().startsWith("com.psddev.")) {
                         classesList.add(c);
                     }
@@ -71,7 +71,7 @@ public abstract class JvmAnalyzer {
             }
 
             try {
-                for (Class<? extends JvmAnalyzer> analyzerClass : ClassFinder.Static.findClasses(JvmAnalyzer.class)) {
+                for (Class<? extends JvmAnalyzer> analyzerClass : ClassFinder.findClasses(JvmAnalyzer.class)) {
                     JvmAnalyzer analyzer = TypeDefinition.getInstance(analyzerClass).newInstance();
 
                     analyzer.jvm = jvm;

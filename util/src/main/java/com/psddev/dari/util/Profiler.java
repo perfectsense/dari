@@ -1,5 +1,7 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -239,7 +241,7 @@ public class Profiler {
          * @param objects {@code null} is equivalent to an empty array.
          */
         protected Event(Event parent, String name, Object... objects) {
-            ErrorUtils.errorIfBlank(name, "name");
+            Preconditions.checkArgument(!ObjectUtils.isBlank(name));
 
             this.name = name;
             this.start = System.nanoTime();

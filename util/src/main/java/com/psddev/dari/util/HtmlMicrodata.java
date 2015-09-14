@@ -5,17 +5,18 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.MoreObjects;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 
 /**
@@ -95,10 +96,22 @@ public class HtmlMicrodata {
                 value = prop.attr("value");
 
             } else if (" time ".contains(tagName)) {
-                value = ObjectUtils.firstNonNull(prop.attr("datetime"), prop.text());
+                if (prop.hasAttr("datetime")) {
+                    value = prop.attr("datetime");
+                } else if (prop.hasAttr("content")) {
+                    value = prop.attr("content");
+                } else {
+                    value = prop.text();
+                }
+                // this older version was returning empty string... prop.attr returning non-null?
+                // value = ObjectUtils.firstNonNull(prop.attr("datetime"), prop.attr("content"), prop.text());
 
             } else {
-                value = prop.text();
+                if (prop.hasAttr("content")) {
+                    value = prop.attr("content");
+                } else {
+                    value = prop.text();
+                }
             }
 
             if (!ObjectUtils.isBlank(names)) {
@@ -196,11 +209,11 @@ public class HtmlMicrodata {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).
-                add("types", getTypes()).
-                add("id", getId()).
-                add("properties", getProperties()).
-                toString();
+        return MoreObjects.toStringHelper(this)
+                .add("types", getTypes())
+                .add("id", getId())
+                .add("properties", getProperties())
+                .toString();
     }
 
     /**
@@ -221,8 +234,8 @@ public class HtmlMicrodata {
 
             if (document != null) {
                 for (Element item : document.select("[itemscope]")) {
-                    if (closestItemScope(item) == null ||
-                            !item.hasAttr("itemprop")) {
+                    if (closestItemScope(item) == null
+                            || !item.hasAttr("itemprop")) {
                         datas.add(new HtmlMicrodata(url, item));
                     }
                 }
@@ -256,6 +269,23 @@ public class HtmlMicrodata {
          */
         public static List<HtmlMicrodata> parseUrl(URL url) throws IOException {
             return parseString(url, IoUtils.toString(url));
+        }
+
+        /**
+         * Returns the first HtmlMicrodata instance in the list that matches one of the supplied schema types, or null if none match
+         * @param htmlMicrodatas
+         * @param allowedSchemaTypes
+         * @return
+         */
+        public static HtmlMicrodata getFirstType(List<HtmlMicrodata> htmlMicrodatas, Collection<String> allowedSchemaTypes) {
+            for (HtmlMicrodata htmlMicrodata : htmlMicrodatas) {
+                for (String allowedSchemaType : allowedSchemaTypes) {
+                    if (htmlMicrodata.getTypes().contains(allowedSchemaType)) {
+                        return htmlMicrodata;
+                    }
+                }
+            }
+            return null;
         }
     }
 }

@@ -8,16 +8,19 @@ import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import com.psddev.dari.util.ObjectUtils;
 
-class JvmClassVisitor implements ClassVisitor {
+class JvmClassVisitor extends ClassVisitor {
 
     private final Jvm jvm;
     private final Class<?> objectClass;
 
     public JvmClassVisitor(Jvm jvm, Class<?> objectClass) {
+        super(Opcodes.ASM5);
+
         this.jvm = jvm;
         this.objectClass = objectClass;
     }

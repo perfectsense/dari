@@ -4,6 +4,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -18,7 +19,6 @@ import java.util.UUID;
 import com.psddev.dari.util.ObjectMap;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.StorageItem;
-import com.psddev.dari.util.StringUtils;
 
 /** State value utility methods. */
 abstract class StateValueUtils {
@@ -43,9 +43,9 @@ abstract class StateValueUtils {
 
     /** Converts the given {@code object} into an ID if it's a reference. */
     public static UUID toIdIfReference(Object object) {
-        return object instanceof Map ?
-                ObjectUtils.to(UUID.class, ((Map<?, ?>) object).get(REFERENCE_KEY)) :
-                null;
+        return object instanceof Map
+                ? ObjectUtils.to(UUID.class, ((Map<?, ?>) object).get(REFERENCE_KEY))
+                : null;
     }
 
     public static Object toObjectIfReference(Database database, Object object) {
@@ -136,13 +136,13 @@ abstract class StateValueUtils {
 
             // Fetch unresolved objects and cache them.
             if (!unresolvedIds.isEmpty()) {
-                Query<?> query = Query.
-                        from(Object.class).
-                        where("_id = ?", unresolvedIds).
-                        using(database).
-                        option(State.REFERENCE_RESOLVING_QUERY_OPTION, parent).
-                        option(State.REFERENCE_FIELD_QUERY_OPTION, field).
-                        option(State.UNRESOLVED_TYPE_IDS_QUERY_OPTION, unresolvedTypeIds);
+                Query<?> query = Query
+                        .from(Object.class)
+                        .where("_id = ?", unresolvedIds)
+                        .using(database)
+                        .option(State.REFERENCE_RESOLVING_QUERY_OPTION, parent)
+                        .option(State.REFERENCE_FIELD_QUERY_OPTION, field)
+                        .option(State.UNRESOLVED_TYPE_IDS_QUERY_OPTION, unresolvedTypeIds);
 
                 if (parentState != null) {
                     if (!parentState.isResolveUsingCache()) {
@@ -171,10 +171,10 @@ abstract class StateValueUtils {
                 Map.Entry<UUID, Object> entry = i.next();
                 Object object = entry.getValue();
 
-                if ((parentState == null ||
-                        !parentState.isResolveInvisible()) &&
-                        object != null &&
-                        !ObjectUtils.isBlank(State.getInstance(object).getRawValue("dari.visibilities"))) {
+                if ((parentState == null
+                        || !parentState.isResolveInvisible())
+                        && object != null
+                        && !ObjectUtils.isBlank(State.getInstance(object).getRawValue("dari.visibilities"))) {
                     entry.setValue(null);
                 }
             }
@@ -498,13 +498,39 @@ abstract class StateValueUtils {
 
                 } else {
                     ReferentialText text = new ReferentialText();
+
                     if (value instanceof Iterable) {
-                        for (Object item : (Iterable<?>) value) {
-                            text.add(item);
+                        boolean isFirst = false;
+
+                        try {
+                            Map<UUID, Object> circularReferences = StateValueUtils.CIRCULAR_REFERENCES.get();
+
+                            if (circularReferences == null) {
+                                isFirst = true;
+                                circularReferences = new HashMap<UUID, Object>();
+                                StateValueUtils.CIRCULAR_REFERENCES.set(circularReferences);
+                            }
+
+                            if (object != null) {
+                                State objectState = State.getInstance(object);
+
+                                circularReferences.put(objectState.getId(), object);
+                            }
+
+                            for (Object item : (Iterable<?>) value) {
+                                text.add(item);
+                            }
+
+                        } finally {
+                            if (isFirst) {
+                                StateValueUtils.CIRCULAR_REFERENCES.remove();
+                            }
                         }
+
                     } else {
                         text.add(value.toString());
                     }
+
                     return text;
                 }
             }
@@ -539,7 +565,7 @@ abstract class StateValueUtils {
                     Object value) {
 
                 if (value instanceof byte[]) {
-                    value = new String((byte[]) value, StringUtils.UTF_8);
+                    value = new String((byte[]) value, StandardCharsets.UTF_8);
                 }
 
                 String enumClassName = field.getJavaEnumClassName();
@@ -633,6 +659,22 @@ abstract class StateValueUtils {
                 }
 
                 throw new IllegalArgumentException();
+            }
+        });
+
+        m.put(ObjectField.ANY_TYPE, new Converter() {
+            @Override
+            public Object toJavaValue(
+                    Database database,
+                    Object object,
+                    ObjectField field,
+                    String subType,
+                    Object value) {
+
+                if (Query.SERIALIZED_MISSING_VALUE.equals(value)) {
+                    return Query.MISSING_VALUE;
+                }
+                return value;
             }
         });
 

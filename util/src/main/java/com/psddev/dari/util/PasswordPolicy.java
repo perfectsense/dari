@@ -31,9 +31,9 @@ public interface PasswordPolicy extends SettingsBackedObject {
      */
     public static final class Static {
 
-        private static final LoadingCache<String, PasswordPolicy> INSTANCES = CacheBuilder.
-                newBuilder().
-                build(new CacheLoader<String, PasswordPolicy>() {
+        private static final LoadingCache<String, PasswordPolicy> INSTANCES = CacheBuilder
+                .newBuilder()
+                .build(new CacheLoader<String, PasswordPolicy>() {
 
             @Override
             public PasswordPolicy load(String name) {

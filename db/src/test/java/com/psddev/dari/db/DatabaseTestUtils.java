@@ -1,23 +1,20 @@
 package com.psddev.dari.db;
 
+import com.psddev.dari.util.ObjectUtils;
+import com.psddev.dari.util.Settings;
+import com.psddev.dari.util.UuidUtils;
+import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
+import org.apache.solr.core.CoreContainer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
-import org.apache.solr.core.CoreContainer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.xml.sax.SAXException;
-
-import com.psddev.dari.util.ObjectUtils;
-import com.psddev.dari.util.Settings;
-import com.psddev.dari.util.UuidUtils;
+import java.util.Set;
 
 public class DatabaseTestUtils {
 
@@ -91,16 +88,14 @@ public class DatabaseTestUtils {
             return null;
         }
 
-        CoreContainer.Initializer initializer = new CoreContainer.Initializer();
-        CoreContainer coreContainer = null;
-        try {
-            coreContainer = initializer.initialize();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ParserConfigurationException e) {
-            e.printStackTrace();
-        } catch (SAXException e) {
-            e.printStackTrace();
+        CoreContainer coreContainer = new CoreContainer();
+        Map<String,Exception> coreInitFailures = coreContainer.getCoreInitFailures();
+        if(coreInitFailures != null) {
+            Set<String> keys = coreInitFailures.keySet();
+            for (String key: keys) {
+                Exception e = coreInitFailures.get(key);
+                e.printStackTrace();
+            }
         }
 
         if (coreContainer == null) {
@@ -111,7 +106,7 @@ public class DatabaseTestUtils {
         final SolrDatabase solrDb = new SolrDatabase();
         solrDb.setName("JUnit Test Solr DB " + dbName);
         solrDb.setServer(server);
-        solrDb.setVersion("3.5.0");
+        solrDb.setVersion("4.8.1");
 
         return new TestDatabase() {
             @Override

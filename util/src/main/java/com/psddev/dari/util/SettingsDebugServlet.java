@@ -70,8 +70,8 @@ public class SettingsDebugServlet extends HttpServlet {
                             writeStart("td").writeHtml(key).writeEnd();
 
                             writeStart("td");
-                                if (keyLowered.contains("password") ||
-                                        keyLowered.contains("secret")) {
+                                if (keyLowered.contains("password")
+                                        || keyLowered.contains("secret")) {
                                     writeStart("span", "class", "label label-warning").writeHtml("Hidden").writeEnd();
                                 } else {
                                     writeHtml(value);
@@ -88,7 +88,7 @@ public class SettingsDebugServlet extends HttpServlet {
 
             List<Usage> usages = new ArrayList<Usage>();
 
-            for (Class<?> objectClass : ClassFinder.Static.findClasses(Object.class)) {
+            for (Class<?> objectClass : ClassFinder.findClasses(Object.class)) {
                 if (Settings.class.isAssignableFrom(objectClass)) {
                     continue;
                 }
@@ -251,12 +251,14 @@ public class SettingsDebugServlet extends HttpServlet {
         }
     }
 
-    private static class CV implements ClassVisitor {
+    private static class CV extends ClassVisitor {
 
         private final List<Usage> usages;
         private final String className;
 
         public CV(List<Usage> usages, String className) {
+            super(Opcodes.ASM5);
+
             this.usages = usages;
             this.className = className;
         }
@@ -307,7 +309,7 @@ public class SettingsDebugServlet extends HttpServlet {
         }
     }
 
-    private static class MV implements MethodVisitor {
+    private static class MV extends MethodVisitor {
 
         private final List<Usage> usages;
         private final String className;
@@ -320,6 +322,8 @@ public class SettingsDebugServlet extends HttpServlet {
                 List<Usage> usages,
                 String className,
                 String methodName) {
+
+            super(Opcodes.ASM5);
 
             this.usages = usages;
             this.className = className;
@@ -423,10 +427,10 @@ public class SettingsDebugServlet extends HttpServlet {
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String desc) {
-            if (!found &&
-                    opcode == Opcodes.INVOKESTATIC &&
-                    owner.equals("com/psddev/dari/util/Settings") &&
-                    name.startsWith("get")) {
+            if (!found
+                    && opcode == Opcodes.INVOKESTATIC
+                    && owner.equals("com/psddev/dari/util/Settings")
+                    && name.startsWith("get")) {
 
                 found = true;
                 Object defaultValue = null;

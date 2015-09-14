@@ -53,9 +53,9 @@ public class SparseSet implements Set<String> {
 
     /** Sets the pattern that represents this set concisely. */
     public void setPattern(String pattern) {
-        this.pattern = ObjectUtils.isBlank(pattern) ?
-                "" :
-                StringUtils.replaceAll(pattern.trim(), "\\s+", " ");
+        this.pattern = ObjectUtils.isBlank(pattern)
+                ? ""
+                : StringUtils.replaceAll(pattern.trim(), "\\s+", " ");
     }
 
     // --- Set support ---
@@ -196,9 +196,9 @@ public class SparseSet implements Set<String> {
 
     @Override
     public boolean equals(Object object) {
-        return this == object ||
-                (object instanceof SparseSet &&
-                getPattern().equals(((SparseSet) object).getPattern()));
+        return this == object
+                || (object instanceof SparseSet
+                && getPattern().equals(((SparseSet) object).getPattern()));
     }
 
     @Override

@@ -35,12 +35,13 @@ CREATE INDEX k_recordnumber3_id ON RecordNumber3 (id);
 
 CREATE TABLE IF NOT EXISTS RecordRegion2 (
     id UUID NOT NULL,
+    typeId UUID NOT NULL,
     symbolId INT NOT NULL,
     value GEOMETRY(MULTIPOLYGON,4326) NOT NULL,
     PRIMARY KEY (symbolId, value, typeId, id)
 );
 
-CREATE INDEX k_recordregion2_value_gix ON RecordRegion USING GIST (value);
+CREATE INDEX k_recordregion2_value_gix ON RecordRegion2 USING GIST (value);
 
 CREATE TABLE IF NOT EXISTS RecordString4 (
     id UUID NOT NULL,

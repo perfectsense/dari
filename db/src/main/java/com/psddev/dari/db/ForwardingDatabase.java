@@ -63,12 +63,6 @@ public abstract class ForwardingDatabase implements Database {
         return getDelegate().readAll(filterQuery(query));
     }
 
-    @Deprecated
-    @Override
-    public <T> List<T> readList(Query<T> query) {
-        return getDelegate().readList(filterQuery(query));
-    }
-
     @Override
     public <T> List<Grouping<T>> readAllGrouped(Query<T> query, String... fields) {
         return getDelegate().readAllGrouped(filterQuery(query), fields);
@@ -102,12 +96,6 @@ public abstract class ForwardingDatabase implements Database {
     @Override
     public <T> PaginatedResult<Grouping<T>> readPartialGrouped(Query<T> query, long offset, int limit, String... fields) {
         return getDelegate().readPartialGrouped(filterQuery(query), offset, limit, fields);
-    }
-
-    @Deprecated
-    @Override
-    public Map<Object, Long> readGroupedCount(Query<?> query, String field) {
-        return getDelegate().readGroupedCount(filterQuery(query), field);
     }
 
     @Override
@@ -159,14 +147,9 @@ public abstract class ForwardingDatabase implements Database {
         getDelegate().indexAll(index);
     }
 
-    public void recalculate(State state, ObjectIndex index) {
-        if (getDelegate() instanceof AggregateDatabase) {
-            ((AggregateDatabase) getDelegate()).recalculate(state, index);
-        } else if (getDelegate() instanceof ForwardingDatabase) {
-            ((ForwardingDatabase) getDelegate()).recalculate(state, index);
-        } else if (getDelegate() instanceof AbstractDatabase) {
-            ((AbstractDatabase<?>) getDelegate()).recalculate(state, index);
-        }
+    @Override
+    public void recalculate(State state, ObjectIndex... indexes) {
+        getDelegate().recalculate(state, indexes);
     }
 
     @Override
@@ -177,6 +160,21 @@ public abstract class ForwardingDatabase implements Database {
     @Override
     public void deleteByQuery(Query<?> query) {
         getDelegate().deleteByQuery(filterQuery(query));
+    }
+
+    @Override
+    public long now() {
+        return getDelegate().now();
+    }
+
+    @Override
+    public void addUpdateNotifier(UpdateNotifier<?> notifier) {
+        getDelegate().addUpdateNotifier(notifier);
+    }
+
+    @Override
+    public void removeUpdateNotifier(UpdateNotifier<?> notifier) {
+        getDelegate().removeUpdateNotifier(notifier);
     }
 
     // --- Object support ---

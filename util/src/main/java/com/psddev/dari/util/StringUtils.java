@@ -24,16 +24,48 @@ import java.util.regex.Pattern;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.apache.commons.lang.StringEscapeUtils;
 
 /** String utility methods. */
 public final class StringUtils {
 
+    /**
+     * @deprecated Use {@link java.nio.charset.StandardCharsets#US_ASCII} instead.
+     */
+    @Deprecated
     public static final Charset US_ASCII = Charset.forName("US-ASCII");
+
+    /**
+     * @deprecated Use {@link java.nio.charset.StandardCharsets#ISO_8859_1} instead.
+     */
+    @Deprecated
     public static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
+
+    /**
+     * @deprecated Use {@link java.nio.charset.StandardCharsets#UTF_8} instead.
+     */
+    @Deprecated
     public static final Charset UTF_8 = Charset.forName("UTF-8");
+
+    /**
+     * @deprecated Use {@link java.nio.charset.StandardCharsets#UTF_16BE} instead.
+     */
+    @Deprecated
     public static final Charset UTF_16BE = Charset.forName("UTF-16BE");
+
+    /**
+     * @deprecated Use {@link java.nio.charset.StandardCharsets#UTF_16LE} instead.
+     */
+    @Deprecated
     public static final Charset UTF_16LE = Charset.forName("UTF-16LE");
+
+    /**
+     * @deprecated Use {@link java.nio.charset.StandardCharsets#UTF_16} instead.
+     */
+    @Deprecated
     public static final Charset UTF_16 = Charset.forName("UTF-16");
 
     private static final Set<String>
@@ -67,7 +99,9 @@ public final class StringUtils {
      * @param returnType The class for the String input(s) to be converted to
      * @param strings the input(s) to be converted
      * @return the converted value
+     * @deprecated Use {@link ObjectUtils#to(Class, Object)} instead.
      */
+    @Deprecated
     public static <T> T fromString(Class<T> returnType, String... strings) {
 
         // heavy voodoo follows...
@@ -589,9 +623,9 @@ public final class StringUtils {
                             query.append('&');
                             query.append(encodeUri(name));
                             query.append('=');
-                            query.append(encodeUri(item instanceof Enum ?
-                                    ((Enum<?>) item).name() :
-                                    item.toString()));
+                            query.append(encodeUri(item instanceof Enum
+                                    ? ((Enum<?>) item).name()
+                                    : item.toString()));
                         }
                     }
                 }
@@ -642,9 +676,9 @@ public final class StringUtils {
             for (int nameAt = 0; (nameAt = uri.indexOf(prefix, nameAt)) > -1;) {
                 nameAt += prefixLength;
                 int andAt = uri.indexOf('&', nameAt);
-                values.add(decodeUri(andAt > -1 ?
-                        uri.substring(nameAt, andAt) :
-                        uri.substring(nameAt)));
+                values.add(decodeUri(andAt > -1
+                        ? uri.substring(nameAt, andAt)
+                        : uri.substring(nameAt)));
             }
         }
 
@@ -724,18 +758,21 @@ public final class StringUtils {
     }
 
     // --- Pattern bridge ---
-    private static final Map<String, Pattern> PATTERNS = new PullThroughCache<String, Pattern>() {
-        @Override
-        protected Pattern produce(String pattern) {
-            return Pattern.compile(pattern);
-        }
-    };
+    private static final LoadingCache<String, Pattern> PATTERNS = CacheBuilder.newBuilder()
+        .maximumSize(1000)
+        .build(new CacheLoader<String, Pattern>() {
+
+            @Override
+            public Pattern load(String pattern) {
+                return Pattern.compile(pattern);
+            }
+        });
 
     /**
      * Gets a cached regular expression pattern object based on the given string.
      */
     public static Pattern getPattern(String pattern) {
-        return PATTERNS.get(pattern);
+        return PATTERNS.getUnchecked(pattern);
     }
 
     /**
@@ -933,9 +970,9 @@ public final class StringUtils {
         StringBuilder sb = new StringBuilder();
         for (int i = 0, s = string.length(); i < s; ++ i) {
             char c = string.charAt(i);
-            if (0x30 <= c && c <= 0x39 ||
-                    0x41 <= c && c <= 0x5A ||
-                    0x61 <= c && c <= 0x7A) {
+            if (0x30 <= c && c <= 0x39
+                    || 0x41 <= c && c <= 0x5A
+                    || 0x61 <= c && c <= 0x7A) {
                 sb.append(c);
             } else {
                 String hex = Integer.toHexString(c);

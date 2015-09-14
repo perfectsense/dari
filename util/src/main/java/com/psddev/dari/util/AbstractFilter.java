@@ -21,6 +21,8 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,9 +83,10 @@ public abstract class AbstractFilter implements Filter {
     private static final String DEPENDENCY_EXCLUDES_ATTRIBUTE = ATTRIBUTE_PREFIX + "dependencyExcludes";
     private static final String FILTERS_ATTRIBUTE = ATTRIBUTE_PREFIX + "filters";
 
+    private boolean disabled;
     private FilterConfig filterConfig;
     private ServletContext servletContext;
-    private final List<Filter> initialized = new ArrayList<Filter>();
+    private final List<Filter> initialized = new ArrayList<>();
 
     /**
      * Returns the config associated with this filter.
@@ -124,16 +127,18 @@ public abstract class AbstractFilter implements Filter {
      */
     @Override
     public final void init(FilterConfig config) throws ServletException {
-        ErrorUtils.errorIfNull(config, "config");
+        Preconditions.checkNotNull(config);
 
+        disabled = Settings.get(boolean.class, DISABLE_FILTER_SETTING_PREFIX + getClass().getName());
         filterConfig = config;
         servletContext = config.getServletContext();
 
         try {
             doInit();
+
         } catch (Exception error) {
-            ErrorUtils.rethrowIf(error, ServletException.class);
-            ErrorUtils.rethrow(error);
+            Throwables.propagateIfInstanceOf(error, ServletException.class);
+            throw Throwables.propagate(error);
         }
 
         LOGGER.debug("Initialized [{}]", getClass().getName());
@@ -155,16 +160,16 @@ public abstract class AbstractFilter implements Filter {
      */
     @Override
     public final void destroy() {
-        for (Filter filter : initialized) {
-            filter.destroy();
-        }
+        initialized.forEach(Filter::destroy);
 
         try {
             doDestroy();
+
         } catch (Exception error) {
-            ErrorUtils.rethrow(error);
+            throw Throwables.propagate(error);
         }
 
+        disabled = false;
         filterConfig = null;
         servletContext = null;
         initialized.clear();
@@ -196,7 +201,7 @@ public abstract class AbstractFilter implements Filter {
             FilterChain chain)
             throws IOException, ServletException {
 
-        if (Settings.get(boolean.class, DISABLE_FILTER_SETTING_PREFIX + getClass().getName())) {
+        if (disabled) {
             chain.doFilter(request, response);
             return;
         }
@@ -206,7 +211,7 @@ public abstract class AbstractFilter implements Filter {
         Set<Class<?>> dependencyExcludes = (Set<Class<?>>) request.getAttribute(DEPENDENCY_EXCLUDES_ATTRIBUTE);
 
         if (dependencyExcludes == null) {
-            dependencyExcludes = new HashSet<Class<?>>();
+            dependencyExcludes = new HashSet<>();
             request.setAttribute(DEPENDENCY_EXCLUDES_ATTRIBUTE, dependencyExcludes);
         }
 
@@ -218,10 +223,10 @@ public abstract class AbstractFilter implements Filter {
         List<Filter> dependencies = (List<Filter>) request.getAttribute(dependenciesAttribute);
 
         if (dependencies == null) {
-            dependencies = new ArrayList<Filter>();
+            dependencies = new ArrayList<>();
             request.setAttribute(dependenciesAttribute, dependencies);
             Iterable<Class<? extends Filter>> dependenciesIterable = dependencies();
-            List<Class<? extends Filter>> dependencyClasses = new ArrayList<Class<? extends Filter>>();
+            List<Class<? extends Filter>> dependencyClasses = new ArrayList<>();
 
             if (dependenciesIterable != null) {
                 for (Class<? extends Filter> d : dependenciesIterable) {
@@ -229,7 +234,7 @@ public abstract class AbstractFilter implements Filter {
                 }
             }
 
-            for (Class<? extends Auto> autoClass : ClassFinder.Static.findClasses(Auto.class)) {
+            for (Class<? extends Auto> autoClass : ClassFinder.findClasses(Auto.class)) {
                 getFilter(autoClass).updateDependencies(getClass(), dependencyClasses);
             }
 
@@ -240,15 +245,15 @@ public abstract class AbstractFilter implements Filter {
             }
         }
 
-        dependencies = new ArrayList<Filter>(dependencies);
+        dependencies = new ArrayList<>(dependencies);
 
         for (Iterator<Filter> i = dependencies.iterator(); i.hasNext();) {
             Filter dependency = i.next();
             Class<? extends Filter> dependencyClass = dependency.getClass();
 
-            if (dependency instanceof AbstractFilter &&
-                    ObjectUtils.isBlank(((AbstractFilter) dependency).dependencies()) &&
-                    !hasDispatchOverride(dependencyClass)) {
+            if (dependency instanceof AbstractFilter
+                    && ObjectUtils.isBlank(((AbstractFilter) dependency).dependencies())
+                    && !hasDispatchOverride(dependencyClass)) {
 
                 if (JspUtils.isIncluded(request)) {
                     if (!hasIncludeOverride(dependencyClass)) {
@@ -271,8 +276,8 @@ public abstract class AbstractFilter implements Filter {
             }
         }
 
-        new DependencyFilterChain(dependencies, chain).
-                doFilter(request, response);
+        new DependencyFilterChain(dependencies, chain)
+                .doFilter(request, response);
     }
 
     @SuppressWarnings("unchecked")
@@ -284,7 +289,7 @@ public abstract class AbstractFilter implements Filter {
             synchronized (context) {
                 filters = (Map<Class<? extends Filter>, Filter>) context.getAttribute(FILTERS_ATTRIBUTE);
                 if (filters == null) {
-                    filters = new ConcurrentHashMap<Class<? extends Filter>, Filter>();
+                    filters = new ConcurrentHashMap<>();
                     context.setAttribute(FILTERS_ATTRIBUTE, filters);
                 }
             }
@@ -336,31 +341,31 @@ public abstract class AbstractFilter implements Filter {
         return override;
     }
 
-    private static final ConcurrentMap<Class<?>, Boolean> DISPATCH_OVERRIDES = new ConcurrentHashMap<Class<?>, Boolean>();
+    private static final ConcurrentMap<Class<?>, Boolean> DISPATCH_OVERRIDES = new ConcurrentHashMap<>();
 
     private static boolean hasDispatchOverride(Class<? extends Filter> filterClass) {
         return hasOverride(DISPATCH_OVERRIDES, filterClass, "doDispatch");
     }
 
-    private static final ConcurrentMap<Class<?>, Boolean> ERROR_OVERRIDES = new ConcurrentHashMap<Class<?>, Boolean>();
+    private static final ConcurrentMap<Class<?>, Boolean> ERROR_OVERRIDES = new ConcurrentHashMap<>();
 
     private static boolean hasErrorOverride(Class<? extends Filter> filterClass) {
         return hasOverride(ERROR_OVERRIDES, filterClass, "doError");
     }
 
-    private static final ConcurrentMap<Class<?>, Boolean> FORWARD_OVERRIDES = new ConcurrentHashMap<Class<?>, Boolean>();
+    private static final ConcurrentMap<Class<?>, Boolean> FORWARD_OVERRIDES = new ConcurrentHashMap<>();
 
     private static boolean hasForwardOverride(Class<? extends Filter> filterClass) {
         return hasOverride(FORWARD_OVERRIDES, filterClass, "doForward");
     }
 
-    private static final ConcurrentMap<Class<?>, Boolean> INCLUDE_OVERRIDES = new ConcurrentHashMap<Class<?>, Boolean>();
+    private static final ConcurrentMap<Class<?>, Boolean> INCLUDE_OVERRIDES = new ConcurrentHashMap<>();
 
     private static boolean hasIncludeOverride(Class<? extends Filter> filterClass) {
         return hasOverride(INCLUDE_OVERRIDES, filterClass, "doInclude");
     }
 
-    private static final ConcurrentMap<Class<?>, Boolean> REQUEST_OVERRIDES = new ConcurrentHashMap<Class<?>, Boolean>();
+    private static final ConcurrentMap<Class<?>, Boolean> REQUEST_OVERRIDES = new ConcurrentHashMap<>();
 
     private static boolean hasRequestOverride(Class<? extends Filter> filterClass) {
         return hasOverride(REQUEST_OVERRIDES, filterClass, "doRequest");
@@ -491,7 +496,7 @@ public abstract class AbstractFilter implements Filter {
          * Updates the given {@code dependencies} for the given
          * {@code filterClass}.
          */
-        public void updateDependencies(
+        void updateDependencies(
                 Class<? extends AbstractFilter> filterClass,
                 List<Class<? extends Filter>> dependencies);
     }
@@ -510,8 +515,8 @@ public abstract class AbstractFilter implements Filter {
 
         @Override
         public String getFilterName() {
-            return filterConfig.getFilterName() +
-                    "$" + filter.getClass().getName();
+            return filterConfig.getFilterName()
+                    + "$" + filter.getClass().getName();
         }
 
         @Override
@@ -532,7 +537,7 @@ public abstract class AbstractFilter implements Filter {
     }
 
     // Runs all dependencies first.
-    private static final ThreadLocal<Integer> TO_STRING_DEPTH = new ThreadLocal<Integer>();
+    private static final ThreadLocal<Integer> TO_STRING_DEPTH = new ThreadLocal<>();
 
     private class DependencyFilterChain implements FilterChain {
 
@@ -559,8 +564,8 @@ public abstract class AbstractFilter implements Filter {
                 return;
             }
 
-            if (request instanceof HttpServletRequest &&
-                    response instanceof HttpServletResponse) {
+            if (request instanceof HttpServletRequest
+                    && response instanceof HttpServletResponse) {
                 try {
                     doDispatch(
                             (HttpServletRequest) request,
@@ -568,9 +573,9 @@ public abstract class AbstractFilter implements Filter {
                             finalChain);
 
                 } catch (Exception error) {
-                    ErrorUtils.rethrowIf(error, IOException.class);
-                    ErrorUtils.rethrowIf(error, ServletException.class);
-                    ErrorUtils.rethrow(error);
+                    Throwables.propagateIfInstanceOf(error, IOException.class);
+                    Throwables.propagateIfInstanceOf(error, ServletException.class);
+                    throw Throwables.propagate(error);
                 }
 
             } else {

@@ -11,10 +11,11 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.psddev.dari.util.ErrorUtils;
+import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
@@ -28,6 +29,7 @@ public interface Database extends SettingsBackedObject {
     public static final String DEFAULT_DATABASE_SETTING = "dari/defaultDatabase";
     public static final int MAXIMUM_LIMIT = Integer.MAX_VALUE - 1;
     public static final String SETTING_PREFIX = "dari/database";
+    public static final String DISABLE_FUNNEL_CACHE_QUERY_OPTION = "db.disableFunnelCache";
 
     /** Returns the name. */
     public String getName();
@@ -41,20 +43,66 @@ public interface Database extends SettingsBackedObject {
     /** Sets the environment. */
     public void setEnvironment(DatabaseEnvironment environment);
 
-    /** Returns a list of all objects matching the given {@code query}. */
-    public <T> List<T> readAll(Query<T> query);
+    /**
+     * Returns a list of all objects matching the given {@code query}.
+     *
+     * <p>The default implementation uses {@link #readPartial(Query, long, int)}.
+     * </p>
+     *
+     * @param query
+     *        Can't be {@code null}.
+     *
+     * @return Never {@code null}.
+     */
+    default <T> List<T> readAll(Query<T> query) {
+        return readPartial(query, 0L, MAXIMUM_LIMIT).getItems();
+    }
 
     /**
      * Returns all objects matching the given {@code query} grouped by the
      * values of the given {@code fields}.
+     *
+     * @param query
+     *        Can't be {@code null}.
+     *
+     * @param fields
+     *        Can't be blank.
+     *
+     * @return Never {@code null}.
      */
-    public <T> List<Grouping<T>> readAllGrouped(Query<T> query, String... fields);
+    default <T> List<Grouping<T>> readAllGrouped(Query<T> query, String... fields) {
+        return readPartialGrouped(query, 0L, MAXIMUM_LIMIT, fields).getItems();
+    }
 
-    /** Returns a count of all objects matching the given {@code query}. */
-    public long readCount(Query<?> query);
+    /**
+     * Returns a count of all objects matching the given {@code query}.
+     *
+     * <p>The default implementation uses {@link #readPartial(Query, long, int)}.
+     * </p>
+     *
+     * @param query
+     *        Can't be {@code null}.
+     */
+    default long readCount(Query<?> query) {
+        return readPartial(query, 0L, 1).getCount();
+    }
 
-    /** Returns the first object matching the given {@code query}. */
-    public <T> T readFirst(Query<T> query);
+    /**
+     * Returns the first object matching the given {@code query}.
+     *
+     * <p>The default implementation uses {@link #readPartial(Query, long, int)}.
+     * </p>
+     *
+     * @param query
+     *        Can't be {@code null}.
+     *
+     * @return May be {@code null}.
+     */
+    default <T> T readFirst(Query<T> query) {
+        List<T> items = readPartial(query, 0L, 1).getItems();
+
+        return items.isEmpty() ? null : items.get(0);
+    }
 
     /**
      * Returns an iterable of all objects matching the given {@code query}
@@ -143,6 +191,16 @@ public interface Database extends SettingsBackedObject {
     /** Ensures that the given {@code state}'s indexes are up-to-date. */
     public void index(State state);
 
+    /** Updates the index for a single value of a state. */
+    public default void recalculate(State state, ObjectIndex... indexes) {
+        // no default implementation.
+    }
+
+    /** Returns the database's current time, falling back to the local current time. */
+    public default long now() {
+        return System.currentTimeMillis();
+    }
+
     /** Ensures that given {@code index} is up-to-date across all states. */
     public void indexAll(ObjectIndex index);
 
@@ -152,14 +210,22 @@ public interface Database extends SettingsBackedObject {
     /** Deletes all objects matching the given {@code query}. */
     public void deleteByQuery(Query<?> query);
 
+    default void addUpdateNotifier(UpdateNotifier<?> notifier) {
+        throw new UnsupportedOperationException();
+    }
+
+    default void removeUpdateNotifier(UpdateNotifier<?> notifier) {
+        throw new UnsupportedOperationException();
+    }
+
     /** {@link Database} utility methods. */
     public static final class Static {
 
         private static final ThreadLocal<Deque<Database>> DEFAULT_OVERRIDES = new ThreadLocal<Deque<Database>>();
         private static final ThreadLocal<Boolean> IGNORE_READ_CONNECTION = new ThreadLocal<Boolean>();
 
-        private static final LoadingCache<String, Database> INSTANCES = CacheBuilder.newBuilder().
-                build(new CacheLoader<String, Database>() {
+        private static final LoadingCache<String, Database> INSTANCES = CacheBuilder.newBuilder()
+                .build(new CacheLoader<String, Database>() {
                     @Override
                     public Database load(String name) {
                         Database database = Settings.newInstance(Database.class, SETTING_PREFIX + "/" + name);
@@ -237,7 +303,7 @@ public interface Database extends SettingsBackedObject {
          * @return Current default database before overriding.
          */
         public static Database overrideDefault(Database override) {
-            ErrorUtils.errorIfNull(override, "override");
+            Preconditions.checkNotNull(override);
 
             Database old = getDefaultOverride();
 
@@ -455,11 +521,26 @@ public interface Database extends SettingsBackedObject {
 
     // --- Deprecated ---
 
-    /** @deprecated Use {@link #readAll} instead. */
+    /**
+     * @deprecated Use {@link #readAll} instead.
+     */
     @Deprecated
-    public <T> List<T> readList(Query<T> query);
+    default <T> List<T> readList(Query<T> query) {
+        return readAll(query);
+    }
 
-    /** @deprecated Use {@link #readAllGrouped} or {@link #readPartialGrouped} instead. */
+    /**
+     * @deprecated Use {@link #readAllGrouped} or {@link #readPartialGrouped}
+     * instead.
+     */
     @Deprecated
-    public Map<Object, Long> readGroupedCount(Query<?> query, String field);
+    default Map<Object, Long> readGroupedCount(Query<?> query, String field) {
+        Map<Object, Long> counts = new CompactMap<>();
+
+        for (Grouping<?> grouping : readAllGrouped(query, field)) {
+            counts.put(grouping.getKeys().get(0), grouping.getCount());
+        }
+
+        return counts;
+    }
 }

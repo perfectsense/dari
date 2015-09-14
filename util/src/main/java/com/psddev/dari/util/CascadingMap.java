@@ -159,8 +159,8 @@ public class CascadingMap<K, V> implements Map<K, V> {
 
     @Override
     public boolean equals(Object object) {
-        return this == object ||
-                (object instanceof Map && combine().equals(object));
+        return this == object
+                || (object instanceof Map && combine().equals(object));
     }
 
     @Override
