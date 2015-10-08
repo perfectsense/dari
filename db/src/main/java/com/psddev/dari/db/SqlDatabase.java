@@ -541,6 +541,15 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
     };
 
     /**
+     * Returns an unique numeric ID for the given {@code symbol},
+     * or {@code -1} if it's not available.
+     */
+    public int getReadSymbolId(String symbol) {
+        Integer id = symbols.get().get(symbol);
+        return id != null ? id : -1;
+    }
+
+    /**
      * Returns an unique numeric ID for the given {@code symbol}.
      */
     public int getSymbolId(String symbol) {
@@ -1086,7 +1095,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
         SqlIndex useSqlIndex = SqlIndex.Static.getByIndex(useIndex);
         SqlIndex.Table indexTable = useSqlIndex.getReadTable(this, useIndex);
         String sourceTableName = fieldData.getIndexTable();
-        int symbolId = getSymbolId(key.getIndexKey(useIndex));
+        int symbolId = getReadSymbolId(key.getIndexKey(useIndex));
         StringBuilder sql = new StringBuilder();
         int fieldIndex = 0;
 

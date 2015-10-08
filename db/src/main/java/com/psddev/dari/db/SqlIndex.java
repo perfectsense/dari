@@ -40,6 +40,11 @@ public enum SqlIndex {
             }
 
             @Override
+            public Object convertReadKey(SqlDatabase database, ObjectIndex index, String key) {
+                return database.getReadSymbolId(key);
+            }
+
+            @Override
             public Object convertKey(SqlDatabase database, ObjectIndex index, String key) {
                 return database.getSymbolId(key);
             }
@@ -196,6 +201,8 @@ public enum SqlIndex {
 
         public String getTypeIdField(SqlDatabase database, ObjectIndex index);
 
+        public Object convertReadKey(SqlDatabase database, ObjectIndex index, String key);
+
         public Object convertKey(SqlDatabase database, ObjectIndex index, String key);
 
         public String prepareInsertStatement(
@@ -297,6 +304,11 @@ public enum SqlIndex {
             }
 
             return fieldIndex > 0 ? valueField + (fieldIndex + 1) : valueField;
+        }
+
+        @Override
+        public Object convertReadKey(SqlDatabase database, ObjectIndex index, String key) {
+            return convertKey(database, index, key);
         }
 
         @Override
@@ -580,6 +592,11 @@ public enum SqlIndex {
         }
 
         @Override
+        public Object convertReadKey(SqlDatabase database, ObjectIndex index, String key) {
+            return database.getReadSymbolId(key);
+        }
+
+        @Override
         public Object convertKey(SqlDatabase database, ObjectIndex index, String key) {
             return database.getSymbolId(key);
         }
@@ -763,7 +780,7 @@ public enum SqlIndex {
                             deleteBuilder.append(" AND ");
                             vendor.appendIdentifier(deleteBuilder, table.getKeyField(database, onlyIndex));
                             deleteBuilder.append(" = ");
-                            deleteBuilder.append(database.getSymbolId(onlyIndex.getUniqueName()));
+                            deleteBuilder.append(database.getReadSymbolId(onlyIndex.getUniqueName()));
                         }
                         SqlDatabase.Static.executeUpdateWithArray(vendor, connection, deleteBuilder.toString());
                     }
@@ -785,7 +802,7 @@ public enum SqlIndex {
                         deleteBuilder.append(" AND ");
                         vendor.appendIdentifier(deleteBuilder, table.getKeyField(database, onlyIndex));
                         deleteBuilder.append(" = ");
-                        deleteBuilder.append(database.getSymbolId(onlyIndex.getUniqueName()));
+                        deleteBuilder.append(database.getReadSymbolId(onlyIndex.getUniqueName()));
                     }
                     SqlDatabase.Static.executeUpdateWithArray(vendor, connection, deleteBuilder.toString());
                 }
