@@ -201,7 +201,9 @@ public enum SqlIndex {
 
         public String getTypeIdField(SqlDatabase database, ObjectIndex index);
 
-        public Object convertReadKey(SqlDatabase database, ObjectIndex index, String key);
+        default Object convertReadKey(SqlDatabase database, ObjectIndex index, String key) {
+            return convertKey(database, index, key);
+        }
 
         public Object convertKey(SqlDatabase database, ObjectIndex index, String key);
 
@@ -304,11 +306,6 @@ public enum SqlIndex {
             }
 
             return fieldIndex > 0 ? valueField + (fieldIndex + 1) : valueField;
-        }
-
-        @Override
-        public Object convertReadKey(SqlDatabase database, ObjectIndex index, String key) {
-            return convertKey(database, index, key);
         }
 
         @Override
