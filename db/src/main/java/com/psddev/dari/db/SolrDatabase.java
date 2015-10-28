@@ -1528,14 +1528,16 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
             List<ObjectMethod> methods = new ArrayList<>(state.getType().getMethods());
             methods.addAll(getEnvironment().getMethods());
             for (ObjectMethod method : methods) {
-                addDocumentValues(
-                        document,
-                        allBuilder,
-                        true,
-                        method,
-                        method.getUniqueName(),
-                        Static.getStateMethodValue(state, method)
-                        );
+                if (!method.findIndexes(type).isEmpty()) {
+                    addDocumentValues(
+                            document,
+                            allBuilder,
+                            true,
+                            method,
+                            method.getUniqueName(),
+                            Static.getStateMethodValue(state, method)
+                            );
+                }
             }
 
             document.setField(ALL_FIELD, allBuilder.toString());
@@ -1697,14 +1699,16 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                             }
                             if (valueState != null) {
                                 for (ObjectMethod method : valueType.getMethods()) {
-                                    addDocumentValues(
-                                            document,
-                                            allBuilder,
-                                            includeInAny,
-                                            method,
-                                            name + "/" + method.getInternalName(),
-                                            Static.getStateMethodValue(valueState, method)
-                                    );
+                                    if (!method.findIndexes(valueType).isEmpty()) {
+                                        addDocumentValues(
+                                                document,
+                                                allBuilder,
+                                                includeInAny,
+                                                method,
+                                                name + "/" + method.getInternalName(),
+                                                Static.getStateMethodValue(valueState, method)
+                                        );
+                                    }
                                 }
                             }
                         }
