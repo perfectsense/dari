@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+        http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.psddev</groupId>
+        <artifactId>dari-grandparent</artifactId>
+        <version>3.2-SNAPSHOT</version>
+        <relativePath>../grandparent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dari-parent-java7</artifactId>
+    <version>3.2-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Dari: Parent POM Java 7</name>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.2.1</version>
+
+                <dependencies>
+                    <dependency>
+                        <groupId>com.psddev</groupId>
+                        <artifactId>dari-util-java7</artifactId>
+                        <version>3.2-SNAPSHOT</version>
+                    </dependency>
+                </dependencies>
+
+                <executions>
+                    <execution>
+                        <id>enhance-classes</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <classpathScope>compile</classpathScope>
+                            <includePluginDependencies>true</includePluginDependencies>
+                            <mainClass>com.psddev.dari.util.ClassEnhancer$Static</mainClass>
+                            <arguments>
+                                <argument>${project.build.outputDirectory}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

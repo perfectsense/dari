@@ -103,6 +103,8 @@ public class QueryUsagesDebugServlet extends HttpServlet {
                 } catch (Exception error) {
                     System.out.println(c);
                     error.printStackTrace();
+                } catch (NoClassDefFoundError noClassDefFoundError) {
+                    // Ignore NoClassDefFoundError.
                 }
             }
         }

@@ -3,11 +3,9 @@ package com.psddev.dari.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import javax.servlet.FilterChain;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -183,7 +181,7 @@ public class StorageItemFilter extends AbstractFilter {
                         try {
                             TypeDefinition.getInstance(c).newInstance().beforeSave(storageItem, part);
                         } catch (IOException e) {
-                            throw new UncheckedIOException(e);
+                            throw new RuntimeException(e);
                         }
                     });
 
@@ -195,7 +193,7 @@ public class StorageItemFilter extends AbstractFilter {
                         try {
                             TypeDefinition.getInstance(c).newInstance().afterSave(storageItem);
                         } catch (IOException e) {
-                            throw new UncheckedIOException(e);
+                            throw new RuntimeException(e);
                         }
                     });
 

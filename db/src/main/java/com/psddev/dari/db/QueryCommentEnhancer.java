@@ -13,6 +13,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import java8.util.stream.StreamSupport;
+
 public class QueryCommentEnhancer extends ClassEnhancer {
 
     private static final String CLASS_INTERNAL_NAME;
@@ -73,7 +75,7 @@ public class QueryCommentEnhancer extends ClassEnhancer {
 
                 if (opcode == Opcodes.INVOKESTATIC
                         && CLASS_INTERNAL_NAME.equals(owner)
-                        && FACTORY_METHODS.stream().anyMatch(method -> method.matches(name, desc))) {
+                        && StreamSupport.stream(FACTORY_METHODS).anyMatch(method -> method.matches(name, desc))) {
 
                     super.visitLdcInsn(currentSource + ":" + currentLine);
                     super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CLASS_INTERNAL_NAME, COMMENT_METHOD_NAME, COMMENT_METHOD_DESC, false);
