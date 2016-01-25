@@ -128,27 +128,12 @@ public class StorageItemFilter extends AbstractFilter {
         Preconditions.checkNotNull(jsonString);
         Map<String, Object> json = Preconditions.checkNotNull(
                 ObjectUtils.to(
-                        new TypeReference<Map<String, Object>>() {
-                        },
+                        new TypeReference<Map<String, Object>>() { },
                         ObjectUtils.fromJson(jsonString)));
-        Object path = Preconditions.checkNotNull(json.get("path"));
-        String storage = ObjectUtils
-                .firstNonBlank(json.get("storage"), Settings.get(StorageItem.DEFAULT_STORAGE_SETTING))
-                .toString();
-        String contentType = ObjectUtils.to(String.class, json.get("contentType"));
 
-        Map<String, Object> metadata = null;
-        if (!ObjectUtils.isBlank(json.get("metadata"))) {
-            metadata = ObjectUtils.to(
-                    new TypeReference<Map<String, Object>>() {
-                    },
-                    json.get("metadata"));
-        }
-
-        StorageItem storageItem = StorageItem.Static.createIn(storage);
-        storageItem.setContentType(contentType);
-        storageItem.setPath(path.toString());
-        storageItem.setMetadata(metadata);
+        Object storage = json.get("storage");
+        StorageItem storageItem = StorageItem.Static.createIn(storage != null ? storage.toString() : null);
+        new ObjectMap(storageItem).putAll(json);
 
         return storageItem;
     }
