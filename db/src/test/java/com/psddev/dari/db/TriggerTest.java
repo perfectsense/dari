@@ -12,7 +12,16 @@ public class TriggerTest {
 
     @Before
     public void before() {
-        trigger = object -> { };
+        trigger = new Trigger() {
+            @Override
+            public void execute(Object object) {
+            }
+
+            @Override
+            public boolean isMissing(Class<?> objectClass) {
+                return false;
+            }
+        };
     }
 
     @Test

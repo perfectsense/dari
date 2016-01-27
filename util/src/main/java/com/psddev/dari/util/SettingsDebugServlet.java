@@ -96,6 +96,8 @@ public class SettingsDebugServlet extends HttpServlet {
 
                     } catch (Exception error) {
                         // Ignore errors.
+                    } catch (NoClassDefFoundError noClassDefFoundError) {
+                        // Ignore NoClassDefFoundError.
                     }
                 }
             }

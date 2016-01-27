@@ -2,14 +2,13 @@ package com.psddev.dari.db;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
-import java.util.Iterator;
+import java.util.Enumeration;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Task;
 
@@ -140,12 +139,12 @@ final class MetricIncrementQueueTask extends Task {
     public void doTask() {
 
         long sleepMilliseconds = 0L;
-        Iterator<String> iter = null;
+        Enumeration<String> iter = null;
         while (true) {
             if (queuedIncrements.isEmpty()) {
                 break;
             }
-            if (iter == null || !iter.hasNext()) {
+            if (iter == null || !iter.hasMoreElements()) {
                 if (iter != null) {
                     long waitMilliseconds = (long) (1000 * waitSeconds);
                     try {
@@ -158,10 +157,11 @@ final class MetricIncrementQueueTask extends Task {
                 if (sleepMilliseconds <= 0) {
                     sleepMilliseconds = 10L;
                 }
+
                 //LOGGER.info("running MetricIncrementQueueTask within " + executeSeconds + " seconds, approx. size: " + queuedIncrements.size() + " sleeping for " + sleepMilliseconds + " milliseconds between executions");
-                iter = queuedIncrements.keySet().iterator();
+                iter = queuedIncrements.keys();
             }
-            String key = iter.next();
+            String key = iter.nextElement();
             QueuedMetricIncrement queuedIncrement = queuedIncrements.remove(key);
             //LOGGER.info("Incrementing : " + queuedIncrement.metricAccess.getSymbolId() + " / " + queuedIncrement.id + " : " + queuedIncrement.dimensionId + " += " + queuedIncrement.amount );
             try {

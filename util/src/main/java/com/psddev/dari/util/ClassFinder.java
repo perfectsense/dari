@@ -27,6 +27,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import java8.util.stream.Collectors;
+import java8.util.stream.StreamSupport;
 
 /**
  * For finding sub-classes or implementations that are compatible with an
@@ -145,9 +147,9 @@ public class ClassFinder {
     public static <T> Set<Class<? extends T>> findConcreteClasses(Class<T> baseClass) {
         Set<Class<? extends T>> concreteClasses = findClasses(baseClass);
 
-        concreteClasses.removeIf(c -> c.isInterface() || Modifier.isAbstract(c.getModifiers()));
-
-        return concreteClasses;
+        return StreamSupport.stream(concreteClasses)
+                     .filter(c -> !c.isInterface() && !Modifier.isAbstract(c.getModifiers()))
+                     .collect(Collectors.toSet());
     }
 
     /**

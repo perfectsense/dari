@@ -31,18 +31,30 @@
     <modules>
         <module>asm</module>
         <module>aws</module>
+        <module>aws-java7</module>
         <module>db</module>
+        <module>db-java7</module>
         <module>elasticsearch</module>
+        <module>elasticsearch-java7</module>
         <module>grandparent</module>
         <module>image</module>
+        <module>image-java7</module>
         <module>jclouds</module>
+        <module>jclouds-java7</module>
         <module>mail</module>
+        <module>mail-java7</module>
         <module>parent</module>
+        <module>parent-java7</module>
         <module>reloader/tomcat6</module>
         <module>sms</module>
+        <module>sms-java7</module>
         <module>storage</module>
+        <module>storage-java7</module>
         <module>twilio</module>
+        <module>twilio-java7</module>
         <module>util</module>
+        <module>util-java7</module>
+        <module>streamsupport</module>
     </modules>
 
     <dependencyManagement>
@@ -188,7 +200,7 @@
             <dependency>
                 <groupId>com.zaxxer</groupId>
                 <artifactId>HikariCP</artifactId>
-                <version>2.3.8</version>
+                <version>2.4.1</version>
             </dependency>
 
             <dependency>

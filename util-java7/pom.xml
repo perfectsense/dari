@@ -13,11 +13,11 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>dari-util</artifactId>
+    <artifactId>dari-util-java7</artifactId>
     <version>3.2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Dari: Utility</name>
+    <name>Dari: Utility Java 7</name>
 
     <dependencies>
         <dependency>
@@ -143,10 +143,92 @@
         </dependency>
 
         <dependency>
-        	<groupId>net.sourceforge.streamsupport</groupId>
-        	<artifactId>streamsupport</artifactId>
-        	<version>1.4.1</version>
+            <groupId>net.sourceforge.streamsupport</groupId>
+            <artifactId>streamsupport</artifactId>
+            <version>1.4.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-util</artifactId>
+            <version>3.2-SNAPSHOT</version>
+            <optional>true</optional>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>net.orfjackal.retrolambda</groupId>
+                <artifactId>retrolambda-maven-plugin</artifactId>
+                <version>2.1.0</version>
+                <executions>
+                    <execution>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>process-main</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <target>1.7</target>
+                    <defaultMethods>true</defaultMethods>
+                    <mainInputDir>../util/target/classes</mainInputDir>
+                    <mainOutputDir>target/classes</mainOutputDir>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.2.1</version>
+
+                <dependencies>
+                    <dependency>
+                        <groupId>com.psddev</groupId>
+                        <artifactId>dari-streamsupport</artifactId>
+                        <version>3.2-SNAPSHOT</version>
+                    </dependency>
+                </dependencies>
+
+                <executions>
+                    <execution>
+                        <id>enhance-classes</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <classpathScope>compile</classpathScope>
+                            <includePluginDependencies>true</includePluginDependencies>
+                            <mainClass>com.psddev.dari.util.ClassEnhancer$Static</mainClass>
+                            <arguments>
+                                <argument>${project.build.outputDirectory}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>animal-sniffer-maven-plugin</artifactId>
+                <version>1.14</version>
+                <executions>
+                    <execution>
+                        <id>signature-check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <signature>
+                        <groupId>org.codehaus.mojo.signature</groupId>
+                        <artifactId>java17</artifactId>
+                        <version>1.0</version>
+                    </signature>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
