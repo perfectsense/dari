@@ -12,6 +12,7 @@ import javax.servlet.FilterChain;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.junit.Ignore;
@@ -20,10 +21,10 @@ import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-import com.google.common.collect.ImmutableMap;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +51,14 @@ public class StorageItemFilterTest {
         @Test(expected = IllegalArgumentException.class)
         public void blankParamName() throws IOException {
             StorageItemFilter.getParameter(request, "", null);
+        }
+
+        @Test
+        public void blankParamValues() throws IOException {
+            when(request.getParameterValues("paramName")).thenReturn(null);
+            StorageItem storageItem = StorageItemFilter.getParameter(request, "paramName", null);
+            assertTrue(storageItem == null);
+            reset(request);
         }
     }
 

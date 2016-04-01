@@ -13,8 +13,8 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.fileupload.FileItem;
 import com.google.common.base.Preconditions;
+import org.apache.commons.fileupload.FileItem;
 
 /**
  * For creating {@link StorageItem}(s) from a {@link MultipartRequest}
@@ -116,8 +116,12 @@ public class StorageItemFilter extends AbstractFilter {
                 }
             }
         } else {
-            for (String json : request.getParameterValues(parameterName)) {
-                storageItems.add(createStorageItem(json));
+            String[] parameterValues = request.getParameterValues(parameterName);
+            if (!ObjectUtils.isBlank(parameterValues)) {
+                for (String json : parameterValues) {
+                    storageItems.add(createStorageItem(json));
+
+                }
             }
         }
 
