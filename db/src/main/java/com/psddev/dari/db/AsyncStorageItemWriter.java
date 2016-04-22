@@ -106,12 +106,6 @@ public class AsyncStorageItemWriter<E> extends AsyncConsumer<E> {
     protected void consume(E item) {
         State state = State.getInstance(item);
         if (copyAny(state.getValues(), source, destination)) {
-            if (saveObject) {
-                state.save();
-            }
-        }
-
-        if (saveObject) {
             states.add(State.getInstance(item));
             if (states.size() == commitSize) {
                 commit();

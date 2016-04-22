@@ -57,6 +57,8 @@ public class StorageDebugServlet extends HttpServlet {
             Database database = Database.Static.getDefault();
             Query<Object> query = Query.fromType(selectedType);
 
+            query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
+
             new AsyncDatabaseReader<Object>(
                     executor, queue, database, query)
                     .submit();

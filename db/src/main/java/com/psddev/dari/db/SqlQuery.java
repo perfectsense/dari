@@ -2035,6 +2035,7 @@ class SqlQuery {
         public void appendValue(StringBuilder builder, ComparisonPredicate comparison, Object value) {
             Query.MappedKey mappedKey = mappedKeys.get(comparison.getKey());
             ObjectField field = mappedKey.getField();
+            ObjectIndex index = selectedIndexes.get(queryKey);
             SqlIndex fieldSqlIndex = field != null
                     ? SqlIndex.Static.getByType(field.getInternalItemType())
                     : sqlIndex;

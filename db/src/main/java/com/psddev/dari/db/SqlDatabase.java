@@ -238,6 +238,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
         m.put("H2", SqlVendor.H2.class);
         m.put("MySQL", SqlVendor.MySQL.class);
         m.put("PostgreSQL", SqlVendor.PostgreSQL.class);
+        m.put("EnterpriseDB", SqlVendor.PostgreSQL.class);
         m.put("Oracle", SqlVendor.Oracle.class);
         VENDOR_CLASSES = m;
     }

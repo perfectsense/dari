@@ -338,6 +338,18 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         }
     }
 
+    private SolrQuery addComment(SolrQuery solrQuery, Query<?> query) {
+        if (solrQuery != null && query != null) {
+            String comment = query.getComment();
+
+            if (!ObjectUtils.isBlank(comment)) {
+                solrQuery.set("dari.queryComment", comment);
+            }
+        }
+
+        return solrQuery;
+    }
+
     public SolrQuery buildQueryFacetByField(Query<?> query, String field) {
         SolrQuery solrQuery = buildQuery(query);
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, field);
@@ -357,7 +369,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         solrQuery.setFacet(true);
         solrQuery.addFacetField(solrField);
 
-        return solrQuery;
+        return addComment(solrQuery, query);
     }
 
     public SolrQuery buildQueryNumericRangeFacet(Query<?> query, String field, Number start, Number end, Number gap) {
@@ -378,7 +390,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
 
         solrQuery.addNumericRangeFacet(solrField, start, end, gap);
 
-        return solrQuery;
+        return addComment(solrQuery, query);
     }
 
     /** Builds a Solr query based on the given {@code query}. */
@@ -610,7 +622,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         }
 
         solrQuery.setQuery(queryBuilder.toString());
-        return solrQuery;
+        return addComment(solrQuery, query);
     }
 
     /**

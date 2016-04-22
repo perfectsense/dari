@@ -30,6 +30,7 @@ public class ReferentialText extends AbstractList<Object> {
     private static final Tag P_TAG = Tag.valueOf("p");
 
     private final List<Object> list = new ArrayList<Object>();
+    private boolean resolveInvisible;
 
     /**
      * Creates an empty instance.
@@ -107,6 +108,8 @@ public class ReferentialText extends AbstractList<Object> {
                         reference = new Reference();
                     }
 
+                    reference.getState().setResolveInvisible(isResolveInvisible());
+
                     for (Map.Entry<?, ?> entry : referenceMap.entrySet()) {
                         reference.getState().put(entry.getKey().toString(), entry.getValue());
                     }
@@ -139,6 +142,14 @@ public class ReferentialText extends AbstractList<Object> {
      */
     public ReferentialText(String html, boolean finalDraft) {
         addHtml(html);
+    }
+
+    public boolean isResolveInvisible() {
+        return resolveInvisible;
+    }
+
+    public void setResolveInvisible(boolean resolveInvisible) {
+        this.resolveInvisible = resolveInvisible;
     }
 
     /**
@@ -508,6 +519,8 @@ public class ReferentialText extends AbstractList<Object> {
             if (ref == null) {
                 ref = new Reference();
             }
+
+            ref.getState().setResolveInvisible(isResolveInvisible());
 
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) item).entrySet()) {
                 Object key = entry.getKey();

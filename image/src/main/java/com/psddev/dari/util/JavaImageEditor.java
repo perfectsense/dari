@@ -131,12 +131,14 @@ public class JavaImageEditor extends AbstractUrlImageEditor {
         String imageUrl = storageItem.getPublicUrl();
         List<String> commands = new ArrayList<String>();
 
-        String baseUrl = getPrivateBaseUrl();
-        if ((options != null && options.containsKey(ImageEditorPrivateUrl.PRIVATE_URL_OPTION)
-                && ObjectUtils.to(Boolean.class, options.get(ImageEditorPrivateUrl.PRIVATE_URL_OPTION)))
-                || baseUrl == null) {
-            baseUrl = getBaseUrl();
+        boolean usePrivateUrl = false;
+        if (options != null && options.containsKey(ImageEditorPrivateUrl.PRIVATE_URL_OPTION)
+                && ObjectUtils.to(Boolean.class, options.get(ImageEditorPrivateUrl.PRIVATE_URL_OPTION))) {
+            usePrivateUrl = true;
         }
+
+        String privateBaseUrl = usePrivateUrl ? getPrivateBaseUrl() : null;
+        String baseUrl = privateBaseUrl != null ? privateBaseUrl : getBaseUrl();
 
         if (imageUrl.startsWith(baseUrl) && imageUrl.contains("?url=")) {
             String[] imageComponents = imageUrl.split("\\?url=");
@@ -338,6 +340,7 @@ public class JavaImageEditor extends AbstractUrlImageEditor {
 
     @Override
     public void initialize(String settingsKey, Map<String, Object> settings) {
+        super.initialize(settingsKey, settings);
 
         if (!ObjectUtils.isBlank(settings.get(QUALITY_SETTING))) {
             Object qualitySetting = settings.get(QUALITY_SETTING);

@@ -499,6 +499,8 @@ abstract class StateValueUtils {
                 } else {
                     ReferentialText text = new ReferentialText();
 
+                    text.setResolveInvisible(State.getInstance(object).isResolveInvisible());
+
                     if (value instanceof Iterable) {
                         boolean isFirst = false;
 
