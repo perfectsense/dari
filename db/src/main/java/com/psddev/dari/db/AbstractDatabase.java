@@ -821,14 +821,6 @@ public abstract class AbstractDatabase<C> implements Database {
     public final void save(State state) {
         checkState(state);
 
-        ObjectType type = state.getType();
-
-        if (type != null && !type.isConcrete()) {
-            throw new IllegalStateException(String.format(
-                    "Can't save a non-concrete object! (%s)",
-                    type.getLabel()));
-        }
-
         state.fireTrigger(new BeforeSaveTrigger());
 
         Writes writes = getCurrentWrites();
@@ -884,6 +876,14 @@ public abstract class AbstractDatabase<C> implements Database {
             throw new IllegalArgumentException(String.format(
                     "Can't write a reference-only object! (%s)",
                     state.getId()));
+        }
+
+        ObjectType type = state.getType();
+
+        if (type != null && !type.isConcrete()) {
+            throw new IllegalStateException(String.format(
+                    "Can't save a non-concrete object! (%s)",
+                    type.getLabel()));
         }
     }
 
