@@ -9,6 +9,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -132,10 +133,15 @@ public class ClassFinder {
             loader = ObjectUtils.getCurrentClassLoader();
         }
 
-        return new LinkedHashSet<>((Set<Class<? extends T>>) CLASSES_BY_BASE_CLASS_BY_LOADER_BY_FINDER
-                .getUnchecked(MoreObjects.firstNonNull(THREAD_DEFAULT.get(), DEFAULT))
-                .getUnchecked(loader)
-                .getUnchecked(baseClass));
+        try {
+            return new LinkedHashSet<>((Set<Class<? extends T>>) CLASSES_BY_BASE_CLASS_BY_LOADER_BY_FINDER
+                    .getUnchecked(MoreObjects.firstNonNull(THREAD_DEFAULT.get(), DEFAULT))
+                    .getUnchecked(loader)
+                    .getUnchecked(baseClass));
+
+        } catch (RuntimeException e) {
+            return Collections.emptySet();
+        }
     }
 
     /**
@@ -238,6 +244,10 @@ public class ClassFinder {
                     processResourcePath(classNames, context, path);
                 }
             }
+
+            if (classNames.isEmpty()) {
+                throw new RuntimeException("No classes were found.");
+            }
         }
 
         Set<Class<? extends T>> classes = new LinkedHashSet<>();
@@ -331,6 +341,8 @@ public class ClassFinder {
         }
     }
 
+    // Process a path within a given ServletContext and add all found class
+    // files to the given classNames
     private void processResourcePath(Set<String> classNames, ServletContext context, String path) {
         if (path == null) {
             return;
@@ -345,6 +357,8 @@ public class ClassFinder {
 
         processUrl(classNames, url);
 
+        processFilename(classNames, path);
+
         Set<String> paths = context.getResourcePaths(path);
         if (paths != null) {
             for (String p : paths) {
@@ -353,8 +367,22 @@ public class ClassFinder {
         }
     }
 
+    // Processes a String filename and add the matching class name to the given classNames.
+    private void processFilename(Set<String> classNames, String filename) {
+        if (filename.endsWith(CLASS_FILE_SUFFIX)) {
+            for (String resourcePath : RESOURCE_PATHS) {
+                int chr = filename.lastIndexOf(resourcePath);
+                if (chr > -1) {
+                    String className = filename.substring(chr + resourcePath.length() + 1, filename.length() - CLASS_FILE_SUFFIX.length());
+                    classNames.add(className.replace('/', '.'));
+                    break;
+                }
+            }
+        }
+    }
+
     /**
-     * @return Never {@code null}.
+     * @return Can be {@code null}.
      */
     private static ServletContext findServletContext() {
         ServletContext context = THREAD_DEFAULT_SERVLET_CONTEXT.get();

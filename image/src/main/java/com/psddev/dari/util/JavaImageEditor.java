@@ -128,7 +128,7 @@ public class JavaImageEditor extends AbstractUrlImageEditor {
             return storageItem;
         }
 
-        String imageUrl = storageItem.getPublicUrl();
+        String imageUrl = new OriginStorageItem(storageItem).getPublicUrl();
         List<String> commands = new ArrayList<String>();
 
         boolean usePrivateUrl = false;

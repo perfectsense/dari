@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.servlet.FilterChain;
@@ -39,7 +41,19 @@ public class RoutingFilter extends AbstractFilter {
     protected void doInit() {
         servletWrappers = new ArrayList<ServletWrapper>();
 
-        for (Class<? extends Servlet> servletClass : ClassFinder.findClasses(Servlet.class)) {
+        Set<Class<? extends Servlet>> servletClasses = new HashSet<>();
+        ServletContext context = getServletContext();
+
+        if (context != null) {
+            ClassFinder.getThreadDefaultServletContext().with(context, () -> {
+                servletClasses.addAll(ClassFinder.findClasses(Servlet.class));
+            });
+
+        } else {
+            servletClasses.addAll(ClassFinder.findClasses(Servlet.class));
+        }
+
+        for (Class<? extends Servlet> servletClass : servletClasses) {
             try {
                 if (Modifier.isAbstract(servletClass.getModifiers())) {
                     continue;

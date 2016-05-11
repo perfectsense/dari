@@ -252,13 +252,14 @@ public class RecalculationTask extends RepeatingTask {
                 }
             }
 
-        } finally {
             if (transactionCounter > 0) {
                 db.commitWritesEventually();
             }
-            db.endWrites();
             last.setCurrentRunningDate(new DateTime());
             last.saveImmediately();
+
+        } finally {
+            db.endWrites();
         }
         return recalculated;
     }

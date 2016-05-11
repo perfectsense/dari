@@ -71,6 +71,7 @@ public final class CodeUtils {
     public static final String JAVA_SOURCE_DIRECTORY_PROPERTY = "javaSourceDirectory";
     public static final String JAVA_GENERATED_SOURCES_DIRECTORY_PROPERTY = "javaGeneratedSourcesDirectory";
     public static final String RESOURCE_DIRECTORY_PROPERTY = "resourceDirectory";
+    public static final ThreadLocalStack<ServletContext> THREAD_DEFAULT_SERVLET_CONTEXT = new ThreadLocalStack<>();
 
     private static final String BUILD_PROPERTIES_PATH = "build.properties";
     private static final JavaCompiler COMPILER = ToolProvider.getSystemJavaCompiler();
@@ -83,6 +84,11 @@ public final class CodeUtils {
             throw new IllegalStateException(ex);
         }
     }
+
+    private static final String[] RESOURCE_PATHS = {
+            "/WEB-INF/classes",
+            "/WEB-INF/lib"
+    };
 
     private static final String ATTRIBUTE_PREFIX = CodeUtils.class.getName() + ".";
     private static final String WEBAPP_SOURCE_DIRECTORIES_ATTRIBUTE = ATTRIBUTE_PREFIX + "webappSourceDirectories";
@@ -367,6 +373,31 @@ public final class CodeUtils {
             }
         }
 
+        String classPath = System.getProperty("java.class.path");
+
+        if (!ObjectUtils.isBlank(classPath)) {
+            for (String path : StringUtils.split(classPath, Pattern.quote(File.pathSeparator))) {
+                classPathsBuilder.append(path);
+                classPathsBuilder.append(File.pathSeparator);
+            }
+        }
+
+        ServletContext context = findServletContext();
+        if (context != null) {
+            for (String path : RESOURCE_PATHS) {
+                for (String resourcePath : context.getResourcePaths(path)) {
+                    String urlPath = context.getResource(resourcePath).getPath();
+                    if (urlPath.endsWith(".jar")) {
+                        classPathsBuilder.append(urlPath);
+                        classPathsBuilder.append(File.pathSeparator);
+                    }
+                }
+                String realPath = context.getRealPath(path);
+                classPathsBuilder.append(realPath);
+                classPathsBuilder.append(File.pathSeparator);
+            }
+        }
+
         MemoryFileManager fileManager = new MemoryFileManager(COMPILER.getStandardFileManager(null, null, null));
         try {
 
@@ -424,6 +455,18 @@ public final class CodeUtils {
         }
 
         return result;
+    }
+
+    private static ServletContext findServletContext() {
+        ServletContext context = THREAD_DEFAULT_SERVLET_CONTEXT.get();
+        if (context == null) {
+            try {
+                context = PageContextFilter.Static.getServletContext();
+            } catch (IllegalStateException ignored) {
+                // ignored
+            }
+        }
+        return context;
     }
 
     // ---

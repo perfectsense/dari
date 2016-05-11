@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -106,7 +107,7 @@ public class SqlVendor {
         Connection connection = database.openConnection();
 
         try {
-            if (getTables(connection).contains(SqlDatabase.RECORD_TABLE)) {
+            if (hasTable(connection, SqlDatabase.RECORD_TABLE)) {
                 return;
             }
 
@@ -127,6 +128,10 @@ public class SqlVendor {
         } finally {
             database.closeConnection(connection);
         }
+    }
+
+    protected boolean hasTable(Connection connection, String tableName) throws SQLException {
+        return getTables(connection).contains(tableName);
     }
 
     public void setTransactionIsolation(Connection connection) throws SQLException {
@@ -1337,6 +1342,11 @@ public class SqlVendor {
         @Override
         protected String getSetUpResourcePath() {
             return "postgres/schema-12.sql";
+        }
+
+        @Override
+        protected boolean hasTable(Connection connection, String tableName) throws SQLException {
+            return getTables(connection).contains(tableName.toLowerCase(Locale.ENGLISH));
         }
 
         @Override

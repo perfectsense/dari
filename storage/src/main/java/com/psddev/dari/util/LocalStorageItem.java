@@ -8,12 +8,20 @@ import java.io.InputStream;
 import java.util.Map;
 
 /** Item stored in the local file system. */
-public class LocalStorageItem extends AbstractStorageItem {
+public class LocalStorageItem extends AbstractStorageItem implements StorageItemOriginUrl {
 
     /** Setting key for root path. */
     public static final String ROOT_PATH_SETTING = "rootPath";
 
+    /**
+     * Sub-setting key for the private base URL that's used to construct the
+     * {@linkplain #getOriginUrl private URL}.
+     */
+    public static final String ORIGIN_BASE_URL_SUB_SETTING = "originBaseUrl";
+
     private transient String rootPath;
+
+    private transient String originBaseUrl;
 
     /** Returns the root path. */
     public String getRootPath() {
@@ -32,6 +40,7 @@ public class LocalStorageItem extends AbstractStorageItem {
         super.initialize(settingsKey, settings);
 
         setRootPath(ObjectUtils.to(String.class, settings.get(ROOT_PATH_SETTING)));
+        setOriginBaseUrl(ObjectUtils.to(String.class, settings.get(ORIGIN_BASE_URL_SUB_SETTING)));
         if (ObjectUtils.isBlank(getRootPath())) {
             throw new SettingsException(settingsKey + "/" + ROOT_PATH_SETTING, "No root path!");
         }
@@ -66,5 +75,22 @@ public class LocalStorageItem extends AbstractStorageItem {
     @Override
     public boolean isInStorage() {
         return new File(getRootPath() + "/" + getPath()).exists();
+    }
+
+    public void setOriginBaseUrl(String originBaseUrl) {
+        this.originBaseUrl = originBaseUrl;
+    }
+
+    public String getOriginBaseUrl() {
+        return originBaseUrl;
+    }
+
+    @Override
+    public String getOriginUrl() {
+        if (ObjectUtils.isBlank(getOriginBaseUrl())) {
+            return null;
+        }
+
+        return createPublicUrl(getOriginBaseUrl(), getPath());
     }
 }

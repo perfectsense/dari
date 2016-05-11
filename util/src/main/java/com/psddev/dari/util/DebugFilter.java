@@ -11,6 +11,7 @@ import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,7 +79,19 @@ public class DebugFilter extends AbstractFilter {
         protected Map<String, ServletWrapper> create() {
             Map<String, ServletWrapper> wrappers = new TreeMap<String, ServletWrapper>();
 
-            for (Class<? extends Servlet> servletClass : ClassFinder.findClasses(Servlet.class)) {
+            Set<Class<? extends Servlet>> servletClasses = new HashSet<>();
+            ServletContext context = getServletContext();
+
+            if (context != null) {
+                ClassFinder.getThreadDefaultServletContext().with(context, () -> {
+                    servletClasses.addAll(ClassFinder.findClasses(Servlet.class));
+                });
+
+            } else {
+                servletClasses.addAll(ClassFinder.findClasses(Servlet.class));
+            }
+
+            for (Class<? extends Servlet> servletClass : servletClasses) {
                 try {
                     if (Modifier.isAbstract(servletClass.getModifiers())) {
                         continue;

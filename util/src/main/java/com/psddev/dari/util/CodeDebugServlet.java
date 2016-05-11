@@ -96,7 +96,7 @@ public class CodeDebugServlet extends HttpServlet {
             try {
                 CLASS_FOUND:
                     if (file.isDirectory()) {
-                        Object result = CodeUtils.evaluateJava(code);
+                        Object result = evaluateJava(page.getServletContext(), code);
 
                         if (result instanceof Collection) {
                             for (Object item : (Collection<?>) result) {
@@ -473,6 +473,22 @@ public class CodeDebugServlet extends HttpServlet {
         }
     }
 
+    private static Object evaluateJava(ServletContext context, String code) throws Exception {
+
+        if (context != null) {
+            CodeUtils.THREAD_DEFAULT_SERVLET_CONTEXT.push(context);
+        }
+
+        try {
+            return CodeUtils.evaluateJava(code);
+
+        } finally {
+            if (context != null) {
+                CodeUtils.THREAD_DEFAULT_SERVLET_CONTEXT.popOrError();
+            }
+        }
+    }
+
     private enum Type {
 
         JAVA("Java") {
@@ -481,7 +497,7 @@ public class CodeDebugServlet extends HttpServlet {
 
                 new DebugFilter.PageWriter(page) { {
                     try {
-                        Object result = CodeUtils.evaluateJava(page.paramOrDefault(String.class, "code", ""));
+                        Object result = evaluateJava(page.getServletContext(), page.paramOrDefault(String.class, "code", ""));
 
                         if (result instanceof DiagnosticCollector) {
                             writeStart("pre", "class", "alert alert-error");
