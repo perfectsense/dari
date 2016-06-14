@@ -15,6 +15,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.google.common.base.Preconditions;
 import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.io.FilenameUtils;
 
 /**
  * For creating {@link StorageItem}(s) from a {@link MultipartRequest}
@@ -157,7 +158,9 @@ public class StorageItemFilter extends AbstractFilter {
 
             StorageItemUploadPart part = new StorageItemUploadPart();
             part.setContentType(fileItem.getContentType());
-            part.setName(fileItem.getName());
+
+            // Using FilenameUtils as fileItem.getName may include the path
+            part.setName(FilenameUtils.getName(fileItem.getName()));
             part.setFile(file);
             part.setStorageName(storageName);
 
