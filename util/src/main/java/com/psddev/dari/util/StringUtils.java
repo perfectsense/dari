@@ -1,5 +1,6 @@
 package com.psddev.dari.util;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Array;
 import java.net.URLDecoder;
@@ -75,6 +76,16 @@ public final class StringUtils {
     private static final char[] HEX_CHARACTERS = {
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
             'a', 'b', 'c', 'd', 'e', 'f' };
+
+    /**
+     * The Unix file separator character.
+     */
+    private static final char UNIX_FILE_SEPARATOR = '/';
+
+    /**
+     * The Windows file separator character.
+     */
+    private static final char WINDOWS_FILE_SEPARATOR = '\\';
 
     /**
      * Converts given string into a value of given type, throwing an exception
@@ -1262,4 +1273,53 @@ public final class StringUtils {
 
         return new String(letters).trim().replaceAll("\\s+", " ");
     }
+
+    /**
+     * Based on the <code>org.apache.commons.io.FilenameUtils#getName</code> signature
+     *
+     * Returns the file name of the given file path supporting both Windows and UNIX file separators
+     * examples:
+     * C:\foo\bar.txt -> bar.txt
+     * \foo\bar.txt -> bar.txt
+     * http://foo/bar.txt -> bar.txt
+     * /foo/bar.txt -> bar.txt
+     * ~/foo/bar.txt -> bar.txt
+     * bar.txt -> bar.txt
+     *
+     * @param filePath
+     * @return
+     * @throws IOException when file name cannot be determined
+     */
+    public static String getFileName(String filePath) throws IOException {
+        if (filePath == null) {
+            return null;
+        }
+
+        int index = indexOfLastPathSeparator(filePath);
+        return filePath.substring(index + 1);
+    }
+
+    /**
+     * Based on the <code>org.apache.commons.io.FilenameUtils#indexOfLastPathSeparator</code> signature
+     *
+     * Returns the index of the last directory separator character.
+     * <p>
+     * This method will handle a file in either Unix or Windows format.
+     * The position of the last forward or backslash is returned.
+     * <p>
+     * The output will be the same irrespective of the machine that the code is running on.
+     *
+     * @param filename  the filename to find the last path separator in, null returns -1
+     * @return the index of the last separator character, or -1 if there
+     * is no such character
+     */
+    public static int indexOfLastPathSeparator(String filename) {
+        if (filename == null) {
+            return -1;
+        }
+        int lastUnixPos = filename.lastIndexOf(UNIX_FILE_SEPARATOR);
+        int lastWindowsPos = filename.lastIndexOf(WINDOWS_FILE_SEPARATOR);
+        return Math.max(lastUnixPos, lastWindowsPos);
+    }
+
 }
