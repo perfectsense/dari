@@ -47,6 +47,7 @@ import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.servlet.ServletContext;
 import javax.tools.DiagnosticCollector;
@@ -437,18 +438,26 @@ public final class CodeUtils {
 
         if (result instanceof Set) {
             for (Class<?> c : (Set<Class<?>>) result) {
-                for (Method method : c.getDeclaredMethods()) {
-                    if (Modifier.isStatic(method.getModifiers())
-                            && method.getReturnType() != Void.class
-                            && method.getParameterTypes().length == 0) {
-
-                        method.setAccessible(true);
-                        try {
-                            return method.invoke(null);
-                        } catch (InvocationTargetException ex) {
-                            Throwable cause = ex.getCause();
-                            throw cause instanceof Exception ? (Exception) cause : ex;
-                        }
+                List<Method> declaredMethods = Arrays.stream(c.getDeclaredMethods())
+                    .filter(method -> Modifier.isStatic(method.getModifiers())
+                        && method.getReturnType() != Void.class
+                        && method.getParameterTypes().length == 0
+                    )
+                    .collect(Collectors.toList());
+                
+                Method chosenOne = declaredMethods
+                    .stream()
+                    .filter(method -> "main".equals(method.getName()))
+                    .findAny()
+                    .orElseGet(() -> declaredMethods.stream().findAny().orElse(null));
+                
+                if(chosenOne != null) {
+                    chosenOne.setAccessible(true);
+                    try {
+                        return chosenOne.invoke(null);
+                    } catch (InvocationTargetException ex) {
+                        Throwable cause = ex.getCause();
+                        throw cause instanceof Exception ? (Exception) cause : ex;
                     }
                 }
             }
