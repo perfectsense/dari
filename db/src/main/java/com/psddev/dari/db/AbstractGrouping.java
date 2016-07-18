@@ -36,12 +36,6 @@ public abstract class AbstractGrouping<T> implements Grouping<T>, HtmlObject {
         return itemsQuery;
     }
 
-    @Deprecated
-    @Override
-    public Query<T> getItemsQuery() {
-        return createItemsQuery();
-    }
-
     protected abstract Aggregate createAggregate(String field);
 
     private Aggregate getAggregate(String field) {

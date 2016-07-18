@@ -294,17 +294,6 @@ public abstract class AbstractStorageItem implements StorageItem {
         this.data = filterStreamToResetDataOnClose(data);
     }
 
-    @Deprecated
-    @Override
-    public URL getUrl() {
-        String url = getPublicUrl();
-        try {
-            return new URL(url);
-        } catch (MalformedURLException ex) {
-            throw new IllegalStateException(String.format("[%s] is not a valid URL!", url));
-        }
-    }
-
     @Override
     public String getPublicUrl() {
         return createPublicUrl(getBaseUrl(), getPath());

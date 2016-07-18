@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -78,7 +79,14 @@ public interface StorageItem extends SettingsBackedObject {
      * @deprecated Use {@link #getPublicUrl} instead.
      */
     @Deprecated
-    public URL getUrl();
+    public default URL getUrl() {
+	    String url = getPublicUrl();
+	    try {
+	        return new URL(url);
+	    } catch (MalformedURLException ex) {
+	        throw new IllegalStateException(String.format("[%s] is not a valid URL!", url));
+	    }
+	}
 
     /** Returns the URL for accessing this item publicly. */
     public String getPublicUrl();
