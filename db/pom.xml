@@ -153,4 +153,39 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>library</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>clirr-maven-plugin</artifactId>
+                        <version>2.6.1</version>
+                        <executions>
+                            <execution>
+                                <id>verify-api</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <ignored>
+                                        <difference>
+                                            <className>com/psddev/dari/db/Database</className>
+                                            <method>void saveWithOptions(com.psddev.dari.db.State, com.psddev.dari.db.SaveOptions)</method>
+                                            <differenceType>7012</differenceType>
+                                        </difference>
+                                    </ignored>
+
+                                    <logResults>true</logResults>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>

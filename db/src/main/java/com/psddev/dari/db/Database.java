@@ -185,6 +185,28 @@ public interface Database extends SettingsBackedObject {
     /** Saves the given {@code state}. */
     public void save(State state);
 
+    /** Saves the given {@code state} using the options provided */
+    public default void saveWithOptions(State state, SaveOptions options) {
+
+        // Default to normal save behavior
+        if (options == null) {
+            save(state);
+            return;
+        }
+
+        try {
+            save(state);
+        } catch (ValidationException e) {
+
+            // If validation is not disabled, propagate the ValidationException.
+            if (!options.isDisableValidation()) {
+                throw e;
+            } else {
+                // Ignore.
+            }
+        }
+    }
+
     /** Saves the given {@code state} without validating the data. */
     public void saveUnsafely(State state);
 
