@@ -316,8 +316,8 @@ try {
                                     <goal>install-node-and-npm</goal>
                                 </goals>
                                 <configuration>
-                                    <nodeVersion>v4.2.1</nodeVersion>
-                                    <npmVersion>2.14.7</npmVersion>
+                                    <nodeVersion>v4.6.0</nodeVersion>
+                                    <npmVersion>2.15.9</npmVersion>
                                 </configuration>
                             </execution>
 
