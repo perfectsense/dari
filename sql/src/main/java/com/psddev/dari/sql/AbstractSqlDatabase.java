@@ -4,14 +4,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.psddev.dari.db.AbstractDatabase;
 import com.psddev.dari.db.AtomicOperation;
-import com.psddev.dari.db.DatabaseException;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.ObjectField;
 import com.psddev.dari.db.ObjectIndex;
@@ -335,19 +330,6 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
             }
         }
     };
-
-    // Cache that stores select statements.
-    private final LoadingCache<Query<?>, SqlSelect> selects = CacheBuilder
-            .newBuilder()
-            .maximumSize(5000)
-            .concurrencyLevel(20)
-            .build(new CacheLoader<Query<?>, SqlSelect>() {
-
-                @Override
-                public SqlSelect load(Query<?> query) {
-                    return new SqlQuery(AbstractSqlDatabase.this, query).select();
-                }
-            });
 
     /**
      * Returns the JDBC data source that should be used for writes and
@@ -899,19 +881,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
 
     private SqlSelect buildSelect(Query<?> query) {
         Preconditions.checkNotNull(query);
-
-        try {
-            Query<?> strippedQuery = query.clone();
-            strippedQuery.setDatabase(this);
-            strippedQuery.getOptions().remove(State.REFERENCE_RESOLVING_QUERY_OPTION);
-            return selects.getUnchecked(strippedQuery);
-
-        } catch (UncheckedExecutionException error) {
-            Throwable cause = error.getCause();
-
-            Throwables.propagateIfPossible(cause);
-            throw new DatabaseException(this, cause);
-        }
+        return new SqlQuery(AbstractSqlDatabase.this, query).select();
     }
 
     /**
