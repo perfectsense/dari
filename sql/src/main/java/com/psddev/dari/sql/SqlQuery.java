@@ -20,6 +20,7 @@ import com.psddev.dari.db.Sorter;
 import com.psddev.dari.db.SqlDatabase;
 import com.psddev.dari.db.UnsupportedPredicateException;
 
+import com.psddev.dari.util.ObjectUtils;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.DataType;
@@ -28,6 +29,7 @@ import org.jooq.JoinType;
 import org.jooq.RenderContext;
 import org.jooq.Select;
 import org.jooq.SelectField;
+import org.jooq.SelectLimitStep;
 import org.jooq.SortField;
 import org.jooq.Table;
 import org.jooq.conf.ParamType;
@@ -60,6 +62,18 @@ class SqlQuery {
 
     protected boolean needsDistinct;
     protected boolean forceLeftJoins;
+
+    /**
+     * Adds the given {@code query} comment to the given {@code sql} statement,
+     * to aid in debugging.
+     *
+     * @param query Nonnull.
+     * @param sql Nonnull.
+     */
+    public static String addComment(Query<?> query, String sql) {
+        String comment = query.getComment();
+        return !ObjectUtils.isBlank(comment) ? "/*" + comment + "*/ " + sql : sql;
+    }
 
     /**
      * Creates an instance that can translate the given {@code query}
@@ -433,10 +447,12 @@ class SqlQuery {
     public String countStatement() {
         Table<?> table = initialize(recordTable);
 
-        return tableRenderContext.render(dslContext
-                .select(needsDistinct ? recordIdField.countDistinct() : recordIdField.count())
-                .from(table)
-                .where(whereCondition));
+        return addComment(
+                query,
+                tableRenderContext.render(dslContext
+                        .select(needsDistinct ? recordIdField.countDistinct() : recordIdField.count())
+                        .from(table)
+                        .where(whereCondition)));
     }
 
     /**
@@ -483,12 +499,14 @@ class SqlQuery {
 
         selectFields.addAll(groupByFields);
 
-        return tableRenderContext.render(dslContext
-                .select(selectFields)
-                .from(table)
-                .where(whereCondition)
-                .groupBy(groupByFields)
-                .orderBy(orderByFields));
+        return addComment(
+                query,
+                tableRenderContext.render(dslContext
+                        .select(selectFields)
+                        .from(table)
+                        .where(whereCondition)
+                        .groupBy(groupByFields)
+                        .orderBy(orderByFields)));
     }
 
     /**
@@ -498,17 +516,19 @@ class SqlQuery {
     public String lastUpdateStatement() {
         Table<?> table = initialize(DSL.table(DSL.name(database.recordUpdateTable.getName())).as(recordTableAlias));
 
-        return tableRenderContext.render(dslContext
-                .select(DSL.field(DSL.name(recordTableAlias, database.recordUpdateDateField.getName())).max())
-                .from(table)
-                .where(whereCondition));
+        return addComment(
+                query,
+                tableRenderContext.render(dslContext
+                        .select(DSL.field(DSL.name(recordTableAlias, database.recordUpdateDateField.getName())).max())
+                        .from(table)
+                        .where(whereCondition)));
     }
 
     /**
-     * Returns an SQL statement that can be used to list all rows
-     * matching the query.
+     * Returns an object that can be used to construct an SQL statement that
+     * can be used to list all rows matching the query.
      */
-    public String selectStatement() {
+    public SqlSelect select() {
         Table<?> table = initialize(recordTable);
         List<SelectField<?>> selectFields = new ArrayList<>();
 
@@ -521,7 +541,7 @@ class SqlQuery {
             selectFields.add(DSL.field(DSL.name(recordTableAlias, SqlDatabase.DATA_COLUMN)));
         }
 
-        Select<?> select;
+        SelectLimitStep<?> select;
 
         if (needsDistinct) {
             List<SelectField<?>> distinctFields = new ArrayList<>();
@@ -558,6 +578,6 @@ class SqlQuery {
                     .orderBy(orderByFields);
         }
 
-        return tableRenderContext.render(select);
+        return new SqlSelect(query, tableRenderContext, select);
     }
 }

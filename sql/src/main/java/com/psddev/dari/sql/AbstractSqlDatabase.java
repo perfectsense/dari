@@ -337,15 +337,15 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
     };
 
     // Cache that stores select statements.
-    private final LoadingCache<Query<?>, String> selectStatements = CacheBuilder
+    private final LoadingCache<Query<?>, SqlSelect> selects = CacheBuilder
             .newBuilder()
             .maximumSize(5000)
             .concurrencyLevel(20)
-            .build(new CacheLoader<Query<?>, String>() {
+            .build(new CacheLoader<Query<?>, SqlSelect>() {
 
                 @Override
-                public String load(Query<?> query) {
-                    return new SqlQuery(AbstractSqlDatabase.this, query).selectStatement();
+                public SqlSelect load(Query<?> query) {
+                    return new SqlQuery(AbstractSqlDatabase.this, query).select();
                 }
             });
 
@@ -894,13 +894,17 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
      * @return Nonnull.
      */
     public String buildSelectStatement(Query<?> query) {
+        return buildSelect(query).statement();
+    }
+
+    private SqlSelect buildSelect(Query<?> query) {
         Preconditions.checkNotNull(query);
 
         try {
             Query<?> strippedQuery = query.clone();
             strippedQuery.setDatabase(this);
             strippedQuery.getOptions().remove(State.REFERENCE_RESOLVING_QUERY_OPTION);
-            return addComment(selectStatements.getUnchecked(strippedQuery), query);
+            return selects.getUnchecked(strippedQuery);
 
         } catch (UncheckedExecutionException error) {
             Throwable cause = error.getCause();
@@ -908,19 +912,6 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
             Throwables.propagateIfPossible(cause);
             throw new DatabaseException(this, cause);
         }
-    }
-
-    // Adds comment to the SQL to improve debugging.
-    private String addComment(String sql, Query<?> query) {
-        if (query != null) {
-            String comment = query.getComment();
-
-            if (!ObjectUtils.isBlank(comment)) {
-                return "/*" + comment + "*/ " + sql;
-            }
-        }
-
-        return sql;
     }
 
     /**
@@ -1095,7 +1086,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
      */
     public String buildCountStatement(Query<?> query) {
         Preconditions.checkNotNull(query);
-        return addComment(new SqlQuery(this, query).countStatement(), query);
+        return new SqlQuery(this, query).countStatement();
     }
 
     @Override
@@ -1118,12 +1109,6 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
     public <T> T selectFirst(String sqlQuery, Query<T> query) {
         Preconditions.checkNotNull(sqlQuery);
 
-        sqlQuery = DSL.using(getDialect())
-                .selectFrom(DSL.table("(" + sqlQuery + ")").as("q"))
-                .offset(0)
-                .limit(1)
-                .getSQL(ParamType.INLINED);
-
         return select(sqlQuery, query, result -> result.next()
                 ? createSavedObjectUsingResultSet(result, query)
                 : null);
@@ -1131,7 +1116,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
 
     @Override
     public <T> T readFirst(Query<T> query) {
-        return selectFirst(buildSelectStatement(query), query);
+        return selectFirst(buildSelect(query).statement(0, 1), query);
     }
 
     /**
@@ -1167,7 +1152,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
      */
     public String buildLastUpdateStatement(Query<?> query) {
         Preconditions.checkNotNull(query);
-        return addComment(new SqlQuery(this, query).lastUpdateStatement(), query);
+        return new SqlQuery(this, query).lastUpdateStatement();
     }
 
     @Override
@@ -1189,12 +1174,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
         }
 
         // 2. Select one more item than requested.
-        String sqlQuery = DSL.using(getDialect())
-                .selectFrom(DSL.table("(" + buildSelectStatement(query) + ")").as("q"))
-                .offset((int) offset)
-                .limit(limit + 1)
-                .getSQL(ParamType.INLINED);
-
+        String sqlQuery = buildSelect(query).statement((int) offset, limit + 1);
         List<T> items = selectList(sqlQuery, query);
         int size = items.size();
 
@@ -1246,7 +1226,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
         Preconditions.checkNotNull(query);
         Preconditions.checkNotNull(fields);
         Preconditions.checkArgument(fields.length > 0);
-        return addComment(new SqlQuery(this, query).groupStatement(fields), query);
+        return new SqlQuery(this, query).groupStatement(fields);
     }
 
     @Override
