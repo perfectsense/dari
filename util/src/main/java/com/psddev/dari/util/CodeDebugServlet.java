@@ -429,6 +429,8 @@ public class CodeDebugServlet extends HttpServlet {
                                     write("(function() {");
                                         write("$('select[name=file]').chosen({ 'search_contains': true });");
                                     write("})();");
+
+                                    write("window.onbeforeunload = function() { return ''; }");
                                 writeEnd();
                             writeEnd();
                         writeEnd();
