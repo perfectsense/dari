@@ -20,6 +20,7 @@ import com.psddev.dari.db.Sorter;
 import com.psddev.dari.db.SqlDatabase;
 import com.psddev.dari.db.UnsupportedPredicateException;
 
+import com.psddev.dari.util.ObjectUtils;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.DataType;
@@ -60,6 +61,18 @@ class SqlQuery {
 
     protected boolean needsDistinct;
     protected boolean forceLeftJoins;
+
+    /**
+     * Adds the given {@code query} comment to the given {@code sql} statement,
+     * to aid in debugging.
+     *
+     * @param query Nonnull.
+     * @param sql Nonnull.
+     */
+    public static String addComment(Query<?> query, String sql) {
+        String comment = query.getComment();
+        return !ObjectUtils.isBlank(comment) ? "/*" + comment + "*/ " + sql : sql;
+    }
 
     /**
      * Creates an instance that can translate the given {@code query}
@@ -433,10 +446,12 @@ class SqlQuery {
     public String countStatement() {
         Table<?> table = initialize(recordTable);
 
-        return tableRenderContext.render(dslContext
-                .select(needsDistinct ? recordIdField.countDistinct() : recordIdField.count())
-                .from(table)
-                .where(whereCondition));
+        return addComment(
+                query,
+                tableRenderContext.render(dslContext
+                        .select(needsDistinct ? recordIdField.countDistinct() : recordIdField.count())
+                        .from(table)
+                        .where(whereCondition)));
     }
 
     /**
@@ -483,12 +498,14 @@ class SqlQuery {
 
         selectFields.addAll(groupByFields);
 
-        return tableRenderContext.render(dslContext
-                .select(selectFields)
-                .from(table)
-                .where(whereCondition)
-                .groupBy(groupByFields)
-                .orderBy(orderByFields));
+        return addComment(
+                query,
+                tableRenderContext.render(dslContext
+                        .select(selectFields)
+                        .from(table)
+                        .where(whereCondition)
+                        .groupBy(groupByFields)
+                        .orderBy(orderByFields)));
     }
 
     /**
@@ -498,17 +515,19 @@ class SqlQuery {
     public String lastUpdateStatement() {
         Table<?> table = initialize(DSL.table(DSL.name(database.recordUpdateTable.getName())).as(recordTableAlias));
 
-        return tableRenderContext.render(dslContext
-                .select(DSL.field(DSL.name(recordTableAlias, database.recordUpdateDateField.getName())).max())
-                .from(table)
-                .where(whereCondition));
+        return addComment(
+                query,
+                tableRenderContext.render(dslContext
+                        .select(DSL.field(DSL.name(recordTableAlias, database.recordUpdateDateField.getName())).max())
+                        .from(table)
+                        .where(whereCondition)));
     }
 
     /**
-     * Returns an SQL statement that can be used to list all rows
-     * matching the query.
+     * Returns an object that can be used to construct an SQL statement that
+     * can be used to list all rows matching the query.
      */
-    public String selectStatement() {
+    public String select(int offset, int limit) {
         Table<?> table = initialize(recordTable);
         List<SelectField<?>> selectFields = new ArrayList<>();
 
@@ -537,7 +556,9 @@ class SqlQuery {
                     .selectDistinct(distinctFields)
                     .from(table)
                     .where(whereCondition)
-                    .orderBy(orderByFields);
+                    .orderBy(orderByFields)
+                    .offset(offset)
+                    .limit(limit);
 
             if (!referenceOnly) {
                 String distinctAlias = aliasPrefix + "d";
@@ -555,9 +576,11 @@ class SqlQuery {
                     .select(selectFields)
                     .from(table)
                     .where(whereCondition)
-                    .orderBy(orderByFields);
+                    .orderBy(orderByFields)
+                    .offset(offset)
+                    .limit(limit);
         }
 
-        return tableRenderContext.render(select);
+        return addComment(query, renderContext.render(select));
     }
 }
