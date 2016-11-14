@@ -29,7 +29,6 @@ import org.jooq.JoinType;
 import org.jooq.RenderContext;
 import org.jooq.Select;
 import org.jooq.SelectField;
-import org.jooq.SelectLimitStep;
 import org.jooq.SortField;
 import org.jooq.Table;
 import org.jooq.conf.ParamType;
@@ -528,7 +527,7 @@ class SqlQuery {
      * Returns an object that can be used to construct an SQL statement that
      * can be used to list all rows matching the query.
      */
-    public SqlSelect select() {
+    public String select(int offset, int limit) {
         Table<?> table = initialize(recordTable);
         List<SelectField<?>> selectFields = new ArrayList<>();
 
@@ -541,7 +540,7 @@ class SqlQuery {
             selectFields.add(DSL.field(DSL.name(recordTableAlias, SqlDatabase.DATA_COLUMN)));
         }
 
-        SelectLimitStep<?> select;
+        Select<?> select;
 
         if (needsDistinct) {
             List<SelectField<?>> distinctFields = new ArrayList<>();
@@ -557,7 +556,9 @@ class SqlQuery {
                     .selectDistinct(distinctFields)
                     .from(table)
                     .where(whereCondition)
-                    .orderBy(orderByFields);
+                    .orderBy(orderByFields)
+                    .offset(offset)
+                    .limit(limit);
 
             if (!referenceOnly) {
                 String distinctAlias = aliasPrefix + "d";
@@ -575,9 +576,11 @@ class SqlQuery {
                     .select(selectFields)
                     .from(table)
                     .where(whereCondition)
-                    .orderBy(orderByFields);
+                    .orderBy(orderByFields)
+                    .offset(offset)
+                    .limit(limit);
         }
 
-        return new SqlSelect(query, tableRenderContext, select);
+        return addComment(query, renderContext.render(select));
     }
 }

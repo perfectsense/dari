@@ -869,6 +869,22 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
     }
 
     /**
+     * Builds an SQL statement that can be used to a subset of objects matching
+     * the given {@code query}.
+     *
+     * @param query Nonnull.
+     * @param offset Greater than or equal to {@code 0}.
+     * @param limit Greater than {@code 0}.
+     * @return Nonnull.
+     */
+    public String buildSelectStatement(Query<?> query, long offset, int limit) {
+        Preconditions.checkNotNull(query);
+        Preconditions.checkArgument(offset >= 0L);
+        Preconditions.checkArgument(limit > 0);
+        return new SqlQuery(AbstractSqlDatabase.this, query).select((int) offset, limit);
+    }
+
+    /**
      * Builds an SQL statement that can be used to select all objects
      * matching the given {@code query}.
      *
@@ -876,12 +892,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
      * @return Nonnull.
      */
     public String buildSelectStatement(Query<?> query) {
-        return buildSelect(query).statement();
-    }
-
-    private SqlSelect buildSelect(Query<?> query) {
-        Preconditions.checkNotNull(query);
-        return new SqlQuery(AbstractSqlDatabase.this, query).select();
+        return buildSelectStatement(query, 0L, Integer.MAX_VALUE);
     }
 
     /**
@@ -1086,7 +1097,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
 
     @Override
     public <T> T readFirst(Query<T> query) {
-        return selectFirst(buildSelect(query).statement(0, 1), query);
+        return selectFirst(buildSelectStatement(query, 0L, 1), query);
     }
 
     /**
@@ -1144,7 +1155,7 @@ public abstract class AbstractSqlDatabase extends AbstractDatabase<Connection> {
         }
 
         // 2. Select one more item than requested.
-        String sqlQuery = buildSelect(query).statement((int) offset, limit + 1);
+        String sqlQuery = buildSelectStatement(query, offset, limit + 1);
         List<T> items = selectList(sqlQuery, query);
         int size = items.size();
 
