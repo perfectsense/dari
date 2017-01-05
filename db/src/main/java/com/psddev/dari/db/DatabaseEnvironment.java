@@ -105,6 +105,7 @@ public class DatabaseEnvironment implements ObjectStruct {
         public void add(ObjectType type) {
             String className = type.getObjectClassName();
             if (!ObjectUtils.isBlank(className)) {
+                byName.put(className.toLowerCase(Locale.ENGLISH), type);
                 byClassName.put(className.toLowerCase(Locale.ENGLISH), type);
             }
 
