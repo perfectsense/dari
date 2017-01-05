@@ -979,7 +979,6 @@ public class ObjectType extends Record implements ObjectStruct {
         }
 
         setDisplayName(StringUtils.toLabel(simpleName));
-        setInternalName(objectClass.getName());
         getLabelFields().clear();
         setPreviewField(null);
         setDeprecated(objectClass.isAnnotationPresent(Deprecated.class));

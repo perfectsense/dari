@@ -339,6 +339,14 @@ public class DatabaseEnvironment implements ObjectStruct {
                             type.getState().clear();
                         }
 
+                        Recordable.InternalName internalNameAnnotation = objectClass.getAnnotation(Recordable.InternalName.class);
+
+                        if (internalNameAnnotation != null) {
+                            type.setInternalName(internalNameAnnotation.value());
+                        } else {
+                            type.setInternalName(objectClass.getName());
+                        }
+
                         type.setObjectClassName(objectClass.getName());
                         typeModifications.put(type, new ArrayList<Class<?>>());
                         temporaryTypes.add(type);
