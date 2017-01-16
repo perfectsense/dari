@@ -1038,18 +1038,7 @@ public class Query<E> extends Record {
 
             } else {
                 if (fields.size() == 1) {
-                    if (index.getParent() instanceof ObjectType) {
-                        String prefix = index.getJavaDeclaringClassName();
-
-                        ObjectType declaringType = index.getParent().getEnvironment().getTypeByName(prefix);
-
-                        if (declaringType != null) {
-                            prefix = declaringType.getInternalName();
-                        }
-
-                        indexKeyBuilder.append(prefix);
-                        indexKeyBuilder.append('/');
-                    }
+                    indexKeyBuilder.append(index.getPrefix());
 
                 } else {
                     indexKeyBuilder.append(fields.get(0).getUniqueName());
