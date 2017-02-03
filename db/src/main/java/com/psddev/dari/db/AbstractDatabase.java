@@ -1152,7 +1152,7 @@ public abstract class AbstractDatabase<C> implements Database {
                         for (int i = 0, ps = valuePermutations.length; i < ps; ++ i) {
                             Query<Object> duplicateQuery = Query
                                     .from(Object.class)
-                                    .where("id != ?", state.getId())
+                                    .where("_id != ?", state.getId())
                                     .using(state.getDatabase())
                                     .referenceOnly()
                                     .noCache()
@@ -1168,6 +1168,10 @@ public abstract class AbstractDatabase<C> implements Database {
                                 keyBuilder.append(value);
                                 duplicateQuery.and(indexPrefix + fields.get(j) + " = ?", values[j]);
                             }
+
+                            // WNB very strange. This will not work in ES
+                            // Might want to split these up > fields have a hard time with "."
+
 
                             Object duplicate = duplicateQuery.first();
 

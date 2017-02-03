@@ -1,47 +1,67 @@
 package com.psddev.dari.elasticsearch;
 
 import com.google.common.base.Preconditions;
-import com.psddev.dari.db.AbstractDatabase;
-import com.psddev.dari.db.ComparisonPredicate;
-import com.psddev.dari.db.CompoundPredicate;
-import com.psddev.dari.db.Predicate;
-import com.psddev.dari.db.PredicateParser;
-import com.psddev.dari.db.Query;
-import com.psddev.dari.db.State;
-import com.psddev.dari.db.UnsupportedPredicateException;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import com.psddev.dari.db.*;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
+import com.psddev.dari.util.gson.Gson;
+import com.psddev.dari.util.gson.JsonObject;
+import com.psddev.dari.util.gson.JsonParser;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
+//import org.elasticsearch.common.settings.ImmutableSettings;
+import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.node.Node;
-import org.elasticsearch.node.NodeBuilder;
+//import org.elasticsearch.node.NodeBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.client.*;
+import org.elasticsearch.search.internal.InternalSearchHit;
+import org.elasticsearch.transport.client.PreBuiltTransportClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.lang.reflect.Constructor;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.text.DateFormat;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-public class ElasticsearchDatabase extends AbstractDatabase<Client> {
+
+public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     public static final String CLUSTER_NAME_SUB_SETTING = "clusterName";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
-    public static final String TYPE_NAME_SUB_SETTING = "typeName";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
+
+    private static final String DATABASE_NAME = "elasticsearch";
+    private static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
 
     private String indexName;
-    private String typeName;
+    private static final String name = "ElasticsearchDatabase";
 
-    private transient Node node;
+    //private transient Node node;
+    private transient Settings nodeSettings;
+    private transient TransportClient client;
 
     public String getIndexName() {
         return indexName;
@@ -51,42 +71,87 @@ public class ElasticsearchDatabase extends AbstractDatabase<Client> {
         this.indexName = indexName;
     }
 
-    public String getTypeName() {
-        return !ObjectUtils.isBlank(typeName) ? typeName : "dari";
+
+    @Override
+    public String toString() {
+        return name;
     }
 
-    public void setTypeName(String typeName) {
-        this.typeName = typeName;
+
+    public static final String DATA_SOURCE_SUB_SETTING = "dataSource";
+
+
+    @Override
+    public TransportClient openConnection() {
+        //return node.client();
+        //return new TransportClient(this.nodeSettings)
+        //        .addTransportAddress(new InetSocketTransportAddress("127.0.0.1", 9300));
+
+        if (this.client != null && isAlive(this.client)) {
+            return this.client;
+        }
+        TransportClient client;
+        try {
+            InetSocketAddress inet = new InetSocketAddress("127.0.0.1", 9300);
+            if (nodeSettings == null) {
+                nodeSettings = Settings.builder()
+                        //.put("cluster.name", clusterName)
+                        .put("client.transport.sniff", true).build();
+            }
+            if (inet != null) {
+                 client = new PreBuiltTransportClient(nodeSettings)
+                        .addTransportAddress(new InetSocketTransportAddress(inet));
+                 if (!isAlive(client)) {
+                     return null;
+                 }
+                 this.client = client;
+                 return client;
+            }
+        } catch (Exception e) {
+            StringWriter errors = new StringWriter();
+            e.printStackTrace(new PrintWriter(errors));
+            LOGGER.info("Cannot open ES Exception [{}]", errors.toString());
+
+        }
+        LOGGER.info("doWrites return null");
+        return null;
     }
 
     @Override
-    public Client openConnection() {
-        return node.client();
-    }
-
-    @Override
-    public void closeConnection(Client client) {
+    public void closeConnection(TransportClient client) {
         client.close();
     }
 
     @Override
     protected void doInitialize(String settingsKey, Map<String, Object> settings) {
+
         String clusterName = ObjectUtils.to(String.class, settings.get(CLUSTER_NAME_SUB_SETTING));
 
-        Preconditions.checkNotNull(clusterName);
+        if (clusterName == null) {
+            Preconditions.checkNotNull(clusterName);
+        }
 
         String indexName = ObjectUtils.to(String.class, settings.get(INDEX_NAME_SUB_SETTING));
 
-        Preconditions.checkNotNull(indexName);
-
-        String typeName = ObjectUtils.to(String.class, settings.get(TYPE_NAME_SUB_SETTING));
+        if (indexName == null) {
+            Preconditions.checkNotNull(indexName);
+        }
 
         this.indexName = indexName;
-        this.typeName = typeName;
-        this.node = NodeBuilder.nodeBuilder()
+
+
+        /* 1.7 + */
+        //this.nodeSettings = ImmutableSettings.settingsBuilder()
+        //        .put("cluster.name", clusterName).build();
+        /* 5.* + */
+        this.nodeSettings = Settings.builder()
+                .put("cluster.name", clusterName)
+                .put("client.transport.sniff", true).build();
+
+        /*this.node = NodeBuilder.nodeBuilder()
                 .clusterName(clusterName)
                 .client(true)
-                .node();
+                .node(); */
     }
 
     @Override
@@ -94,40 +159,124 @@ public class ElasticsearchDatabase extends AbstractDatabase<Client> {
         return null;
     }
 
-    @Override
-    public <T> PaginatedResult<T> readPartial(Query<T> query, long offset, int limit) {
-        Client client = openConnection();
-
-        try {
-            Set<UUID> typeIds = query.getConcreteTypeIds(this);
-            String[] typeIdStrings = typeIds.size() == 0
-                    ? new String[] { "_all" }
-                    : typeIds.stream().map(UUID::toString).toArray(String[]::new);
-
-            SearchResponse response = client.prepareSearch(getIndexName())
-                    .setFetchSource(!query.isReferenceOnly())
-                    .setTypes(typeIdStrings)
-                    .setQuery(predicateToQueryBuilder(query.getPredicate()))
-                    .setFrom((int) offset)
-                    .setSize(limit)
-                    .execute()
-                    .actionGet();
-
-            SearchHits hits = response.getHits();
-            List<T> items = new ArrayList<>();
-
-            for (SearchHit hit : hits.getHits()) {
-                items.add(createSavedObjectWithHit(hit, query));
-            }
-
-            return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
-
-        } finally {
-            closeConnection(client);
+    public boolean isAlive(TransportClient client) {
+        List<DiscoveryNode> nodes = client.connectedNodes();
+        if (nodes.isEmpty()) {
+            return false;
+        } else {
+            return true;
         }
     }
 
+    public boolean isAlive() {
+        TransportClient client = openConnection();
+        List<DiscoveryNode> nodes = client.connectedNodes();
+        if (nodes.isEmpty()) {
+            closeConnection(client);
+            return false;
+        } else {
+            closeConnection(client);
+            return true;
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> PaginatedResult<T> readPartial(Query<T> query, long offset, int limit) {
+        LOGGER.info("ELK readPartial query.getPredicate() [{}]", query.getPredicate());
+
+        TransportClient client = openConnection();
+        if (!isAlive(client)) {
+            return null;
+        }
+        List<T> items = new ArrayList<>();
+
+        try {
+            Set<UUID> typeIds = query.getConcreteTypeIds(this);
+            if (query.getGroup() != null && typeIds.size() == 0) {
+                // should limit by the type
+                LOGGER.info("ELK readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+            }
+            String[] typeIdStrings = typeIds.size() == 0
+                    ? new String[]{ "_all" }
+                    : typeIds.stream().map(UUID::toString).toArray(String[]::new);
+
+            SearchResponse response;
+            if (typeIds.size() == 0) {
+                response = client.prepareSearch(getIndexName())
+                        .setFetchSource(!query.isReferenceOnly())
+                        .setQuery(predicateToQueryBuilder(query.getPredicate()))
+                        .setFrom((int) offset)
+                        .setSize(limit)
+                        .execute()
+                        .actionGet();
+            } else {
+                response = client.prepareSearch(getIndexName())
+                        .setFetchSource(!query.isReferenceOnly())
+                        .setTypes(typeIdStrings)
+                        .setQuery(predicateToQueryBuilder(query.getPredicate()))
+                        .setFrom((int) offset)
+                        .setSize(limit)
+                        .execute()
+                        .actionGet();
+            }
+
+            SearchHits hits = response.getHits();
+
+            LOGGER.info("ELK readPartial hits [{}]", hits.getTotalHits());
+
+            for (SearchHit hit : hits.getHits()) {
+
+                //JsonObject obj = new JsonParser().parse(hit.sourceAsString()).getAsJsonObject();
+                //obj.addProperty("_id", hit.getId());
+
+                //if (this.typeClass == null) {
+                //    T parsed1 = (T) new Gson().fromJson(obj.toString(), new TypeToken<HashMap<String, Object>>() {}.getType());
+                //   items.add(parsed1);
+                //} else {
+                //    T parsed2 = (T) new Gson().fromJson(obj.toString(), this.typeClass);
+                //   items.add(parsed2);
+                //}
+
+                items.add(createSavedObjectWithHit(hit, query));
+
+            }
+
+            PaginatedResult<T> p = new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
+            return p;
+        } catch (Exception e) {
+            StringWriter errors = new StringWriter();
+            e.printStackTrace(new PrintWriter(errors));
+            LOGGER.info("readPartial Exception [{}]", errors.toString());
+        } /* finally {
+            closeConnection(client);
+        } */
+        return new PaginatedResult<>(offset, limit, 0, items);
+    }
+
+    private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query) {
+        T object = createSavedObject(hit.getType(), hit.getId(), query);
+
+        State objectState = State.getInstance(object);
+
+        if (!objectState.isReferenceOnly()) {
+            objectState.setValues(hit.getSource());
+        }
+
+        return swapObjectType(query, object);
+    }
+
+    // must override since MAXIMUM_LIMIT is not good for ES
+    @Override
+    public <T> List<T> readAll(Query<T> query) {
+        return readPartial(query, 0L, 1000).getItems();
+    }
+
+    // Used to convert the query to ELK
     private QueryBuilder predicateToQueryBuilder(Predicate predicate) {
+        if (predicate == null) {
+            return QueryBuilders.matchAllQuery();
+        }
         if (predicate instanceof CompoundPredicate) {
             CompoundPredicate compound = (CompoundPredicate) predicate;
             List<Predicate> children = compound.getChildren();
@@ -203,45 +352,98 @@ public class ElasticsearchDatabase extends AbstractDatabase<Client> {
         BoolQueryBuilder builder = QueryBuilders.boolQuery();
 
         for (T item : items) {
+            if (item instanceof java.util.UUID) {
+                item = (T) item.toString();
+            }
             if (!Query.MISSING_VALUE.equals(item)) {
                 builder = operator.apply(builder, itemFunction.apply(item));
             }
         }
 
-        return builder.hasClauses() ? builder : QueryBuilders.matchAllQuery();
+        if (builder.hasClauses()) {
+            LOGGER.info("ELK predicate [{}]", builder.toString());
+            return builder;
+        } else {
+            LOGGER.info("ELK predicate default [{}]", QueryBuilders.matchAllQuery());
+            return QueryBuilders.matchAllQuery();
+        }
     }
 
-    private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query) {
-        T object = createSavedObject(hit.getType(), hit.getId(), query);
-        State objectState = State.getInstance(object);
 
-        if (!objectState.isReferenceOnly()) {
-            objectState.setValues(hit.getSource());
+    public void saveJson(String json, String typeId, String id) {
+
+        TransportClient client = openConnection();
+
+        try {
+            BulkRequestBuilder bulk = client.prepareBulk();
+            String indexName = getIndexName();
+
+            bulk.add(client
+                        .prepareIndex(indexName, typeId, id)
+                        .setSource(json));
+            BulkResponse bulkResponse = bulk.get();
+            if (bulkResponse.hasFailures()) {
+                LOGGER.info("saveJson: Save Json not working");
+            }
+
+        } finally {
+            closeConnection(client);
         }
 
-        return swapObjectType(query, object);
-    }
 
+    }
     @Override
-    protected void doWrites(Client client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
-        BulkRequestBuilder bulk = client.prepareBulk();
-        String indexName = getIndexName();
+    protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
+        try {
+            BulkRequestBuilder bulk = client.prepareBulk();
 
-        if (saves != null) {
-            for (State state : saves) {
-                bulk.add(client
-                        .prepareIndex(indexName, state.getTypeId().toString(), state.getId().toString())
-                        .setSource(state.getSimpleValues()));
+            String indexName = getIndexName();
+
+            if (saves != null) {
+                    for (State state : saves) {
+                        LOGGER.info("ELK saving _id [{}] and _type [{}]",
+                                state.getId().toString(),
+                                state.getTypeId().toString());
+                        try {
+                            // before saving might want to theck if there
+                            Map<String, Object> t = state.getSimpleValues();
+                            t.remove("_id");
+                            t.remove("_type");
+                            bulk.add(client
+                                    .prepareIndex(indexName, state.getTypeId().toString(), state.getId().toString())
+                                    .setSource(t));
+                        } catch (Exception e) {
+                            StringWriter errors = new StringWriter();
+                            e.printStackTrace(new PrintWriter(errors));
+                            LOGGER.info("doWrites saves Exception [{}]", errors.toString());
+                        }
+                    }
             }
-        }
 
-        if (deletes != null) {
-            for (State state : deletes) {
-                bulk.add(client
-                        .prepareDelete(indexName, state.getTypeId().toString(), state.getId().toString()));
+            if (deletes != null) {
+                for (State state : deletes) {
+                    LOGGER.info("ELK deleting _id [{}] and _type [{}]",
+                            state.getId().toString(),
+                            state.getTypeId().toString());
+                    try {
+                        bulk.add(client
+                                .prepareDelete(indexName, state.getTypeId().toString(), state.getId().toString()));
+                    } catch (Exception e) {
+                        StringWriter errors = new StringWriter();
+                        e.printStackTrace(new PrintWriter(errors));
+                        LOGGER.info("doWrites deletes Exception [{}]", errors.toString());
+
+                    }
+                }
+
             }
-        }
 
-        bulk.execute().actionGet();
+            bulk.execute().actionGet();
+        } catch (Exception e) {
+            StringWriter errors = new StringWriter();
+            e.printStackTrace(new PrintWriter(errors));
+            LOGGER.info("doWrites Exception [{}]", errors.toString());
+
+        }
     }
 }
