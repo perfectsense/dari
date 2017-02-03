@@ -162,6 +162,8 @@ public class DatabaseEnvironment implements ObjectStruct {
             // again in case they reference other typed objects. Then
             // types again using the information from the fully resolved
             // globals.
+
+            // TODO: Can we reduce this?
             refreshTypes();
             refreshGlobals();
             refreshTypes();
@@ -260,14 +262,19 @@ public class DatabaseEnvironment implements ObjectStruct {
                     .from(ObjectType.class)
                     .using(database)
                     .selectAll();
-            int typesSize = types.size();
-            LOGGER.info("Loading [{}] types from [{}]", typesSize, database.getName());
 
             // Load all types from the database first.
-            for (ObjectType type : types) {
-                type.getFields().size(); // Pre-fetch.
-                temporaryTypes.add(type);
+            int typesSize = 0;
+            for (Object t : types) {
+                if (t instanceof ObjectType) {
+                    ObjectType type = (ObjectType) t;
+                    type.getFields().size(); // Pre-fetch.
+                    temporaryTypes.add(type);
+                    typesSize++;
+                }
             }
+
+            LOGGER.info("Loading [{}] types from [{}]", typesSize, database.getName());
 
             if (initializeClasses) {
 

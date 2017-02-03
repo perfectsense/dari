@@ -415,11 +415,11 @@
                 <version>2.7</version>
             </plugin>
 
-            <plugin>
+            <!-- <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>clirr-maven-plugin</artifactId>
                 <version>2.6.1</version>
-            </plugin>
+            </plugin> -->
 
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
