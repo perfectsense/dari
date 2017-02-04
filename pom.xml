@@ -9,12 +9,13 @@
     <parent>
         <groupId>com.psddev</groupId>
         <artifactId>dari-grandparent</artifactId>
-        <version>3.2-SNAPSHOT</version>
+        <version>3.3-SNAPSHOT</version>
         <relativePath>grandparent/pom.xml</relativePath>
     </parent>
 
+    <groupId>com.psddev</groupId>
     <artifactId>dari</artifactId>
-    <version>3.2-SNAPSHOT</version>
+    <version>3.3-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Dari</name>
@@ -72,7 +73,7 @@
             <dependency>
                 <groupId>commons-collections</groupId>
                 <artifactId>commons-collections</artifactId>
-                <version>3.0</version>
+                <version>3.2.2</version>
             </dependency>
 
             <dependency>
@@ -180,61 +181,61 @@
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-asm</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-db</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-image</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-mail</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-mysql</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-reflections</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-sms</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-sql</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-storage</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-util</artifactId>
-                <version>3.2-SNAPSHOT</version>
+                <version>3.3-SNAPSHOT</version>
             </dependency>
 
             <dependency>

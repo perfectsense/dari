@@ -339,6 +339,15 @@ public class DatabaseEnvironment implements ObjectStruct {
                             type = new ObjectType();
                             type.getState().setDatabase(database);
 
+                            Recordable.TypeId typeIdAnnotation = objectClass.getAnnotation(Recordable.TypeId.class);
+
+                            if (typeIdAnnotation != null) {
+                                UUID typeId = ObjectUtils.to(UUID.class, typeIdAnnotation.value());
+
+                                if (typeId != null) {
+                                    type.getState().setId(typeId);
+                                }
+                            }
                         } else {
                             type.getState().clear();
                         }

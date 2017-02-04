@@ -123,6 +123,7 @@ public class ObjectField extends Record {
     private static final String DISPLAY_NAME_KEY = "label";
     private static final String INTERNAL_NAME_KEY = "name";
     private static final String INTERNAL_TYPE_KEY = "type";
+    private static final String IGNORED_IF_EMBEDDED = "ignoredIfEmbedded";
     private static final String IS_DENORMALIZED_KEY = "isDenormalized";
     private static final String DENORMALIZED_FIELDS_KEY = "denormalizedFields";
     private static final String IS_EMBEDDED_KEY = "isEmbedded";
@@ -160,6 +161,7 @@ public class ObjectField extends Record {
     @InternalName("type")
     private String internalType;
 
+    private boolean ignoredIfEmbedded;
     private boolean isDenormalized;
     private Set<String> denormalizedFields;
     private boolean isEmbedded;
@@ -202,6 +204,7 @@ public class ObjectField extends Record {
         displayName = field.displayName;
         internalName = field.internalName;
         internalType = field.internalType;
+        ignoredIfEmbedded = field.ignoredIfEmbedded;
         isDenormalized = field.isDenormalized;
         isEmbedded = field.isEmbedded;
         isRequired = field.isRequired;
@@ -249,6 +252,7 @@ public class ObjectField extends Record {
         displayName = (String) definition.remove(DISPLAY_NAME_KEY);
         internalName = (String) definition.remove(INTERNAL_NAME_KEY);
         internalType = (String) definition.remove(INTERNAL_TYPE_KEY);
+        ignoredIfEmbedded = Boolean.TRUE.equals(definition.remove(IGNORED_IF_EMBEDDED));
         isDenormalized = Boolean.TRUE.equals(definition.remove(IS_DENORMALIZED_KEY));
         denormalizedFields = ObjectUtils.to(SET_STRING_TYPE_REF, definition.remove(DENORMALIZED_FIELDS_KEY));
         isEmbedded = Boolean.TRUE.equals(definition.remove(IS_EMBEDDED_KEY));
@@ -350,6 +354,7 @@ public class ObjectField extends Record {
         definition.put(DISPLAY_NAME_KEY, displayName);
         definition.put(INTERNAL_NAME_KEY, internalName);
         definition.put(INTERNAL_TYPE_KEY, internalType);
+        definition.put(IGNORED_IF_EMBEDDED, ignoredIfEmbedded);
         definition.put(IS_DENORMALIZED_KEY, isDenormalized);
         definition.put(DENORMALIZED_FIELDS_KEY, denormalizedFields);
         definition.put(IS_EMBEDDED_KEY, isEmbedded);
@@ -471,6 +476,14 @@ public class ObjectField extends Record {
     /** Sets the internal type. */
     public void setInternalType(String internalType) {
         this.internalType = internalType;
+    }
+
+    public boolean isIgnoredIfEmbedded() {
+        return ignoredIfEmbedded;
+    }
+
+    public void setIgnoredIfEmbedded(boolean ignoredIfEmbedded) {
+        this.ignoredIfEmbedded = ignoredIfEmbedded;
     }
 
     /** Returns {@code true} if the field value should be denormalized. */
