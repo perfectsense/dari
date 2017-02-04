@@ -10,6 +10,8 @@ import org.apache.http.entity.StringEntity;
 import org.junit.After;
 import org.junit.Test;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
@@ -30,23 +32,35 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ElasticsearchDatabaseTest extends AbstractTest {
     private static final String DATABASE_NAME = "elasticsearch";
     private static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
 
-    private String clusterName;
-    private final String host = "localhost";
-    private final String nodeHost = "http://" + this.host + ":9200/";
+    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
+
+    private boolean turnOff = false;
+    private String clusterName = "";
+    private String host = "";
+    private String nodeHost = "";
 
     private ElasticsearchDatabase database;
-    private Map<String, Object> settings;
 
-    private void setSettings() {
-        settings.put("clusterName", this.clusterName);
-        settings.put("indexName", "index1");
-        settings.put(DEFAULT_DATABASE_SETTING, DATABASE_NAME);
+    private void setNodeSettings() {
+        this.host = (String) Settings.get("dari/database/elasticsearch/clusterHostname");
+        this.nodeHost = "http://" + this.host + ":9200/";
+    }
+
+    private Map<String, Object> getDatabaseSettings() {
+        Map<String, Object> settings = new HashMap<>();
+        settings.put("clusterName", Settings.get(SETTING_KEY_PREFIX + "clusterName"));
+        settings.put("indexName", Settings.get(SETTING_KEY_PREFIX + "indexName"));
+        settings.put("clusterPort", Settings.get(SETTING_KEY_PREFIX + "clusterPort"));
+        settings.put("clusterHostname", Settings.get(SETTING_KEY_PREFIX + "clusterHostname"));
+        return settings;
     }
 
 
@@ -76,13 +90,16 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
             put.setEntity(input);
             HttpResponse response = httpClient.execute(put);
             if (response.getStatusLine().getStatusCode() > 201) {
+                LOGGER.info("ELK createIndexandMapping Response > 201");
                 assertTrue("Response > 201", 1==0);
             }
             json = EntityUtils.toString(response.getEntity());
         } catch (ClientProtocolException e) {
+            LOGGER.info("ELK createIndexandMapping ClientProtocolException");
             e.printStackTrace();
             assertTrue("ClientProtocolException", 1==0);
         } catch (IOException e) {
+            LOGGER.info("ELK createIndexandMapping IOException");
             e.printStackTrace();
             assertTrue("IOException", 1==0);
         }
@@ -107,14 +124,15 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
 
     @Before
     public void before() {
-        // verify it is running locally for testing
+        // verify it is running locally for testing - if not local short circuit it
         // embedded elasticsearch was dropped in 5.1.2
         // cmd> brew install elasticsearch
         // cmd> elasticsearch
-        database = new ElasticsearchDatabase();
-        settings = new HashMap<>();
+        this.database = new ElasticsearchDatabase();
+
 
         try {
+            setNodeSettings();
             HttpClient httpClient = HttpClientBuilder.create().build();
             HttpGet getRequest = new HttpGet(this.nodeHost);
             getRequest.addHeader("accept", "application/json");
@@ -126,37 +144,27 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
                 assertThat(j.get("cluster_name"), notNullValue());
                 if (j.get("cluster_name") != null) {
                     this.clusterName = j.getString("cluster_name");
+                    Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", this.clusterName);
                 }
                 assertThat(j.get("cluster_name"), notNullValue());
                 if (j.get("version") != null) {
                     if (j.getJSONObject("version") != null) {
                         JSONObject jo = j.getJSONObject("version");
                         String version = jo.getString("number");
-                        assertEquals(version, "5.1.2");
+                        if (!version.equals("5.2.0")) {
+                            LOGGER.warn("Warning: ELK {} version is not 5.2.0", version);
+                        }
+                        assertEquals(version.substring(0, 2), "5.");
                     }
                 }
-                setSettings();
-                //deleteIndex((String)(this.settings).get("indexName"));
-                //createIndexandMapping((String)(this.settings).get("indexName"));
-                database.doInitialize(SETTING_KEY_PREFIX, this.settings);
-                String json1 = "{\n" +
-                        "    \"guid\": \"a1e83275-5bae-4304-8197-f936477d4378\",\n" +
-                        "    \"name\" : \"Apollo 13\",\n" +
-                        "    \"eid\" : \"a1e83275-5bae-4304-8197-f936477d4378\",\n" +
-                        "    \"post_date\" : \"2009-11-15T14:12:12\",\n" +
-                        "    \"message\" : \"trying out Elastic Search\"\n" +
-                        "}\n";
-                //database.saveJson(json1, "b1e83275-5bae-4304-8197-f936477d4378", "a1e83275-5bae-4304-8197-f936477d4378");
-                json1 = "{\n" +
-                        "    \"guid\": \"a1e83275-5bae-4304-8197-f936477d4379\",\n" +
-                        "    \"name\" : \"Apollo 14\",\n" +
-                        "    \"eid\" : \"a1e83275-5bae-4304-8197-f936477d4379\",\n" +
-                        "    \"post_date\" : \"2009-11-15T14:12:12\",\n" +
-                        "    \"message\" : \"This is message 2\"\n" +
-                        "}";
-                //database.saveJson(json1, "b1e83275-5bae-4304-8197-f936477d4379", "a1e83275-5bae-4304-8197-f936477d4379");
-
+                // you must delete and set map for this all to work, 2nd run we can leave it.
+                //deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"));
+                //createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"));
+                database.initialize("", getDatabaseSettings());
             }
+        } catch (java.net.ConnectException e) {
+            this.turnOff = true;
+            LOGGER.info("ELK is not able to connect turning off tests for ELK. nodeHost {}", this.nodeHost);
         } catch (ClientProtocolException e) {
             e.printStackTrace();
             assertTrue("ClientProtocolException", 1==0);
@@ -169,63 +177,62 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
         }
     }
 
-    @After
-    public void after() {
-    }
 
     @After
     public void deleteModels() {
-       Query.from(SearchElasticModel.class).deleteAll();
+        if (this.turnOff == false) {
+            Query.from(SearchElasticModel.class).deleteAll();
+        }
     }
 
     @Test
     public void testOne() throws Exception {
+        if (this.turnOff == false) {
+            SearchElasticModel search = new SearchElasticModel();
+            search.eid = "939393";
+            search.name = "Bill";
+            search.message = "tough";
+            search.save();
 
-        SearchElasticModel search = new SearchElasticModel();
-        search.eid = "939393";
-        search.name = "Bill";
-        search.message = "tough";
-        search.save();
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("eid matches ?", "939393")
+                    .selectAll();
 
-        String nameMatch = "939393";
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("eid matches ?", nameMatch)
-                .selectAll();
-
-        assertThat(fooResult, hasSize(1));
-        //assertThat(fooResult.get(0).eid, equalTo(FOO));
+            assertThat(fooResult, hasSize(1));
+            assertEquals("939393", fooResult.get(0).eid);
+            assertEquals("Bill", fooResult.get(0).name);
+            assertEquals("tough", fooResult.get(0).message);
+        }
     }
 
 
     @Test
     public void testQueryandPagination() throws Exception {
-        SearchElasticModel search = new SearchElasticModel();
-        search.eid = "111111";
-        search.name = "Bill";
-        search.message = "Welcome";
-        search.save();
+        if (this.turnOff == false) {
+            assertEquals(database.isAlive(), true);
+            SearchElasticModel search = new SearchElasticModel();
+            search.eid = "111111";
+            search.name = "Bill";
+            search.message = "Welcome";
+            search.save();
 
-        settings.put("clusterName", this.clusterName);
-        settings.put("indexName", "index1");
-        settings.put("typeName", "mytype1");
-        settings.put("typeClass", SearchElasticModel.class);
-        settings.put(DEFAULT_DATABASE_SETTING, DATABASE_NAME);
-        settings.put("class", ElasticsearchDatabase.class.getName());
-        database.doInitialize(SETTING_KEY_PREFIX, settings);
-        assertEquals(database.isAlive(), true);
+            Query<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("eid matches ?", "111111");
+            assertEquals(fooResult.getPredicate().toString(), "eid matchesany '111111'");
 
-        String nameMatch = "111111";
-        Query<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("eid matches ?", nameMatch);
+            PaginatedResult<SearchElasticModel> p = database.readPartial(fooResult, 0L, 1);
 
-        PaginatedResult<SearchElasticModel> p = database.readPartial(fooResult, 0L, 1);
-
-        assertThat(p, notNullValue());
-        if (p != null) {
-            List<SearchElasticModel> r = p.getItems();
-            assertThat(r, hasSize(1));
+            assertThat(p, notNullValue());
+            if (p != null) {
+                assertEquals(1, p.getCount());
+                assertEquals("111111", p.getItems().get(0).getEid());
+                List<SearchElasticModel> r = p.getItems();
+                assertThat(r, hasSize(1));
+                assertEquals("Bill", r.get(0).getName());
+                assertEquals("Welcome", r.get(0).getMessage());
+            }
         }
 
 

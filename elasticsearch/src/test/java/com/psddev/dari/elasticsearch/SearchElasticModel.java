@@ -43,7 +43,7 @@ public class SearchElasticModel extends Record {
     @Indexed
     public String post_date;
     public String getPostDate() {
-        return eid;
+        return post_date;
     }
     public void setPostDate(String post_date) {
         this.post_date = post_date;
@@ -62,7 +62,7 @@ public class SearchElasticModel extends Record {
     @Indexed
     public String guid;
     public String getGuid() {
-        return eid;
+        return guid;
     }
     public void setGuid(String guid) {
         this.guid = guid;
@@ -71,7 +71,7 @@ public class SearchElasticModel extends Record {
     @Indexed
     public String message;
     public String getMessage() {
-        return eid;
+        return message;
     }
     public void setMessage(String message) {
         this.message = message;

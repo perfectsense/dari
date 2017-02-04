@@ -49,6 +49,8 @@ import java.util.function.Function;
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     public static final String CLUSTER_NAME_SUB_SETTING = "clusterName";
+    public static final String CLUSTER_PORT_SUB_SETTING = "clusterPort";
+    public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
@@ -57,6 +59,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
 
     private String indexName;
+    private String clusterName;
+    private int clusterPort;
+    private String clusterHostname;
+
     private static final String name = "ElasticsearchDatabase";
 
     //private transient Node node;
@@ -71,42 +77,33 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         this.indexName = indexName;
     }
 
-
     @Override
     public String toString() {
         return name;
     }
 
 
-    public static final String DATA_SOURCE_SUB_SETTING = "dataSource";
-
-
     @Override
     public TransportClient openConnection() {
-        //return node.client();
-        //return new TransportClient(this.nodeSettings)
-        //        .addTransportAddress(new InetSocketTransportAddress("127.0.0.1", 9300));
 
         if (this.client != null && isAlive(this.client)) {
             return this.client;
         }
         TransportClient client;
         try {
-            InetSocketAddress inet = new InetSocketAddress("127.0.0.1", 9300);
             if (nodeSettings == null) {
+                LOGGER.warn("ELK openConnection No nodeSettings");
                 nodeSettings = Settings.builder()
-                        //.put("cluster.name", clusterName)
                         .put("client.transport.sniff", true).build();
             }
-            if (inet != null) {
-                 client = new PreBuiltTransportClient(nodeSettings)
-                        .addTransportAddress(new InetSocketTransportAddress(inet));
-                 if (!isAlive(client)) {
-                     return null;
-                 }
-                 this.client = client;
-                 return client;
-            }
+             client = new PreBuiltTransportClient(nodeSettings)
+                    .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(this.clusterHostname), this.clusterPort));
+             if (!isAlive(client)) {
+                 LOGGER.warn("ELK openConnection Not Alive!");
+                 return null;
+             }
+             this.client = client;
+             return client;
         } catch (Exception e) {
             StringWriter errors = new StringWriter();
             e.printStackTrace(new PrintWriter(errors));
@@ -131,27 +128,33 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             Preconditions.checkNotNull(clusterName);
         }
 
+        String clusterPort = ObjectUtils.to(String.class, settings.get(CLUSTER_PORT_SUB_SETTING));
+
+        if (clusterPort == null) {
+            Preconditions.checkNotNull(clusterPort);
+        }
+
+        String clusterHostname = ObjectUtils.to(String.class, settings.get(HOSTNAME_SUB_SETTING));
+
+        if (clusterHostname == null) {
+            Preconditions.checkNotNull(clusterHostname);
+        }
+
         String indexName = ObjectUtils.to(String.class, settings.get(INDEX_NAME_SUB_SETTING));
 
         if (indexName == null) {
             Preconditions.checkNotNull(indexName);
         }
 
+        this.clusterName = clusterName;
+        this.clusterPort = Integer.parseInt(clusterPort);
+        this.clusterHostname = clusterHostname;
         this.indexName = indexName;
 
-
-        /* 1.7 + */
-        //this.nodeSettings = ImmutableSettings.settingsBuilder()
-        //        .put("cluster.name", clusterName).build();
-        /* 5.* + */
         this.nodeSettings = Settings.builder()
-                .put("cluster.name", clusterName)
+                .put("cluster.name", this.clusterName)
                 .put("client.transport.sniff", true).build();
 
-        /*this.node = NodeBuilder.nodeBuilder()
-                .clusterName(clusterName)
-                .client(true)
-                .node(); */
     }
 
     @Override
@@ -186,7 +189,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         LOGGER.info("ELK readPartial query.getPredicate() [{}]", query.getPredicate());
 
         TransportClient client = openConnection();
-        if (!isAlive(client)) {
+        if (client == null || !isAlive(client)) {
             return null;
         }
         List<T> items = new ArrayList<>();

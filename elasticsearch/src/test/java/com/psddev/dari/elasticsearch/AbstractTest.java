@@ -15,7 +15,9 @@ public abstract class AbstractTest {
     public static void createDatabase() {
         Settings.setOverride("dari/defaultDatabase", DATABASE_NAME);
         Settings.setOverride(SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
-        Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", "elasticsearch_wibell");
+        Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", "elasticsearch_a");
         Settings.setOverride(SETTING_KEY_PREFIX + "indexName", "index1");
+        Settings.setOverride(SETTING_KEY_PREFIX + "clusterPort", "9300");
+        Settings.setOverride(SETTING_KEY_PREFIX + "clusterHostname", "localhost");
     }
 }
