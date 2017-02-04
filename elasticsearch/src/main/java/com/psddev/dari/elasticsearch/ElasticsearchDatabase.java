@@ -230,17 +230,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             for (SearchHit hit : hits.getHits()) {
 
-                //JsonObject obj = new JsonParser().parse(hit.sourceAsString()).getAsJsonObject();
-                //obj.addProperty("_id", hit.getId());
-
-                //if (this.typeClass == null) {
-                //    T parsed1 = (T) new Gson().fromJson(obj.toString(), new TypeToken<HashMap<String, Object>>() {}.getType());
-                //   items.add(parsed1);
-                //} else {
-                //    T parsed2 = (T) new Gson().fromJson(obj.toString(), this.typeClass);
-                //   items.add(parsed2);
-                //}
-
                 items.add(createSavedObjectWithHit(hit, query));
 
             }
