@@ -48,15 +48,14 @@ import java.util.function.Function;
 
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
+    private static final String DATABASE_NAME = "elasticsearch";
+    public static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
     public static final String CLUSTER_NAME_SUB_SETTING = "clusterName";
     public static final String CLUSTER_PORT_SUB_SETTING = "clusterPort";
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
-
-    private static final String DATABASE_NAME = "elasticsearch";
-    private static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
 
     private String indexName;
     private String clusterName;
@@ -104,13 +103,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
              }
              this.client = client;
              return client;
-        } catch (Exception e) {
-            StringWriter errors = new StringWriter();
-            e.printStackTrace(new PrintWriter(errors));
-            LOGGER.info("Cannot open ES Exception [{}]", errors.toString());
-
+        } catch (Exception error) {
+            LOGGER.info(
+                    String.format("ELK openConnection Cannot open ES Exception [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         }
-        LOGGER.info("doWrites return null");
+        LOGGER.info("ELK openConnection doWrites return null");
         return null;
     }
 
@@ -186,7 +186,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     @Override
     @SuppressWarnings("unchecked")
     public <T> PaginatedResult<T> readPartial(Query<T> query, long offset, int limit) {
-        LOGGER.info("ELK readPartial query.getPredicate() [{}]", query.getPredicate());
+        LOGGER.info("ELK PaginatedResult readPartial query.getPredicate() [{}]", query.getPredicate());
 
         TransportClient client = openConnection();
         if (client == null || !isAlive(client)) {
@@ -198,7 +198,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             Set<UUID> typeIds = query.getConcreteTypeIds(this);
             if (query.getGroup() != null && typeIds.size() == 0) {
                 // should limit by the type
-                LOGGER.info("ELK readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+                LOGGER.info("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
             }
             String[] typeIdStrings = typeIds.size() == 0
                     ? new String[]{ "_all" }
@@ -226,7 +226,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             SearchHits hits = response.getHits();
 
-            LOGGER.info("ELK readPartial hits [{}]", hits.getTotalHits());
+            LOGGER.info("ELK PaginatedResult readPartial hits [{}]", hits.getTotalHits());
 
             for (SearchHit hit : hits.getHits()) {
 
@@ -236,10 +236,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             PaginatedResult<T> p = new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
             return p;
-        } catch (Exception e) {
-            StringWriter errors = new StringWriter();
-            e.printStackTrace(new PrintWriter(errors));
-            LOGGER.info("readPartial Exception [{}]", errors.toString());
+        } catch (Exception error) {
+            LOGGER.info(
+                    String.format("ELK PaginatedResult readPartial Exception [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         } /* finally {
             closeConnection(client);
         } */
@@ -353,10 +355,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         if (builder.hasClauses()) {
-            LOGGER.info("ELK predicate [{}]", builder.toString());
+            LOGGER.info("ELK combine predicate [{}]", builder.toString());
             return builder;
         } else {
-            LOGGER.info("ELK predicate default [{}]", QueryBuilders.matchAllQuery());
+            LOGGER.info("ELK combine predicate default [{}]", QueryBuilders.matchAllQuery());
             return QueryBuilders.matchAllQuery();
         }
     }
@@ -375,7 +377,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setSource(json));
             BulkResponse bulkResponse = bulk.get();
             if (bulkResponse.hasFailures()) {
-                LOGGER.info("saveJson: Save Json not working");
+                LOGGER.info("ELK saveJson Save Json not working");
             }
 
         } finally {
@@ -393,7 +395,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (saves != null) {
                     for (State state : saves) {
-                        LOGGER.info("ELK saving _id [{}] and _type [{}]",
+                        LOGGER.info("ELK doWrites saving _id [{}] and _type [{}]",
                                 state.getId().toString(),
                                 state.getTypeId().toString());
                         try {
@@ -404,37 +406,43 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             bulk.add(client
                                     .prepareIndex(indexName, state.getTypeId().toString(), state.getId().toString())
                                     .setSource(t));
-                        } catch (Exception e) {
-                            StringWriter errors = new StringWriter();
-                            e.printStackTrace(new PrintWriter(errors));
-                            LOGGER.info("doWrites saves Exception [{}]", errors.toString());
+                        } catch (Exception error) {
+                            LOGGER.info(
+                                    String.format("ELK doWrites saves Exception [%s: %s]",
+                                            error.getClass().getName(),
+                                            error.getMessage()),
+                                    error);
                         }
                     }
             }
 
             if (deletes != null) {
                 for (State state : deletes) {
-                    LOGGER.info("ELK deleting _id [{}] and _type [{}]",
+                    LOGGER.info("ELK doWrites deleting _id [{}] and _type [{}]",
                             state.getId().toString(),
                             state.getTypeId().toString());
                     try {
                         bulk.add(client
                                 .prepareDelete(indexName, state.getTypeId().toString(), state.getId().toString()));
-                    } catch (Exception e) {
-                        StringWriter errors = new StringWriter();
-                        e.printStackTrace(new PrintWriter(errors));
-                        LOGGER.info("doWrites deletes Exception [{}]", errors.toString());
+                    } catch (Exception error) {
+                        LOGGER.info(
+                                String.format("ELK doWrites saves Exception [%s: %s]",
+                                        error.getClass().getName(),
+                                        error.getMessage()),
+                                error);
 
                     }
                 }
 
             }
-
+            LOGGER.info("ELK Writing [{}]", bulk.request().requests().toString());
             bulk.execute().actionGet();
-        } catch (Exception e) {
-            StringWriter errors = new StringWriter();
-            e.printStackTrace(new PrintWriter(errors));
-            LOGGER.info("doWrites Exception [{}]", errors.toString());
+        } catch (Exception error) {
+            LOGGER.info(
+                    String.format("ELK doWrites Exception [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
 
         }
     }

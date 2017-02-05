@@ -876,6 +876,7 @@ public class Query<E> extends Record {
         Set<ObjectType> subQueryTypes = null;
         String subQueryKey = null;
         String hashAttribute = null;
+        boolean tryDot = true;
 
         while (hasMore) {
             int slashAt = keyRest.indexOf('/');
@@ -888,11 +889,13 @@ public class Query<E> extends Record {
             } else {
                 keyFirst = keyRest.substring(0, slashAt);
                 keyRest = keyRest.substring(slashAt + 1);
+                tryDot = false;
             }
 
             if (hashAt >= 0) {
                 keyFirst = keyRest.substring(0, hashAt);
                 hashAttribute = keyRest.substring(hashAt + 1);
+                tryDot = false;
             }
 
             type = environment.getTypeByName(keyFirst);
@@ -906,6 +909,21 @@ public class Query<E> extends Record {
                     for (ObjectType fieldType : fieldTypes) {
                         field = fieldType.getField(keyFirst);
                         break;
+                    }
+                }
+
+                if (tryDot) {
+                    int dotAt = keyRest.indexOf('.');
+                    if (dotAt >= 0) {
+                        keyFirst = keyRest.substring(0, dotAt);
+                        field = environment.getField(keyFirst);
+
+                        if (field == null) {
+                            for (ObjectType fieldType : fieldTypes) {
+                                field = fieldType.getField(keyFirst);
+                                break;
+                            }
+                        }
                     }
                 }
 

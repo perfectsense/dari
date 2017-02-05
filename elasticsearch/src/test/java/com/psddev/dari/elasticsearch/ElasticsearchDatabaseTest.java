@@ -26,6 +26,7 @@ import static com.psddev.dari.db.Database.DEFAULT_DATABASE_SETTING;
 import static org.junit.Assert.*;
 import org.json.JSONObject;
 import java.io.IOException;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
@@ -37,51 +38,80 @@ import org.slf4j.LoggerFactory;
 
 
 public class ElasticsearchDatabaseTest extends AbstractTest {
-    private static final String DATABASE_NAME = "elasticsearch";
-    private static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     private boolean turnOff = false;
-    private String clusterName = "";
-    private String host = "";
     private String nodeHost = "";
+
+    private static final String FOO = "foo";
 
     private ElasticsearchDatabase database;
 
     private void setNodeSettings() {
-        this.host = (String) Settings.get("dari/database/elasticsearch/clusterHostname");
-        this.nodeHost = "http://" + this.host + ":9200/";
+        String host = (String) Settings.get("dari/database/elasticsearch/clusterHostname");
+        this.nodeHost = "http://" + host + ":9200/";
     }
 
     private Map<String, Object> getDatabaseSettings() {
         Map<String, Object> settings = new HashMap<>();
-        settings.put("clusterName", Settings.get(SETTING_KEY_PREFIX + "clusterName"));
-        settings.put("indexName", Settings.get(SETTING_KEY_PREFIX + "indexName"));
-        settings.put("clusterPort", Settings.get(SETTING_KEY_PREFIX + "clusterPort"));
-        settings.put("clusterHostname", Settings.get(SETTING_KEY_PREFIX + "clusterHostname"));
+        settings.put("clusterName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName"));
+        settings.put("indexName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "indexName"));
+        settings.put("clusterPort", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterPort"));
+        settings.put("clusterHostname", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterHostname"));
         return settings;
     }
 
+    public void deleteIndex(String index) {
+        try {
+            HttpClient httpClient = HttpClientBuilder.create().build();
+            HttpDelete delete = new HttpDelete(this.nodeHost + index);
+            delete.addHeader("accept", "application/json");
+            HttpResponse response = httpClient.execute(delete);
+            String json = EntityUtils.toString(response.getEntity());
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
+            assertTrue("ClientProtocolException", 1==0);
+        } catch (IOException e) {
+            e.printStackTrace();
+            assertTrue("IOException", 1==0);
+        }
+    }
 
     public void createIndexandMapping(String index) {
         try {
             String json = "{\n" +
                     "  \"mappings\": {\n" +
                     "    \"_default_\": {\n" +
-                    "        \"dynamic_templates\": [\n" +
-                    "            { \"notanalyzed\": {\n" +
-                    "                  \"match\":              \"*\", \n" +
-                    "                  \"match_mapping_type\": \"string\",\n" +
-                    "                  \"mapping\": {\n" +
-                    "                      \"type\":        \"string\",\n" +
-                    "                      \"index\":       \"not_analyzed\"\n" +
-                    "                  }\n" +
-                    "               }\n" +
+                    "      \"dynamic_templates\": [\n" +
+                    "        {\n" +
+                    "          \"int_template\": {\n" +
+                    "            \"match\": \"_*\",\n" +
+                    "            \"match_mapping_type\": \"string\",\n" +
+                    "            \"mapping\": {\n" +
+                    "              \"type\": \"string\",\n" +
+                    "              \"index\": \"not_analyzed\"\n" +
                     "            }\n" +
-                    "          ]\n" +
-                    "       }\n" +
-                    "   }\n" +
+                    "          }\n" +
+                    "        },\n" +
+                    "        {\n" +
+                    "          \"notanalyzed\": {\n" +
+                    "            \"match\": \"*\",\n" +
+                    "            \"match_mapping_type\": \"string\",\n" +
+                    "            \"mapping\": {\n" +
+                    "              \"type\": \"text\",\n" +
+                    "              \"index\": \"analyzed\",\n" +
+                    "              \"fields\": {\n" +
+                    "                \"raw\": {\n" +
+                    "                  \"type\": \"string\",\n" +
+                    "                  \"index\": \"not_analyzed\"\n" +
+                    "                }\n" +
+                    "              }\n" +
+                    "            }\n" +
+                    "          }\n" +
+                    "        }\n" +
+                    "      ]\n" +
+                    "    }\n" +
+                    "  }\n" +
                     "}";
             HttpClient httpClient = HttpClientBuilder.create().build();
             HttpPut put = new HttpPut(this.nodeHost + index);
@@ -106,22 +136,6 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
     }
 
 
-    public void deleteIndex(String index) {
-        try {
-            HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpDelete delete = new HttpDelete(this.nodeHost + index);
-            delete.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(delete);
-            String json = EntityUtils.toString(response.getEntity());
-        } catch (ClientProtocolException e) {
-            e.printStackTrace();
-            assertTrue("ClientProtocolException", 1==0);
-        } catch (IOException e) {
-            e.printStackTrace();
-            assertTrue("IOException", 1==0);
-        }
-    }
-
     @Before
     public void before() {
         // verify it is running locally for testing - if not local short circuit it
@@ -143,8 +157,8 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
             if (j != null) {
                 assertThat(j.get("cluster_name"), notNullValue());
                 if (j.get("cluster_name") != null) {
-                    this.clusterName = j.getString("cluster_name");
-                    Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", this.clusterName);
+                    String clusterName = j.getString("cluster_name");
+                    Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName", clusterName);
                 }
                 assertThat(j.get("cluster_name"), notNullValue());
                 if (j.get("version") != null) {
@@ -158,8 +172,8 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
                     }
                 }
                 // you must delete and set map for this all to work, 2nd run we can leave it.
-                //deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"));
-                //createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"));
+                deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"));
+                createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"));
                 database.initialize("", getDatabaseSettings());
             }
         } catch (java.net.ConnectException e) {
@@ -205,6 +219,140 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
             assertEquals("tough", fooResult.get(0).message);
         }
     }
+
+    @Test
+    public void oneMatches() {
+        Stream.of(FOO, "bar", "qux").forEach(string -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = string;
+            model.set.add(FOO);
+            model.list.add(FOO);
+            model.map.put(FOO, FOO);
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("one matches ?", FOO)
+                .selectAll();
+
+        assertThat(fooResult, hasSize(1));
+        assertThat(fooResult.get(0).one, equalTo(FOO));
+    }
+
+    @Test
+    public void setMatches() {
+        Stream.of(FOO, "bar", "qux").forEach(string -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = FOO;
+            model.set.add(string);
+            model.list.add(FOO);
+            model.map.put(FOO, FOO);
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("set matches ?", FOO)
+                .selectAll();
+
+        assertThat(fooResult, hasSize(1));
+        assertThat(fooResult.get(0).set, hasSize(1));
+        assertThat(fooResult.get(0).set.iterator().next(), equalTo(FOO));
+    }
+
+    @Test
+    public void listMatches() {
+        Stream.of(FOO, "bar", "qux").forEach(string -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = FOO;
+            model.set.add(FOO);
+            model.list.add(string);
+            model.map.put(FOO, FOO);
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("list matches ?", FOO)
+                .selectAll();
+
+        assertThat(fooResult, hasSize(1));
+        assertThat(fooResult.get(0).list, hasSize(1));
+        assertThat(fooResult.get(0).list.get(0), equalTo(FOO));
+    }
+
+    @Test
+    public void mapMatches() {
+        Stream.of(FOO, "bar", "qux").forEach(string -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = FOO;
+            model.set.add(FOO);
+            model.list.add(FOO);
+            model.map.put(string, string);
+            model.save();
+        });
+
+        // note this is different from h2, but seems better since it is specific.
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("map.foo matches ?", FOO)
+                .selectAll();
+
+        assertThat("Size of result", fooResult, hasSize(1));
+        assertThat("checking size of map", fooResult.get(0).map.size(), equalTo(1));
+        assertThat("checking iterator", fooResult.get(0).map.values().iterator().next(), equalTo(FOO));
+    }
+
+    @Test
+    public void anyMatches() {
+        Stream.of(FOO, "bar", "qux").forEach(string -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = string;
+            model.set.add(FOO);
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("_any matches ?", FOO)
+                .selectAll();
+
+        assertThat(fooResult, hasSize(3));
+    }
+
+    @Test
+    public void wildcard() {
+        Stream.of("f", "fo", "foo").forEach(string -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = string;
+            model.save();
+        });
+
+        assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "f*").count(), equalTo(3L));
+        assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "fo*").count(), equalTo(2L));
+        assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
+    }
+
+    @Test
+    public void sortRelevant() {
+        IntStream.range(0, 3).forEach(i -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = FOO;
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("_any matches ?", FOO)
+                .sortRelevant(1.0, "_any matches ?", FOO)
+                .selectAll();
+
+        assertThat(fooResult, hasSize(3));
+        assertThat(fooResult.get(0).getId().toString(), greaterThan(fooResult.get(1).getId().toString()));
+        assertThat(fooResult.get(1).getId().toString(), greaterThan(fooResult.get(2).getId().toString()));
+    }
+
 
 
     @Test

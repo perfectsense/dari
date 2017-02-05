@@ -13,21 +13,12 @@ public class SearchElasticModel extends Record {
 
 
     @Indexed
-    public String _id;
-    public String get_id() {
-        return _id;
+    public String one;
+    public String getOne() {
+        return one;
     }
-    public void set_id(String _id) {
-        this._id = _id;
-    }
-
-    @Indexed
-    public String _type;
-    public String get_type() {
-        return _type;
-    }
-    public void set_type(String _type) {
-        this._type = _type;
+    public void setOne(String _type) {
+        this.one = one;
     }
 
     @Indexed
