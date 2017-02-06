@@ -334,13 +334,36 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
         assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
     }
 
+
     @Test
     public void sortRelevant() {
-        IntStream.range(0, 3).forEach(i -> {
-            SearchElasticModel model = new SearchElasticModel();
-            model.one = FOO;
-            model.save();
-        });
+        SearchElasticModel model = new SearchElasticModel();
+        model.one = FOO;
+        model.name = FOO;
+        model.set.add(FOO);
+        model.list.add(FOO);
+        model.map.put(FOO, FOO);
+        model.eid = "1";
+        model.save();
+
+        model = new SearchElasticModel();
+        model.one = FOO;
+        model.name = "qux";
+        model.set.add(FOO);
+        model.list.add("qux");
+        model.map.put("qux", "qux");
+        model.eid = "2";
+        model.save();
+
+        model = new SearchElasticModel();
+        model.one = "qux";
+        model.name = "qux";
+        model.set.add("foo");
+        model.list.add("qux");
+        model.map.put("qux", "qux");
+        model.eid = "3";
+        model.save();
+
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -349,8 +372,29 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
                 .selectAll();
 
         assertThat(fooResult, hasSize(3));
-        assertThat(fooResult.get(0).getId().toString(), greaterThan(fooResult.get(1).getId().toString()));
-        assertThat(fooResult.get(1).getId().toString(), greaterThan(fooResult.get(2).getId().toString()));
+        assertThat(fooResult.get(0).eid, is(equalTo("1")));
+        // 1,2,3 is the correct order based on IDF
+        assertThat(fooResult.get(1).eid, is(equalTo("2")));
+        assertThat(fooResult.get(2).eid, is(equalTo("3")));
+    }
+
+    @Test
+    public void sortString() {
+        Stream.of(FOO, "bar", "qux").forEach(string -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.one = string;
+            model.set.add(FOO);
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("one")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(3));
+        assertThat("check 0 and 1 order", fooResult.get(0).one.toString(), lessThan(fooResult.get(1).one.toString()));
+        assertThat("check 1 and 2 order", fooResult.get(1).one.toString(), greaterThan(fooResult.get(2).one.toString()));
     }
 
 

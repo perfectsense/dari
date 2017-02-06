@@ -162,6 +162,8 @@ public class DatabaseEnvironment implements ObjectStruct {
             // again in case they reference other typed objects. Then
             // types again using the information from the fully resolved
             // globals.
+
+            // TODO: Can we reduce this?
             refreshTypes();
             refreshGlobals();
             refreshTypes();

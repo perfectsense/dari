@@ -14,16 +14,22 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 //import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.common.lucene.search.function.CombineFunction;
+import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.node.Node;
 //import org.elasticsearch.node.NodeBuilder;
 import org.elasticsearch.search.SearchHit;
@@ -31,6 +37,10 @@ import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.client.*;
 import org.elasticsearch.search.internal.InternalSearchHit;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
+import org.elasticsearch.search.sort.ScoreSortBuilder;
+import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +55,11 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.randomFunction;
+import static org.elasticsearch.search.sort.SortBuilders.fieldSort;
+import static org.elasticsearch.search.sort.SortOrder.ASC;
+import static org.elasticsearch.search.sort.SortOrder.DESC;
+
 
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
@@ -54,6 +69,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String CLUSTER_PORT_SUB_SETTING = "clusterPort";
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
+
+    public static final String ID_FIELD = "_id";
+    public static final String TYPE_ID_FIELD = "_type";
+    public static final String ALL_FIELD = "_all";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
@@ -196,6 +215,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         try {
             Set<UUID> typeIds = query.getConcreteTypeIds(this);
+
             if (query.getGroup() != null && typeIds.size() == 0) {
                 // should limit by the type
                 LOGGER.info("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
@@ -206,24 +226,29 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             SearchResponse response;
             if (typeIds.size() == 0) {
-                response = client.prepareSearch(getIndexName())
+                SearchRequestBuilder srb = client.prepareSearch(getIndexName())
                         .setFetchSource(!query.isReferenceOnly())
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
-                        .setSize(limit)
-                        .execute()
-                        .actionGet();
+                        .setSize(limit);
+                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), query, srb)) {
+                    srb = srb.addSort(sb);
+                }
+                LOGGER.info("ELK srb [{}]", srb.toString());
+                response = srb.execute().actionGet();
             } else {
-                response = client.prepareSearch(getIndexName())
+                SearchRequestBuilder srb = client.prepareSearch(getIndexName())
                         .setFetchSource(!query.isReferenceOnly())
                         .setTypes(typeIdStrings)
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
-                        .setSize(limit)
-                        .execute()
-                        .actionGet();
+                        .setSize(limit);
+                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), query, srb)) {
+                    srb.addSort(sb);
+                }
+                LOGGER.info("ELK srb [{}]",  srb.toString());
+                response = srb.execute().actionGet();
             }
-
             SearchHits hits = response.getHits();
 
             LOGGER.info("ELK PaginatedResult readPartial hits [{}]", hits.getTotalHits());
@@ -258,6 +283,93 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         return swapObjectType(query, object);
+    }
+
+
+    private final Map<Query.MappedKey, String> specialFields; {
+        Map<Query.MappedKey, String> m = new HashMap<Query.MappedKey, String>();
+        m.put(Query.MappedKey.ID, ID_FIELD);
+        m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
+        m.put(Query.MappedKey.ANY, ALL_FIELD);
+        specialFields = m;
+    }
+
+    private Query.MappedKey mapFullyDenormalizedKey(Query<?> query, String key) {
+        Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), key);
+        if (mappedKey.hasSubQuery()) {
+            throw new Query.NoFieldException(query.getGroup(), key);
+        } else {
+            return mappedKey;
+        }
+    }
+
+    private String getElkField(String internalType) {
+        return "";
+        // how do we handle internal types? Solr does it with a sortPrefix.
+    }
+
+    // relevant { 1.0, _any matchesany 'foo' }
+    // use th mapping, so that we have field.raw set for sorting.
+    private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, Query<?> query, SearchRequestBuilder srb) {
+        List<SortBuilder> list = new ArrayList<>();
+        if (sorters == null || sorters.size() == 0) {
+            list.add(new ScoreSortBuilder());
+        } else {
+
+            for (Sorter sorter : sorters) {
+                String operator = sorter.getOperator();
+                if (Sorter.ASCENDING_OPERATOR.equals(operator) || Sorter.DESCENDING_OPERATOR.equals(operator)) {
+                    boolean isAscending = Sorter.ASCENDING_OPERATOR.equals(operator);
+                    String queryKey = (String) sorter.getOptions().get(0);
+                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
+                    String elkField = specialFields.get(mappedKey);
+
+                    if (elkField == null) {
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType != null) {
+                            if (internalType.equals("text")) {
+                                elkField = queryKey + ".raw";
+                            }
+                        }
+                    }
+
+                    if (elkField == null) {
+                        throw new UnsupportedIndexException(this, queryKey);
+                    }
+                    list.add(new FieldSortBuilder(elkField).order(isAscending ? ASC : DESC));
+                } else if (Sorter.OLDEST_OPERATOR.equals(operator) || Sorter.NEWEST_OPERATOR.equals(operator)) {
+                    // OLDEST_OPERATOR, NEWEST_OPERATOR -- date ones
+                } else if (Sorter.FARTHEST_OPERATOR.equals(operator) || Sorter.CLOSEST_OPERATOR.equals(operator)) {
+                    // FARTHEST_OPERATOR, CLOSEST_OPERATOR --  new GeoDistanceSortBuilder()
+                    /* SortBuilders.geoDistanceSort(sortOnField)
+                                    .order(order)
+                                    .point(ORIGIN_LAT, ORIGIN_LON)
+                                    .unit("km") */
+                    // list.add(new GeoDistanceSortBuilder("pin.location", new GeoPoint(40, -70));
+                } else if (Sorter.RELEVANT_OPERATOR.equals(operator)) {
+                    list.add(new ScoreSortBuilder());
+                    Predicate sortPredicate = null;
+                    Object predicateObject = sorter.getOptions().get(1);
+                    Object boostObject = sorter.getOptions().get(0);
+                    String boostStr = boostObject.toString();
+                    Float boost = Float.valueOf(boostStr);
+                    if (predicateObject instanceof Predicate) {
+                        sortPredicate = (Predicate) predicateObject;
+
+                        /* FunctionScoreQueryBuilder f = new FunctionScoreQueryBuilder(predicateToQueryBuilder(sortPredicate));
+                        f.boostMode(CombineFunction.MULTIPLY);
+                        f.boost(boost); */
+                        QueryBuilder qb = QueryBuilders.functionScoreQuery(predicateToQueryBuilder(sortPredicate))
+                                .boostMode(CombineFunction.MULTIPLY)
+                                .boost(boost);
+                        srb.setQuery(qb);
+                    }
+                }
+            }
+
+        }
+        return list;
+
     }
 
     // must override since MAXIMUM_LIMIT is not good for ES
