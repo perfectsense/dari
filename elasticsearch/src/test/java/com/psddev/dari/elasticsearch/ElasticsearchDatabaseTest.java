@@ -36,7 +36,6 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class ElasticsearchDatabaseTest extends AbstractTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
@@ -52,6 +51,11 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
         this.nodeHost = "http://" + host + ":9200/";
     }
 
+    /**
+     *
+     * Returns Map<String, Object> settings for database.initialize() to test local ELK settings
+     *
+     */
     private Map<String, Object> getDatabaseSettings() {
         Map<String, Object> settings = new HashMap<>();
         settings.put("clusterName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName"));
