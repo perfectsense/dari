@@ -203,6 +203,7 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
         }
     }
 
+
     @Test
     public void testOne() throws Exception {
         if (this.turnOff == false) {

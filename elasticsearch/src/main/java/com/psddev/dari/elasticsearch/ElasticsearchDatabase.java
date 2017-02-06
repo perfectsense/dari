@@ -24,6 +24,7 @@ import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -61,6 +62,9 @@ import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 
+//Note: http://elasticsearch-users.115913.n3.nabble.com/What-is-your-best-practice-to-access-a-cluster-by-a-Java-client-td4015311.html
+// Decided to implement a Singleton
+
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private static final String DATABASE_NAME = "elasticsearch";
@@ -70,7 +74,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
 
-    public static final String ID_FIELD = "_id";
+    public static final String ID_FIELD = "_uid";  // special for aggregations
     public static final String TYPE_ID_FIELD = "_type";
     public static final String ALL_FIELD = "_all";
 
@@ -107,21 +111,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (this.client != null && isAlive(this.client)) {
             return this.client;
         }
-        TransportClient client;
         try {
-            if (nodeSettings == null) {
-                LOGGER.warn("ELK openConnection No nodeSettings");
-                nodeSettings = Settings.builder()
-                        .put("client.transport.sniff", true).build();
-            }
-             client = new PreBuiltTransportClient(nodeSettings)
-                    .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(this.clusterHostname), this.clusterPort));
-             if (!isAlive(client)) {
-                 LOGGER.warn("ELK openConnection Not Alive!");
-                 return null;
-             }
-             this.client = client;
-             return client;
+            this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, clusterHostname, clusterPort);
+            return this.client;
         } catch (Exception error) {
             LOGGER.info(
                     String.format("ELK openConnection Cannot open ES Exception [%s: %s]",
@@ -135,7 +127,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     @Override
     public void closeConnection(TransportClient client) {
-        client.close();
+        //client.close();
     }
 
     @Override
@@ -182,24 +174,25 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     public boolean isAlive(TransportClient client) {
-        List<DiscoveryNode> nodes = client.connectedNodes();
-        if (nodes.isEmpty()) {
-            return false;
-        } else {
-            return true;
+        if (client != null) {
+            List<DiscoveryNode> nodes = client.connectedNodes();
+            if (!nodes.isEmpty()) {
+                return true;
+            }
         }
+        return false;
     }
 
     public boolean isAlive() {
         TransportClient client = openConnection();
-        List<DiscoveryNode> nodes = client.connectedNodes();
-        if (nodes.isEmpty()) {
+        if (client != null) {
+            List<DiscoveryNode> nodes = client.connectedNodes();
             closeConnection(client);
-            return false;
-        } else {
-            closeConnection(client);
-            return true;
+            if (!nodes.isEmpty()) {
+                return true;
+            }
         }
+        return false;
     }
 
     @Override
@@ -228,6 +221,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (typeIds.size() == 0) {
                 SearchRequestBuilder srb = client.prepareSearch(getIndexName())
                         .setFetchSource(!query.isReferenceOnly())
+                        .setTimeout(new TimeValue(5000))
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
                         .setSize(limit);
