@@ -92,8 +92,7 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
                     "            \"match\": \"_*\",\n" +
                     "            \"match_mapping_type\": \"string\",\n" +
                     "            \"mapping\": {\n" +
-                    "              \"type\": \"string\",\n" +
-                    "              \"index\": \"not_analyzed\"\n" +
+                    "              \"type\": \"keyword\"\n" +
                     "            }\n" +
                     "          }\n" +
                     "        },\n" +
@@ -103,11 +102,9 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
                     "            \"match_mapping_type\": \"string\",\n" +
                     "            \"mapping\": {\n" +
                     "              \"type\": \"text\",\n" +
-                    "              \"index\": \"analyzed\",\n" +
                     "              \"fields\": {\n" +
                     "                \"raw\": {\n" +
-                    "                  \"type\": \"string\",\n" +
-                    "                  \"index\": \"not_analyzed\"\n" +
+                    "                  \"type\": \"keyword\"\n" +
                     "                }\n" +
                     "              }\n" +
                     "            }\n" +
