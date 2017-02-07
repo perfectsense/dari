@@ -264,7 +264,7 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
     }
 
     @Test
-    public void listMatches() {
+    public void listMatches() throws InterruptedException {
         Stream.of(FOO, "bar", "qux").forEach(string -> {
             SearchElasticModel model = new SearchElasticModel();
             model.one = FOO;
@@ -338,46 +338,47 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
 
 
     @Test
-    public void sortRelevant() {
+    public void sortRelevant() throws InterruptedException {
         SearchElasticModel model = new SearchElasticModel();
-        model.one = FOO;
-        model.name = FOO;
-        model.set.add(FOO);
-        model.list.add(FOO);
-        model.map.put(FOO, FOO);
+        model.one = "foo";
+        model.name = "qux";
+        model.set.add("qux");
+        model.list.add("qux");
+        model.map.put("qux", "qux");
         model.eid = "1";
         model.save();
 
         model = new SearchElasticModel();
-        model.one = FOO;
-        model.name = "qux";
-        model.set.add(FOO);
-        model.list.add("qux");
-        model.map.put("qux", "qux");
+        model.one = "west";
+        model.name = "west";
+        model.set.add("west");
+        model.list.add(FOO);
+        model.map.put("west", "west");
         model.eid = "2";
         model.save();
 
         model = new SearchElasticModel();
         model.one = "qux";
-        model.name = "qux";
-        model.set.add("foo");
+        model.name = "west";
+        model.set.add("west");
         model.list.add("qux");
         model.map.put("qux", "qux");
         model.eid = "3";
         model.save();
 
+        database.openConnection().admin().indices().prepareRefresh(database.getIndexName()).get();
+        //Thread.sleep(1000);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .where("_any matches ?", FOO)
-                .sortRelevant(1.0, "_any matches ?", FOO)
+                .sortRelevant(10.0, "one matches ?", FOO)
                 .selectAll();
 
-        assertThat(fooResult, hasSize(3));
-        assertThat(fooResult.get(0).eid, is(equalTo("1")));
-        // 1,2,3 is the correct order based on IDF
-        assertThat(fooResult.get(1).eid, is(equalTo("2")));
-        assertThat(fooResult.get(2).eid, is(equalTo("3")));
+        assertThat(fooResult, hasSize(2));
+
+        assertThat("check 0 and 1", fooResult.get(0).eid, is(equalTo("1")));
+        assertThat("check 1 and 2", fooResult.get(1).eid, is(equalTo("2")));
     }
 
     @Test
@@ -395,8 +396,8 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(3));
-        assertThat("check 0 and 1 order", fooResult.get(0).one.toString(), lessThan(fooResult.get(1).one.toString()));
-        assertThat("check 1 and 2 order", fooResult.get(1).one.toString(), greaterThan(fooResult.get(2).one.toString()));
+        assertThat("check 0 and 1 order", fooResult.get(0).one, lessThan(fooResult.get(1).one));
+        assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
     }
 
 

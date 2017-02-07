@@ -11,11 +11,13 @@ import com.psddev.dari.util.gson.JsonObject;
 import com.psddev.dari.util.gson.JsonParser;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
+import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 //import org.elasticsearch.common.settings.ImmutableSettings;
@@ -26,6 +28,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
@@ -56,7 +59,9 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.randomFunction;
+import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortBuilders.fieldSort;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
@@ -225,7 +230,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
                         .setSize(limit);
-                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), query, srb)) {
+                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb)) {
                     srb = srb.addSort(sb);
                 }
                 LOGGER.info("ELK srb [{}]", srb.toString());
@@ -237,7 +242,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
                         .setSize(limit);
-                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), query, srb)) {
+                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb)) {
                     srb.addSort(sb);
                 }
                 LOGGER.info("ELK srb [{}]",  srb.toString());
@@ -304,7 +309,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     // relevant { 1.0, _any matchesany 'foo' }
     // use th mapping, so that we have field.raw set for sorting.
-    private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, Query<?> query, SearchRequestBuilder srb) {
+    private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb) {
         List<SortBuilder> list = new ArrayList<>();
         if (sorters == null || sorters.size() == 0) {
             list.add(new ScoreSortBuilder());
@@ -349,14 +354,20 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     Float boost = Float.valueOf(boostStr);
                     if (predicateObject instanceof Predicate) {
                         sortPredicate = (Predicate) predicateObject;
+                        FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = {
+                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                                       // matchQuery("one", "foo"),
+                                        predicateToQueryBuilder(sortPredicate),
+                                        weightFactorFunction(boost))
+                        };
 
-                        /* FunctionScoreQueryBuilder f = new FunctionScoreQueryBuilder(predicateToQueryBuilder(sortPredicate));
-                        f.boostMode(CombineFunction.MULTIPLY);
-                        f.boost(boost); */
-                        QueryBuilder qb = QueryBuilders.functionScoreQuery(predicateToQueryBuilder(sortPredicate))
+
+                        QueryBuilder qb = QueryBuilders.functionScoreQuery(orig,functions)
                                 .boostMode(CombineFunction.MULTIPLY)
-                                .boost(boost);
+                                .boost(boost)
+                                .maxBoost(1000.0f);
                         srb.setQuery(qb);
+
                     }
                 }
             }
@@ -371,6 +382,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public <T> List<T> readAll(Query<T> query) {
         return readPartial(query, 0L, 1000).getItems();
     }
+
 
     // Used to convert the query to ELK
     private QueryBuilder predicateToQueryBuilder(Predicate predicate) {
@@ -492,10 +504,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
 
     }
+
+    @Override
+    protected void commitTransaction(TransportClient client, boolean isImmediate) throws Exception {
+        client.admin().indices().prepareRefresh(this.indexName).get();
+    }
+
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
         try {
-            BulkRequestBuilder bulk = client.prepareBulk();
+            BulkRequestBuilder bulk = client.prepareBulk(); // this forces .setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL);
 
             String indexName = getIndexName();
 
