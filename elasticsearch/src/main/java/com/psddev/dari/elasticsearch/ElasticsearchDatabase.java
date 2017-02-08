@@ -297,8 +297,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         // how do we handle internal types? Solr does it with a sortPrefix.
     }
 
-    // relevant { 1.0, _any matchesany 'foo' }
-    // use th mapping, so that we have field.raw set for sorting.
+    // use the _mapping, so that we have field.raw set for sorting.
     private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb) {
         List<SortBuilder> list = new ArrayList<>();
         if (sorters == null || sorters.size() == 0) {

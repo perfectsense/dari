@@ -36,105 +36,12 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ElasticsearchDatabaseTest extends AbstractTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
-
-    private boolean turnOff = false;
-    private String nodeHost = "";
+public class SearchElastic extends AbstractTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SearchElastic.class);
 
     private static final String FOO = "foo";
 
     private ElasticsearchDatabase database;
-
-    private void setNodeSettings() {
-        String host = (String) Settings.get("dari/database/elasticsearch/clusterHostname");
-        this.nodeHost = "http://" + host + ":9200/";
-    }
-
-    /**
-     *
-     * Returns Map<String, Object> settings for database.initialize() to test local ELK settings
-     *
-     */
-    private Map<String, Object> getDatabaseSettings() {
-        Map<String, Object> settings = new HashMap<>();
-        settings.put("clusterName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName"));
-        settings.put("indexName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "indexName"));
-        settings.put("clusterPort", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterPort"));
-        settings.put("clusterHostname", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterHostname"));
-        return settings;
-    }
-
-    public void deleteIndex(String index) {
-        try {
-            HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpDelete delete = new HttpDelete(this.nodeHost + index);
-            delete.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(delete);
-            String json = EntityUtils.toString(response.getEntity());
-        } catch (ClientProtocolException e) {
-            e.printStackTrace();
-            assertTrue("ClientProtocolException", 1==0);
-        } catch (IOException e) {
-            e.printStackTrace();
-            assertTrue("IOException", 1==0);
-        }
-    }
-
-    public void createIndexandMapping(String index) {
-        try {
-            String json = "{\n" +
-                    "  \"mappings\": {\n" +
-                    "    \"_default_\": {\n" +
-                    "      \"dynamic_templates\": [\n" +
-                    "        {\n" +
-                    "          \"int_template\": {\n" +
-                    "            \"match\": \"_*\",\n" +
-                    "            \"match_mapping_type\": \"string\",\n" +
-                    "            \"mapping\": {\n" +
-                    "              \"type\": \"keyword\"\n" +
-                    "            }\n" +
-                    "          }\n" +
-                    "        },\n" +
-                    "        {\n" +
-                    "          \"notanalyzed\": {\n" +
-                    "            \"match\": \"*\",\n" +
-                    "            \"match_mapping_type\": \"string\",\n" +
-                    "            \"mapping\": {\n" +
-                    "              \"type\": \"text\",\n" +
-                    "              \"fields\": {\n" +
-                    "                \"raw\": {\n" +
-                    "                  \"type\": \"keyword\"\n" +
-                    "                }\n" +
-                    "              }\n" +
-                    "            }\n" +
-                    "          }\n" +
-                    "        }\n" +
-                    "      ]\n" +
-                    "    }\n" +
-                    "  }\n" +
-                    "}";
-            HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpPut put = new HttpPut(this.nodeHost + index);
-            put.addHeader("accept", "application/json");
-            StringEntity input = new StringEntity(json);
-            put.setEntity(input);
-            HttpResponse response = httpClient.execute(put);
-            if (response.getStatusLine().getStatusCode() > 201) {
-                LOGGER.info("ELK createIndexandMapping Response > 201");
-                assertTrue("Response > 201", 1==0);
-            }
-            json = EntityUtils.toString(response.getEntity());
-        } catch (ClientProtocolException e) {
-            LOGGER.info("ELK createIndexandMapping ClientProtocolException");
-            e.printStackTrace();
-            assertTrue("ClientProtocolException", 1==0);
-        } catch (IOException e) {
-            LOGGER.info("ELK createIndexandMapping IOException");
-            e.printStackTrace();
-            assertTrue("IOException", 1==0);
-        }
-    }
 
 
     @Before
@@ -143,58 +50,10 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
         // embedded elasticsearch was dropped in 5.1.2
         // cmd> brew install elasticsearch
         // cmd> elasticsearch
+        super.before();
         this.database = new ElasticsearchDatabase();
-
-
-        try {
-            setNodeSettings();
-            HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpGet getRequest = new HttpGet(this.nodeHost);
-            getRequest.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(getRequest);
-            String json = EntityUtils.toString(response.getEntity());
-            JSONObject j = new JSONObject(json);
-            assertThat(j, notNullValue());
-            if (j != null) {
-                assertThat(j.get("cluster_name"), notNullValue());
-                if (j.get("cluster_name") != null) {
-                    String clusterName = j.getString("cluster_name");
-                    Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName", clusterName);
-                }
-                assertThat(j.get("cluster_name"), notNullValue());
-                if (j.get("version") != null) {
-                    if (j.getJSONObject("version") != null) {
-                        JSONObject jo = j.getJSONObject("version");
-                        String version = jo.getString("number");
-                        if (!version.equals("5.2.0")) {
-                            LOGGER.warn("Warning: ELK {} version is not 5.2.0", version);
-                        }
-                        assertEquals(version.substring(0, 2), "5.");
-                    }
-                }
-                // you must delete and set map for this all to work, 2nd run we can leave it.
-                deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"));
-                createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"));
-                database.initialize("", getDatabaseSettings());
-            }
-        } catch (java.net.ConnectException e) {
-            this.turnOff = true;
-            LOGGER.info("ELK is not able to connect turning off tests for ELK. nodeHost {}", this.nodeHost);
-        } catch (ClientProtocolException e) {
-            this.turnOff = true;
-            e.printStackTrace();
-            assertTrue("ClientProtocolException", 1==0);
-        } catch (IOException e) {
-            this.turnOff = true;
-            e.printStackTrace();
-            assertTrue("IOException", 1==0);
-        } catch (org.json.JSONException e) {
-            this.turnOff = true;
-            e.printStackTrace();
-            assertTrue("JSONException", 1==0);
-        }
+        database.initialize("", getDatabaseSettings());
     }
-
 
     @After
     public void deleteModels() {
