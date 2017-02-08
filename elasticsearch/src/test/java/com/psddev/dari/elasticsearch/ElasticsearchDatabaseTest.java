@@ -181,12 +181,15 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
             this.turnOff = true;
             LOGGER.info("ELK is not able to connect turning off tests for ELK. nodeHost {}", this.nodeHost);
         } catch (ClientProtocolException e) {
+            this.turnOff = true;
             e.printStackTrace();
             assertTrue("ClientProtocolException", 1==0);
         } catch (IOException e) {
+            this.turnOff = true;
             e.printStackTrace();
             assertTrue("IOException", 1==0);
         } catch (org.json.JSONException e) {
+            this.turnOff = true;
             e.printStackTrace();
             assertTrue("JSONException", 1==0);
         }
@@ -210,6 +213,8 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
             search.message = "tough";
             search.save();
 
+            database.commitTransaction(database.openConnection(), true);
+
             List<SearchElasticModel> fooResult = Query
                     .from(SearchElasticModel.class)
                     .where("eid matches ?", "939393")
@@ -223,181 +228,212 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
     }
 
     @Test
-    public void oneMatches() {
-        Stream.of(FOO, "bar", "qux").forEach(string -> {
+    public void oneMatches() throws Exception {
+        if (this.turnOff == false) {
+            Stream.of(FOO, "bar", "qux").forEach(string -> {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = string;
+                model.set.add(FOO);
+                model.list.add(FOO);
+                model.map.put(FOO, FOO);
+                model.save();
+            });
+
+            database.commitTransaction(database.openConnection(), true);
+
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("one matches ?", FOO)
+                    .selectAll();
+
+            assertThat(fooResult, hasSize(1));
+            assertThat(fooResult.get(0).one, equalTo(FOO));
+        }
+    }
+
+    @Test
+    public void setMatches() throws Exception {
+        if (this.turnOff == false) {
+            Stream.of(FOO, "bar", "qux").forEach(string -> {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = FOO;
+                model.set.add(string);
+                model.list.add(FOO);
+                model.map.put(FOO, FOO);
+                model.save();
+            });
+
+            database.commitTransaction(database.openConnection(), true);
+
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("set matches ?", FOO)
+                    .selectAll();
+
+            assertThat(fooResult, hasSize(1));
+            assertThat(fooResult.get(0).set, hasSize(1));
+            assertThat(fooResult.get(0).set.iterator().next(), equalTo(FOO));
+        }
+    }
+
+    @Test
+    public void listMatches() throws Exception {
+        if (this.turnOff == false) {
+            Stream.of(FOO, "bar", "qux").forEach(string -> {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = FOO;
+                model.set.add(FOO);
+                model.list.add(string);
+                model.map.put(FOO, FOO);
+                model.save();
+            });
+
+            database.commitTransaction(database.openConnection(), true);
+
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("list matches ?", FOO)
+                    .selectAll();
+
+            assertThat(fooResult, hasSize(1));
+            assertThat(fooResult.get(0).list, hasSize(1));
+            assertThat(fooResult.get(0).list.get(0), equalTo(FOO));
+        }
+    }
+
+    @Test
+    public void mapMatches() throws Exception {
+        if (this.turnOff == false) {
+            Stream.of(FOO, "bar", "qux").forEach(string -> {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = FOO;
+                model.set.add(FOO);
+                model.list.add(FOO);
+                model.map.put(string, string);
+                model.save();
+            });
+
+            database.commitTransaction(database.openConnection(), true);
+
+            // note this is different from h2, but seems better since it is specific.
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("map.foo matches ?", FOO)
+                    .selectAll();
+
+            assertThat("Size of result", fooResult, hasSize(1));
+            assertThat("checking size of map", fooResult.get(0).map.size(), equalTo(1));
+            assertThat("checking iterator", fooResult.get(0).map.values().iterator().next(), equalTo(FOO));
+        }
+    }
+
+    @Test
+    public void anyMatches() throws Exception {
+        if (this.turnOff == false) {
+            Stream.of(FOO, "bar", "qux").forEach(string -> {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = string;
+                model.set.add(FOO);
+                model.save();
+            });
+
+            database.commitTransaction(database.openConnection(), true);
+
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("_any matches ?", FOO)
+                    .selectAll();
+
+            assertThat(fooResult, hasSize(3));
+        }
+    }
+
+    @Test
+    public void wildcard() throws Exception {
+        if (this.turnOff == false) {
+            Stream.of("f", "fo", "foo").forEach(string -> {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = string;
+                model.save();
+            });
+
+            database.commitTransaction(database.openConnection(), true);
+
+            assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "f*").count(), equalTo(3L));
+            assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "fo*").count(), equalTo(2L));
+            assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
+        }
+    }
+
+
+    @Test
+    public void sortRelevant() throws Exception {
+        if (this.turnOff == false) {
             SearchElasticModel model = new SearchElasticModel();
-            model.one = string;
-            model.set.add(FOO);
+            model.one = "foo";
+            model.name = "qux";
+            model.set.add("qux");
+            model.list.add("qux");
+            model.map.put("qux", "qux");
+            model.eid = "1";
+            model.save();
+
+            model = new SearchElasticModel();
+            model.one = "west";
+            model.name = "west";
+            model.set.add("west");
             model.list.add(FOO);
-            model.map.put(FOO, FOO);
+            model.map.put("west", "west");
+            model.eid = "2";
             model.save();
-        });
 
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("one matches ?", FOO)
-                .selectAll();
+            model = new SearchElasticModel();
+            model.one = "qux";
+            model.name = "west";
+            model.set.add("west");
+            model.list.add("qux");
+            model.map.put("qux", "qux");
+            model.eid = "3";
+            model.save();
 
-        assertThat(fooResult, hasSize(1));
-        assertThat(fooResult.get(0).one, equalTo(FOO));
+            //database.openConnection().admin().indices().prepareRefresh(database.getIndexName()).get();
+            database.commitTransaction(database.openConnection(), true);
+
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .where("_any matches ?", FOO)
+                    .sortRelevant(10.0, "one matches ?", FOO)
+                    .selectAll();
+
+            assertThat(fooResult, hasSize(2));
+
+            assertThat("check 0 and 1", fooResult.get(0).eid, is(equalTo("1")));
+            assertThat("check 1 and 2", fooResult.get(1).eid, is(equalTo("2")));
+        }
     }
 
     @Test
-    public void setMatches() {
-        Stream.of(FOO, "bar", "qux").forEach(string -> {
-            SearchElasticModel model = new SearchElasticModel();
-            model.one = FOO;
-            model.set.add(string);
-            model.list.add(FOO);
-            model.map.put(FOO, FOO);
-            model.save();
-        });
+    public void testSortString() throws Exception {
+        if (this.turnOff == false) {
 
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("set matches ?", FOO)
-                .selectAll();
+            Stream.of(FOO, "bar", "qux").forEach(string -> {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = string;
+                model.set.add(FOO);
+                model.save();
+            });
 
-        assertThat(fooResult, hasSize(1));
-        assertThat(fooResult.get(0).set, hasSize(1));
-        assertThat(fooResult.get(0).set.iterator().next(), equalTo(FOO));
-    }
+            database.commitTransaction(database.openConnection(), true);
 
-    @Test
-    public void listMatches() throws InterruptedException {
-        Stream.of(FOO, "bar", "qux").forEach(string -> {
-            SearchElasticModel model = new SearchElasticModel();
-            model.one = FOO;
-            model.set.add(FOO);
-            model.list.add(string);
-            model.map.put(FOO, FOO);
-            model.save();
-        });
+            List<SearchElasticModel> fooResult = Query
+                    .from(SearchElasticModel.class)
+                    .sortAscending("one")
+                    .selectAll();
 
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("list matches ?", FOO)
-                .selectAll();
-
-        assertThat(fooResult, hasSize(1));
-        assertThat(fooResult.get(0).list, hasSize(1));
-        assertThat(fooResult.get(0).list.get(0), equalTo(FOO));
-    }
-
-    @Test
-    public void mapMatches() {
-        Stream.of(FOO, "bar", "qux").forEach(string -> {
-            SearchElasticModel model = new SearchElasticModel();
-            model.one = FOO;
-            model.set.add(FOO);
-            model.list.add(FOO);
-            model.map.put(string, string);
-            model.save();
-        });
-
-        // note this is different from h2, but seems better since it is specific.
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("map.foo matches ?", FOO)
-                .selectAll();
-
-        assertThat("Size of result", fooResult, hasSize(1));
-        assertThat("checking size of map", fooResult.get(0).map.size(), equalTo(1));
-        assertThat("checking iterator", fooResult.get(0).map.values().iterator().next(), equalTo(FOO));
-    }
-
-    @Test
-    public void anyMatches() {
-        Stream.of(FOO, "bar", "qux").forEach(string -> {
-            SearchElasticModel model = new SearchElasticModel();
-            model.one = string;
-            model.set.add(FOO);
-            model.save();
-        });
-
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("_any matches ?", FOO)
-                .selectAll();
-
-        assertThat(fooResult, hasSize(3));
-    }
-
-    @Test
-    public void wildcard() {
-        Stream.of("f", "fo", "foo").forEach(string -> {
-            SearchElasticModel model = new SearchElasticModel();
-            model.one = string;
-            model.save();
-        });
-
-        assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "f*").count(), equalTo(3L));
-        assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "fo*").count(), equalTo(2L));
-        assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
-    }
-
-
-    @Test
-    public void sortRelevant() throws InterruptedException {
-        SearchElasticModel model = new SearchElasticModel();
-        model.one = "foo";
-        model.name = "qux";
-        model.set.add("qux");
-        model.list.add("qux");
-        model.map.put("qux", "qux");
-        model.eid = "1";
-        model.save();
-
-        model = new SearchElasticModel();
-        model.one = "west";
-        model.name = "west";
-        model.set.add("west");
-        model.list.add(FOO);
-        model.map.put("west", "west");
-        model.eid = "2";
-        model.save();
-
-        model = new SearchElasticModel();
-        model.one = "qux";
-        model.name = "west";
-        model.set.add("west");
-        model.list.add("qux");
-        model.map.put("qux", "qux");
-        model.eid = "3";
-        model.save();
-
-        database.openConnection().admin().indices().prepareRefresh(database.getIndexName()).get();
-        //Thread.sleep(1000);
-
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .where("_any matches ?", FOO)
-                .sortRelevant(10.0, "one matches ?", FOO)
-                .selectAll();
-
-        assertThat(fooResult, hasSize(2));
-
-        assertThat("check 0 and 1", fooResult.get(0).eid, is(equalTo("1")));
-        assertThat("check 1 and 2", fooResult.get(1).eid, is(equalTo("2")));
-    }
-
-    @Test
-    public void sortString() {
-        Stream.of(FOO, "bar", "qux").forEach(string -> {
-            SearchElasticModel model = new SearchElasticModel();
-            model.one = string;
-            model.set.add(FOO);
-            model.save();
-        });
-
-        List<SearchElasticModel> fooResult = Query
-                .from(SearchElasticModel.class)
-                .sortAscending("one")
-                .selectAll();
-
-        assertThat("check size", fooResult, hasSize(3));
-        assertThat("check 0 and 1 order", fooResult.get(0).one, lessThan(fooResult.get(1).one));
-        assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
+            assertThat("check size", fooResult, hasSize(3));
+            assertThat("check 0 and 1 order", fooResult.get(0).one, lessThan(fooResult.get(1).one));
+            assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
+        }
     }
 
 
@@ -411,6 +447,8 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
             search.name = "Bill";
             search.message = "Welcome";
             search.save();
+
+            database.commitTransaction(database.openConnection(), true);
 
             Query<SearchElasticModel> fooResult = Query
                     .from(SearchElasticModel.class)
@@ -429,7 +467,6 @@ public class ElasticsearchDatabaseTest extends AbstractTest {
                 assertEquals("Welcome", r.get(0).getMessage());
             }
         }
-
 
     }
 

@@ -1,68 +1,38 @@
 package com.psddev.dari.elasticsearch;
 
 import com.google.common.base.Preconditions;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 import com.psddev.dari.db.*;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
-import com.psddev.dari.util.gson.Gson;
-import com.psddev.dari.util.gson.JsonObject;
-import com.psddev.dari.util.gson.JsonParser;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
-import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 //import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
-import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
-import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilder;
-import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
-import org.elasticsearch.node.Node;
 //import org.elasticsearch.node.NodeBuilder;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.client.*;
-import org.elasticsearch.search.internal.InternalSearchHit;
 import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.lang.reflect.Constructor;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.text.DateFormat;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.randomFunction;
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
-import static org.elasticsearch.search.sort.SortBuilders.fieldSort;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
@@ -72,11 +42,17 @@ import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
+    public class Node {
+        public String hostname;
+        public int port;
+    }
+
     private static final String DATABASE_NAME = "elasticsearch";
     public static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
     public static final String CLUSTER_NAME_SUB_SETTING = "clusterName";
     public static final String CLUSTER_PORT_SUB_SETTING = "clusterPort";
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
+    public static final String SEARCH_TIMEOUT = "searchTimeout";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
 
     public static final String ID_FIELD = "_uid";  // special for aggregations
@@ -85,14 +61,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
-    private String indexName;
+    private List<Node> clusterNodes = new ArrayList<>();
+
     private String clusterName;
-    private int clusterPort;
-    private String clusterHostname;
+    private String indexName;
+
+    private int searchTimeout;
 
     private static final String name = "ElasticsearchDatabase";
 
-    //private transient Node node;
     private transient Settings nodeSettings;
     private transient TransportClient client;
 
@@ -117,7 +94,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return this.client;
         }
         try {
-            this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, clusterHostname, clusterPort);
+            this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, this.clusterNodes);
             return this.client;
         } catch (Exception error) {
             LOGGER.info(
@@ -162,9 +139,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             Preconditions.checkNotNull(indexName);
         }
 
+        String clusterTimeout = ObjectUtils.to(String.class, settings.get(SEARCH_TIMEOUT));
+
+        if (clusterTimeout == null) {
+            this.searchTimeout = 50000; //ms
+        } else {
+            this.searchTimeout = Integer.parseInt(clusterTimeout);
+        }
+
         this.clusterName = clusterName;
-        this.clusterPort = Integer.parseInt(clusterPort);
-        this.clusterHostname = clusterHostname;
+
+        Node n = new Node();
+        n.hostname = clusterHostname;
+        n.port = Integer.parseInt(clusterPort);
+
+        this.clusterNodes.add(n);
+
         this.indexName = indexName;
 
         this.nodeSettings = Settings.builder()
@@ -226,7 +216,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (typeIds.size() == 0) {
                 SearchRequestBuilder srb = client.prepareSearch(getIndexName())
                         .setFetchSource(!query.isReferenceOnly())
-                        .setTimeout(new TimeValue(5000))
+                        .setTimeout(new TimeValue(this.searchTimeout))
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
                         .setSize(limit);
@@ -507,8 +497,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     @Override
     protected void commitTransaction(TransportClient client, boolean isImmediate) throws Exception {
-        client.admin().indices().prepareRefresh(this.indexName).get();
+        if (client != null) {
+            if (isImmediate) {
+                client.admin().indices().prepareFlush(this.indexName).get();
+            }
+            client.admin().indices().prepareRefresh(this.indexName).get();
+        }
     }
+
 
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
