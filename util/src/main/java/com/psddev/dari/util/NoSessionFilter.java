@@ -52,6 +52,13 @@ public class NoSessionFilter extends AbstractFilter {
                     });
         }
 
+        // Make sure header response is wrapped as well.
+        ServletResponse headerResponse = JspUtils.getHeaderResponse(request, response);
+
+        if (headerResponse instanceof HttpServletResponse) {
+            JspUtils.setHeaderResponse(request, new StrippingResponse((HttpServletResponse) headerResponse));
+        }
+
         chain.doFilter(request, new StrippingResponse(response));
     }
 
