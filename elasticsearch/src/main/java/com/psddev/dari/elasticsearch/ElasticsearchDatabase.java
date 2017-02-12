@@ -195,7 +195,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
             HttpResponse response = httpClient.execute(getRequest);
-            String json = null;
+            String json;
             json = EntityUtils.toString(response.getEntity());
             JSONObject j = new JSONObject(json);
             if (j != null) {
@@ -211,6 +211,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
             }
         } catch (Exception e) {
+            LOGGER.warn("Warning: ELK cannot get version");
             e.printStackTrace();
         }
         return null;
@@ -223,16 +224,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
             HttpResponse response = httpClient.execute(getRequest);
-            String json = null;
+            String json;
             json = EntityUtils.toString(response.getEntity());
             JSONObject j = new JSONObject(json);
             if (j != null) {
                 if (j.get("cluster_name") != null) {
-                    String clusterName = j.getString("cluster_name");
-                    return clusterName;
+                    return j.getString("cluster_name");
                 }
             }
         } catch (Exception e) {
+            LOGGER.warn("Warning: ELK cannot get cluster_name");
             e.printStackTrace();
         }
         return null;
@@ -333,7 +334,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     private final Map<Query.MappedKey, String> specialFields; {
-        Map<Query.MappedKey, String> m = new HashMap<Query.MappedKey, String>();
+        Map<Query.MappedKey, String> m = new HashMap<>();
         m.put(Query.MappedKey.ID, ID_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ALL_FIELD);
@@ -393,7 +394,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     // list.add(new GeoDistanceSortBuilder("pin.location", new GeoPoint(40, -70));
                 } else if (Sorter.RELEVANT_OPERATOR.equals(operator)) {
                     list.add(new ScoreSortBuilder());
-                    Predicate sortPredicate = null;
+                    Predicate sortPredicate;
                     Object predicateObject = sorter.getOptions().get(1);
                     Object boostObject = sorter.getOptions().get(0);
                     String boostStr = boostObject.toString();
