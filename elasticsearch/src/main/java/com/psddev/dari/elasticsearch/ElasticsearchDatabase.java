@@ -86,8 +86,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private int searchTimeout;
 
-    private static final String name = "ELASTICSEARCHDATABASE";
-
     private transient Settings nodeSettings;
     private transient TransportClient client;
 
@@ -97,11 +95,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     public void setIndexName(String indexName) {
         this.indexName = indexName;
-    }
-
-    @Override
-    public String toString() {
-        return name;
     }
 
     @Override
