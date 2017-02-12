@@ -1,10 +1,8 @@
 package com.psddev.dari.elasticsearch;
 
 import org.apache.commons.io.FileUtils;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
-import org.elasticsearch.node.NodeValidationException;
 import org.elasticsearch.node.internal.InternalSettingsPreparer;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.transport.Netty4Plugin;
@@ -21,7 +19,7 @@ public class EmbeddedElasticsearchServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedElasticsearchServer.class);
     private static Node node = null;
 
-    public synchronized static void setup() {
+    public static synchronized void setup() {
 
         try {
             LOGGER.info("Setting up new ELK embedded node");
@@ -42,8 +40,6 @@ public class EmbeddedElasticsearchServer {
         } catch (Exception e) {
             LOGGER.info("EmbeddedElasticsearchServer cannot create embedded node");
         }
-
-
     }
 
     private static class MyNode extends Node {
@@ -52,12 +48,11 @@ public class EmbeddedElasticsearchServer {
         }
     }
 
-
     public static Node getNode() {
         return node;
     }
 
-    public synchronized static void shutdown() {
+    public static synchronized void shutdown() {
         try {
             node.close();
         } catch (Exception e) {

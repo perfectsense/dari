@@ -1,6 +1,5 @@
 package com.psddev.dari.elasticsearch;
 
-
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.settings.Settings;
@@ -10,10 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
-import java.util.*;
-
-
-
+import java.util.List;
 
 class ElasticsearchDatabaseConnection {
     private static TransportClient client = null;
@@ -28,19 +24,19 @@ class ElasticsearchDatabaseConnection {
         }
     }
 
-    public synchronized static void closeClient() {
+    public static synchronized void closeClient() {
         if (client != null) {
             client.close();
         }
     }
 
-    public synchronized static TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes){
+    public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes){
         if (nodeSettings == null) {
             LOGGER.warn("ELK openConnection Missing nodeSettings");
             nodeSettings = Settings.builder()
                     .put("client.transport.sniff", true).build();
         }
-        if (client==null) {
+        if (client == null) {
             try {
                 client = new PreBuiltTransportClient(nodeSettings);
                 for (ElasticsearchDatabase.Node n : nodes) {

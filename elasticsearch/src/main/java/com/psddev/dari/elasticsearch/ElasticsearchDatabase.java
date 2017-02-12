@@ -1,7 +1,16 @@
 package com.psddev.dari.elasticsearch;
 
 import com.google.common.base.Preconditions;
-import com.psddev.dari.db.*;
+import com.psddev.dari.db.AbstractDatabase;
+import com.psddev.dari.db.ComparisonPredicate;
+import com.psddev.dari.db.CompoundPredicate;
+import com.psddev.dari.db.Predicate;
+import com.psddev.dari.db.PredicateParser;
+import com.psddev.dari.db.Query;
+import com.psddev.dari.db.Sorter;
+import com.psddev.dari.db.State;
+import com.psddev.dari.db.UnsupportedIndexException;
+import com.psddev.dari.db.UnsupportedPredicateException;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import org.apache.http.HttpResponse;
@@ -14,7 +23,6 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
-//import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.settings.Settings;
@@ -23,7 +31,6 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
-//import org.elasticsearch.node.NodeBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -33,16 +40,20 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.randomFunction;
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
-
 
 //Note: http://elasticsearch-users.115913.n3.nabble.com/What-is-your-best-practice-to-access-a-cluster-by-a-Java-client-td4015311.html
 // Decided to implement a Singleton
@@ -92,7 +103,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public String toString() {
         return name;
     }
-
 
     @Override
     public TransportClient openConnection() {
@@ -206,7 +216,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         return version;
                     }
                 }
-
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -314,9 +323,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             error.getClass().getName(),
                             error.getMessage()),
                     error);
-        } /* finally {
-            closeConnection(client);
-        } */
+        }
         return new PaginatedResult<>(offset, limit, 0, items);
     }
 
@@ -403,22 +410,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         sortPredicate = (Predicate) predicateObject;
                         FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = {
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                                       // matchQuery("one", "foo"),
                                         predicateToQueryBuilder(sortPredicate),
                                         weightFactorFunction(boost))
                         };
-
 
                         QueryBuilder qb = QueryBuilders.functionScoreQuery(orig,functions)
                                 .boostMode(CombineFunction.MULTIPLY)
                                 .boost(boost)
                                 .maxBoost(1000.0f);
                         srb.setQuery(qb);
-
                     }
                 }
             }
-
         }
         return list;
 
@@ -429,7 +432,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public <T> List<T> readAll(Query<T> query) {
         return readPartial(query, 0L, 1000).getItems();
     }
-
 
     // Used to convert the query to ELK
     private QueryBuilder predicateToQueryBuilder(Predicate predicate) {
@@ -548,8 +550,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } finally {
             closeConnection(client);
         }
-
-
     }
 
     @Override
@@ -610,7 +610,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     }
                 }
-
             }
             LOGGER.info("ELK Writing [{}]", bulk.request().requests().toString());
             bulk.execute().actionGet();
