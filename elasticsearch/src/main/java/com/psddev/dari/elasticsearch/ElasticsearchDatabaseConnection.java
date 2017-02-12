@@ -28,6 +28,12 @@ class ElasticsearchDatabaseConnection {
         }
     }
 
+    public synchronized static void closeClient() {
+        if (client != null) {
+            client.close();
+        }
+    }
+
     public synchronized static TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes){
         if (nodeSettings == null) {
             LOGGER.warn("ELK openConnection Missing nodeSettings");

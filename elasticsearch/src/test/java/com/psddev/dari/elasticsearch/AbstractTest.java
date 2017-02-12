@@ -1,19 +1,14 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.util.Settings;
-import com.zaxxer.hikari.HikariDataSource;
-import javafx.scene.NodeBuilder;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
-import org.json.JSONObject;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.slf4j.Logger;
@@ -22,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertEquals;
@@ -36,15 +30,12 @@ public abstract class AbstractTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTest.class);
 
-    private String nodeHost = "";
 
-    private EmbeddedElasticsearchServer embeddedElasticsearchServer = null;
-
-
-    public void deleteIndex(String index) {
+    public static void deleteIndex(String index, String nodeHost) {
+        LOGGER.info("Deleting Index " + index);
         try {
             HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpDelete delete = new HttpDelete(this.nodeHost + index);
+            HttpDelete delete = new HttpDelete(nodeHost + index);
             delete.addHeader("accept", "application/json");
             HttpResponse response = httpClient.execute(delete);
             String json = EntityUtils.toString(response.getEntity());
@@ -57,7 +48,8 @@ public abstract class AbstractTest {
         }
     }
 
-    public void createIndexandMapping(String index) {
+    public static void createIndexandMapping(String index, String nodeHost) {
+        LOGGER.info("Mapping Index " + index);
         try {
             String json = "{\n" +
                     "  \"mappings\": {\n" +
@@ -91,7 +83,7 @@ public abstract class AbstractTest {
                     "  }\n" +
                     "}";
             HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpPut put = new HttpPut(this.nodeHost + index);
+            HttpPut put = new HttpPut(nodeHost + index);
             put.addHeader("accept", "application/json");
             StringEntity input = new StringEntity(json);
             put.setEntity(input);
@@ -112,9 +104,9 @@ public abstract class AbstractTest {
         }
     }
 
-    private void setNodeSettings() {
+    private static String getNodeHost() {
         String host = (String) Settings.get("dari/database/elasticsearch/clusterHostname");
-        this.nodeHost = "http://" + host + ":9200/";
+        return "http://" + host + ":9200/";
     }
 
     public static Map<String, Object> getDatabaseSettings() {
@@ -127,36 +119,13 @@ public abstract class AbstractTest {
     }
 
     public void before() {
-        // need to deleteIndex and Map it!
-        setNodeSettings();
-        ElasticsearchDatabase e = new ElasticsearchDatabase();
-        String clusterName = e.getClusterName(this.nodeHost);
+        String nodeHost = getNodeHost();
+        String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
         Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName", clusterName);
         assertThat(clusterName, notNullValue());
-        String version = e.getVersion(this.nodeHost);
+        String version = ElasticsearchDatabase.getVersion(nodeHost);
         assertEquals(version.substring(0, 2), "5.");
-        // you must delete and set map for this all to work, 2nd run we can leave it.
-        deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"));
-        createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"));
     }
-
-    @Before
-    public void startEmbeddedElasticsearchServer() {
-        // check to see if you have a node already spun up locally, if not start embedded one
-        setNodeSettings();
-        ElasticsearchDatabase e = new ElasticsearchDatabase();
-        String clusterName = e.getClusterName(this.nodeHost);
-        if (clusterName == null) {
-            embeddedElasticsearchServer = new EmbeddedElasticsearchServer();
-        }
-    }
-
-    @After
-    public void shutdownEmbeddedElasticsearchServer() {
-        if (embeddedElasticsearchServer != null)
-        embeddedElasticsearchServer.shutdown();
-    }
-
 
 
     @BeforeClass
@@ -167,5 +136,16 @@ public abstract class AbstractTest {
         Settings.setOverride(SETTING_KEY_PREFIX + "indexName", "index1");
         Settings.setOverride(SETTING_KEY_PREFIX + "clusterPort", "9300");
         Settings.setOverride(SETTING_KEY_PREFIX + "clusterHostname", "localhost");
+        String nodeHost = getNodeHost();
+        // see if there is one.
+        String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
+        if (clusterName == null) {
+            // ok create embedded
+            EmbeddedElasticsearchServer.setup();
+            clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
+        }
+        Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", clusterName);
+        deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"), nodeHost);
+        createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"), nodeHost);
     }
 }

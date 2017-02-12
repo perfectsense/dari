@@ -5,6 +5,7 @@ import com.psddev.dari.db.Query;
 import com.psddev.dari.db.Record;
 import com.psddev.dari.db.Recordable;
 import com.psddev.dari.util.Settings;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -24,15 +25,8 @@ public class ElasticTypeTest extends AbstractTest {
 
     private ElasticsearchDatabase database;
 
-    @Before
-    public void before()  {
-        super.before();
-        this.database = new ElasticsearchDatabase();
-        database.initialize("", getDatabaseSettings());
-        try {
-            database.commitTransaction(database.openConnection(), true);
-        } catch (Exception error) {
-        }
+    @BeforeClass
+    public static void createModels()  {
         IntStream.range(0, 5).forEach(i -> new Foo().save());
         IntStream.range(0, 10).forEach(i -> new Bar().save());
         IntStream.range(0, 20).forEach(i -> new Qux().save());

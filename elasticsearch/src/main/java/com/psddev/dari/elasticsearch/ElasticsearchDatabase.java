@@ -185,7 +185,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
-    public String getVersion(String nodeHost) {
+    public static String getVersion(String nodeHost) {
         try {
             HttpClient httpClient = HttpClientBuilder.create().build();
 
@@ -214,7 +214,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
-    public String getClusterName(String nodeHost) {
+    public static String getClusterName(String nodeHost) {
         try {
             HttpClient httpClient = HttpClientBuilder.create().build();
 

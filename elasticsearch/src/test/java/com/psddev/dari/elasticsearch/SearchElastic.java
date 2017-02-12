@@ -43,22 +43,21 @@ public class SearchElastic extends AbstractTest {
 
     private ElasticsearchDatabase database;
 
-
     @Before
     public void before() {
-        super.before();
+
         this.database = new ElasticsearchDatabase();
         database.initialize("", getDatabaseSettings());
-        try {
-            database.commitTransaction(database.openConnection(), true);
-        } catch (Exception error) {
-            // ok if this fails.
-        }
     }
 
     @After
     public void deleteModels() {
         Query.from(SearchElasticModel.class).deleteAll();
+        try {
+            database.commitTransaction(database.openConnection(), true);
+        } catch (Exception error) {
+            LOGGER.info("commit @After failed");
+        }
     }
 
 
@@ -279,7 +278,6 @@ public class SearchElastic extends AbstractTest {
 
     @Test
     public void testQueryExtension() throws Exception {
-        assertEquals(database.isAlive(), true);
         SearchElasticModel search = new SearchElasticModel();
         search.eid = "111111";
         search.name = "Bill";

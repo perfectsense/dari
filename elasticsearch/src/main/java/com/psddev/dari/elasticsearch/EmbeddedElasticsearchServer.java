@@ -19,32 +19,30 @@ public class EmbeddedElasticsearchServer {
 
     private static final String DEFAULT_DATA_DIRECTORY = "elasticsearch-data";
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedElasticsearchServer.class);
+    private static Node node = null;
 
-    private Node node;
-    private final String dataDirectory;
-
-    public EmbeddedElasticsearchServer() {
-        this(DEFAULT_DATA_DIRECTORY);
-    }
-
-    public EmbeddedElasticsearchServer(String dataDirectory) {
-        this.dataDirectory = dataDirectory;
+    public synchronized static void setup() {
 
         try {
+            LOGGER.info("Setting up new ELK embedded node");
             Node node = new MyNode(
                     Settings.builder()
                             .put("transport.type", "netty4")
                             .put("http.type", "netty4")
+                            .put("cluster.name", "elasticdari")
                             .put("http.enabled", "true")
                             .put("path.home", DEFAULT_DATA_DIRECTORY)
                             .build(),
                     java.util.Arrays.asList(Netty4Plugin.class));
 
             node.start();
-            this.node = node;
+            node.client().admin().cluster().prepareHealth()
+                    .setWaitForYellowStatus()
+                    .get();
         } catch (Exception e) {
             LOGGER.info("EmbeddedElasticsearchServer cannot create embedded node");
         }
+
 
     }
 
@@ -55,11 +53,11 @@ public class EmbeddedElasticsearchServer {
     }
 
 
-    public Client getClient() {
-        return node.client();
+    public static Node getNode() {
+        return node;
     }
 
-    public void shutdown() {
+    public synchronized static void shutdown() {
         try {
             node.close();
         } catch (Exception e) {
@@ -68,9 +66,9 @@ public class EmbeddedElasticsearchServer {
         deleteDataDirectory();
     }
 
-    private void deleteDataDirectory() {
+    private static void deleteDataDirectory() {
         try {
-            FileUtils.deleteDirectory(new File(dataDirectory));
+            FileUtils.deleteDirectory(new File(DEFAULT_DATA_DIRECTORY));
         } catch (IOException e) {
             throw new RuntimeException("Could not delete data directory of embedded elasticsearch server", e);
         }
