@@ -86,7 +86,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private int searchTimeout;
 
-    private static final String name = "ElasticsearchDatabase";
+    private static final String name = "ELASTICSEARCHDATABASE";
 
     private transient Settings nodeSettings;
     private transient TransportClient client;
@@ -339,7 +339,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return swapObjectType(query, object);
     }
 
-
     private final Map<Query.MappedKey, String> specialFields; {
         Map<Query.MappedKey, String> m = new HashMap<Query.MappedKey, String>();
         m.put(Query.MappedKey.ID, ID_FIELD);
@@ -414,7 +413,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         weightFactorFunction(boost))
                         };
 
-                        QueryBuilder qb = QueryBuilders.functionScoreQuery(orig,functions)
+                        QueryBuilder qb = QueryBuilders.functionScoreQuery(orig, functions)
                                 .boostMode(CombineFunction.MULTIPLY)
                                 .boost(boost)
                                 .maxBoost(1000.0f);
@@ -530,7 +529,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
-
     public void saveJson(String json, String typeId, String id) {
 
         TransportClient client = openConnection();
@@ -561,7 +559,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             client.admin().indices().prepareRefresh(this.indexName).get();
         }
     }
-
 
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {

@@ -17,11 +17,7 @@ class ElasticsearchDatabaseConnection {
 
     public static boolean isAlive(TransportClient client) {
         List<DiscoveryNode> nodes = client.connectedNodes();
-        if (nodes.isEmpty()) {
-            return false;
-        } else {
-            return true;
-        }
+        return !nodes.isEmpty();
     }
 
     public static synchronized void closeClient() {
@@ -30,7 +26,7 @@ class ElasticsearchDatabaseConnection {
         }
     }
 
-    public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes){
+    public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes) {
         if (nodeSettings == null) {
             LOGGER.warn("ELK openConnection Missing nodeSettings");
             nodeSettings = Settings.builder()
