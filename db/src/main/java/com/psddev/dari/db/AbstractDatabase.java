@@ -1169,9 +1169,7 @@ public abstract class AbstractDatabase<C> implements Database {
                                 duplicateQuery.and(indexPrefix + fields.get(j) + " = ?", values[j]);
                             }
 
-                            // WNB very strange. This will not work in ES
-                            // Might want to split these up > fields have a hard time with "."
-
+                            // TODO: WNB very strange \0. This will not work in ES. Might want to split these up > fields have a hard time with "."
 
                             Object duplicate = duplicateQuery.first();
 

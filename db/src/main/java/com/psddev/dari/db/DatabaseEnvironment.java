@@ -265,7 +265,7 @@ public class DatabaseEnvironment implements ObjectStruct {
 
             // Load all types from the database first.
             int typesSize = 0;
-            for (Object t: types) {
+            for (Object t : types) {
                 if (t instanceof ObjectType) {
                     ObjectType type = (ObjectType) t;
                     type.getFields().size(); // Pre-fetch.
