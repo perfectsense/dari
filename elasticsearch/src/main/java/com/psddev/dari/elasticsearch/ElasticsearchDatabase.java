@@ -4,6 +4,11 @@ import com.google.common.base.Preconditions;
 import com.psddev.dari.db.*;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -24,9 +29,11 @@ import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -176,6 +183,57 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
         return false;
+    }
+
+    public String getVersion(String nodeHost) {
+        try {
+            HttpClient httpClient = HttpClientBuilder.create().build();
+
+            HttpGet getRequest = new HttpGet(nodeHost);
+            getRequest.addHeader("accept", "application/json");
+            HttpResponse response = httpClient.execute(getRequest);
+            String json = null;
+            json = EntityUtils.toString(response.getEntity());
+            JSONObject j = new JSONObject(json);
+            if (j != null) {
+                if (j.get("version") != null) {
+                    if (j.getJSONObject("version") != null) {
+                        JSONObject jo = j.getJSONObject("version");
+                        String version = jo.getString("number");
+                        if (!version.equals("5.2.0")) {
+                            LOGGER.warn("Warning: ELK {} version is not 5.2.0", version);
+                        }
+                        return version;
+                    }
+                }
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public String getClusterName(String nodeHost) {
+        try {
+            HttpClient httpClient = HttpClientBuilder.create().build();
+
+            HttpGet getRequest = new HttpGet(nodeHost);
+            getRequest.addHeader("accept", "application/json");
+            HttpResponse response = httpClient.execute(getRequest);
+            String json = null;
+            json = EntityUtils.toString(response.getEntity());
+            JSONObject j = new JSONObject(json);
+            if (j != null) {
+                if (j.get("cluster_name") != null) {
+                    String clusterName = j.getString("cluster_name");
+                    return clusterName;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public boolean isAlive() {

@@ -25,10 +25,14 @@ public class ElasticTypeTest extends AbstractTest {
     private ElasticsearchDatabase database;
 
     @Before
-    public void before() {
+    public void before()  {
         super.before();
         this.database = new ElasticsearchDatabase();
         database.initialize("", getDatabaseSettings());
+        try {
+            database.commitTransaction(database.openConnection(), true);
+        } catch (Exception error) {
+        }
         IntStream.range(0, 5).forEach(i -> new Foo().save());
         IntStream.range(0, 10).forEach(i -> new Bar().save());
         IntStream.range(0, 20).forEach(i -> new Qux().save());

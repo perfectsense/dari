@@ -2,6 +2,7 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.util.Settings;
 import com.zaxxer.hikari.HikariDataSource;
+import javafx.scene.NodeBuilder;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -12,6 +13,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.slf4j.Logger;
@@ -34,9 +36,9 @@ public abstract class AbstractTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTest.class);
 
-    public boolean turnOff = false;
-
     private String nodeHost = "";
+
+    private EmbeddedElasticsearchServer embeddedElasticsearchServer = null;
 
 
     public void deleteIndex(String index) {
@@ -124,56 +126,35 @@ public abstract class AbstractTest {
         return settings;
     }
 
-
     public void before() {
+        // need to deleteIndex and Map it!
+        setNodeSettings();
+        ElasticsearchDatabase e = new ElasticsearchDatabase();
+        String clusterName = e.getClusterName(this.nodeHost);
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName", clusterName);
+        assertThat(clusterName, notNullValue());
+        String version = e.getVersion(this.nodeHost);
+        assertEquals(version.substring(0, 2), "5.");
+        // you must delete and set map for this all to work, 2nd run we can leave it.
+        deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"));
+        createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"));
+    }
 
-        try {
-            setNodeSettings();
-            HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpGet getRequest = new HttpGet(this.nodeHost);
-            getRequest.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(getRequest);
-            String json = EntityUtils.toString(response.getEntity());
-            JSONObject j = new JSONObject(json);
-            assertThat(j, notNullValue());
-            if (j != null) {
-                assertThat(j.get("cluster_name"), notNullValue());
-                if (j.get("cluster_name") != null) {
-                    String clusterName = j.getString("cluster_name");
-                    Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName", clusterName);
-                }
-                assertThat(j.get("cluster_name"), notNullValue());
-                if (j.get("version") != null) {
-                    if (j.getJSONObject("version") != null) {
-                        JSONObject jo = j.getJSONObject("version");
-                        String version = jo.getString("number");
-                        if (!version.equals("5.2.0")) {
-                            LOGGER.warn("Warning: ELK {} version is not 5.2.0", version);
-                        }
-                        assertEquals(version.substring(0, 2), "5.");
-                    }
-                }
-                // you must delete and set map for this all to work, 2nd run we can leave it.
-                deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"));
-                createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"));
-
-            }
-        } catch (java.net.ConnectException e) {
-            this.turnOff = true;
-            LOGGER.info("ELK is not able to connect turning off tests for ELK. nodeHost {}", this.nodeHost);
-        } catch (ClientProtocolException e) {
-            this.turnOff = true;
-            e.printStackTrace();
-            assertTrue("ClientProtocolException", 1==0);
-        } catch (IOException e) {
-            this.turnOff = true;
-            e.printStackTrace();
-            assertTrue("IOException", 1==0);
-        } catch (org.json.JSONException e) {
-            this.turnOff = true;
-            e.printStackTrace();
-            assertTrue("JSONException", 1==0);
+    @Before
+    public void startEmbeddedElasticsearchServer() {
+        // check to see if you have a node already spun up locally, if not start embedded one
+        setNodeSettings();
+        ElasticsearchDatabase e = new ElasticsearchDatabase();
+        String clusterName = e.getClusterName(this.nodeHost);
+        if (clusterName == null) {
+            embeddedElasticsearchServer = new EmbeddedElasticsearchServer();
         }
+    }
+
+    @After
+    public void shutdownEmbeddedElasticsearchServer() {
+        if (embeddedElasticsearchServer != null)
+        embeddedElasticsearchServer.shutdown();
     }
 
 
