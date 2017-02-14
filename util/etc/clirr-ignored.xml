@@ -4,21 +4,25 @@
     <difference>
         <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
         <differenceType>6011</differenceType>
+        <field>TYPE_NAME_SUB_SETTING*</field>
     </difference>
 
     <difference>
         <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
         <differenceType>7005</differenceType>
+        <method>*</method>
     </difference>
 
     <difference>
         <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
         <differenceType>7002</differenceType>
+        <method>*</method>
     </difference>
 
     <difference>
         <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
         <differenceType>7006</differenceType>
+        <method>*</method>
     </difference>
 
     <difference>
