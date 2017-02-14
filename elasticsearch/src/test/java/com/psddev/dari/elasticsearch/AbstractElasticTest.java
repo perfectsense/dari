@@ -9,7 +9,6 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,12 +22,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
-public abstract class AbstractTest {
+public abstract class AbstractElasticTest {
 
     private static final String DATABASE_NAME = "elasticsearch";
     private static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractElasticTest.class);
 
 
     public static void deleteIndex(String index, String nodeHost) {
@@ -55,6 +54,15 @@ public abstract class AbstractTest {
                     "  \"mappings\": {\n" +
                     "    \"_default_\": {\n" +
                     "      \"dynamic_templates\": [\n" +
+                    "        {\n" +
+                    "          \"locationgeo\": {\n" +
+                    "            \"match\": \"_location\",\n" +
+                    "            \"match_mapping_type\": \"string\",\n" +
+                    "            \"mapping\": {\n" +
+                    "              \"type\": \"geo_point\"\n" +
+                    "            }\n" +
+                    "          }\n" +
+                    "        },\n" +
                     "        {\n" +
                     "          \"int_template\": {\n" +
                     "            \"match\": \"_*\",\n" +
@@ -137,13 +145,11 @@ public abstract class AbstractTest {
         Settings.setOverride(SETTING_KEY_PREFIX + "clusterPort", "9300");
         Settings.setOverride(SETTING_KEY_PREFIX + "clusterHostname", "localhost");
         String nodeHost = getNodeHost();
-        // see if there is one.
-        String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
-        if (clusterName == null) {
-            // ok create embedded
+        if (ElasticsearchDatabase.checkAlive(nodeHost) == false) {
+            // ok create embedded since it is not already running for test
             EmbeddedElasticsearchServer.setup();
-            clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
         }
+        String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
         Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", clusterName);
         deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"), nodeHost);
         createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"), nodeHost);

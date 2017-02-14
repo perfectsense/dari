@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.psddev.dari.db.AbstractDatabase;
 import com.psddev.dari.db.ComparisonPredicate;
 import com.psddev.dari.db.CompoundPredicate;
+import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Predicate;
 import com.psddev.dari.db.PredicateParser;
 import com.psddev.dari.db.Query;
@@ -24,6 +25,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.common.geo.GeoPoint;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -34,8 +36,10 @@ import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,6 +59,7 @@ import java.util.function.Function;
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
+
 
 //Note: http://elasticsearch-users.115913.n3.nabble.com/What-is-your-best-practice-to-access-a-cluster-by-a-Java-client-td4015311.html
 // Decided to implement a Singleton
@@ -239,6 +245,28 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    public static boolean checkAlive(String nodeHost) {
+        try {
+            HttpClient httpClient = HttpClientBuilder.create().build();
+
+            HttpGet getRequest = new HttpGet(nodeHost);
+            getRequest.addHeader("accept", "application/json");
+            HttpResponse response = httpClient.execute(getRequest);
+            String json;
+            json = EntityUtils.toString(response.getEntity());
+            JSONObject j = new JSONObject(json);
+            if (j != null) {
+                if (j.get("cluster_name") != null) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Warning: ELK is not already running");
+        }
+        return false;
+    }
+
+
     public boolean isAlive() {
         TransportClient client = openConnection();
         if (client != null) {
@@ -262,7 +290,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
         List<T> items = new ArrayList<>();
 
-        try {
+        //try {
             Set<UUID> typeIds = query.getConcreteTypeIds(this);
 
             if (query.getGroup() != null && typeIds.size() == 0) {
@@ -296,7 +324,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb)) {
                     srb.addSort(sb);
                 }
-                LOGGER.info("ELK srb [{}]",  srb.toString());
+                LOGGER.info("ELK srb typeIds [{}] - [{}]",  typeIdStrings, srb.toString());
                 response = srb.execute().actionGet();
             }
             SearchHits hits = response.getHits();
@@ -311,14 +339,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             PaginatedResult<T> p = new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
             return p;
-        } catch (Exception error) {
+    /*     } catch (Exception error) {
             LOGGER.info(
                     String.format("ELK PaginatedResult readPartial Exception [%s: %s]",
                             error.getClass().getName(),
                             error.getMessage()),
                     error);
-        }
-        return new PaginatedResult<>(offset, limit, 0, items);
+            throw error;
+        } */
+        //if certain errors: return new PaginatedResult<>(offset, limit, 0, items);
     }
 
     private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query) {
@@ -386,12 +415,27 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 } else if (Sorter.OLDEST_OPERATOR.equals(operator) || Sorter.NEWEST_OPERATOR.equals(operator)) {
                     // OLDEST_OPERATOR, NEWEST_OPERATOR -- date ones
                 } else if (Sorter.FARTHEST_OPERATOR.equals(operator) || Sorter.CLOSEST_OPERATOR.equals(operator)) {
-                    // FARTHEST_OPERATOR, CLOSEST_OPERATOR --  new GeoDistanceSortBuilder()
-                    /* SortBuilders.geoDistanceSort(sortOnField)
-                                    .order(order)
-                                    .point(ORIGIN_LAT, ORIGIN_LON)
-                                    .unit("km") */
-                    // list.add(new GeoDistanceSortBuilder("pin.location", new GeoPoint(40, -70));
+                    if (sorter.getOptions().size() < 2) {
+                        throw new IllegalArgumentException(operator + "requires Location");
+                    }
+                    boolean isClosest = Sorter.CLOSEST_OPERATOR.equals(operator);
+                    String queryKey = (String) sorter.getOptions().get(0);
+                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
+                    String elkField = specialFields.get(mappedKey);
+                    if (elkField == null) {
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType != null) {
+                            if (internalType.equals("location")) {
+                                elkField = queryKey + "._location";
+                            }
+                        }
+                    }
+                    if (!(sorter.getOptions().get(1) instanceof Location)) {
+                        throw new IllegalArgumentException(operator + "requires Location");
+                    }
+                    Location sort = (Location) sorter.getOptions().get(1);
+                    list.add(new GeoDistanceSortBuilder(elkField, new GeoPoint(sort.getX(), sort.getY()))
+                            .order(isClosest ? SortOrder.ASC : SortOrder.DESC));
                 } else if (Sorter.RELEVANT_OPERATOR.equals(operator)) {
                     list.add(new ScoreSortBuilder());
                     Predicate sortPredicate;
@@ -456,24 +500,59 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             switch (comparison.getOperator()) {
                 case PredicateParser.EQUALS_ANY_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(PredicateParser.EQUALS_ANY_OPERATOR + "requires value");
+                        }
+                    }
                     return combine(values, BoolQueryBuilder::should, v -> QueryBuilders.termQuery(key, v));
 
                 case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(PredicateParser.NOT_EQUALS_ALL_OPERATOR + "requires value");
+                        }
+                    }
                     return combine(values, BoolQueryBuilder::mustNot, v -> QueryBuilders.termQuery(key, v));
 
                 case PredicateParser.LESS_THAN_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OPERATOR + "requires value");
+                        }
+                    }
                     return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lt(v));
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR + "requires value");
+                        }
+                    }
                     return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lte(v));
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OPERATOR + "requires value");
+                        }
+                    }
                     return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gt(v));
 
                 case PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR + "requires value");
+                        }
+                    }
                     return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gte(v));
 
                 case PredicateParser.STARTS_WITH_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(PredicateParser.STARTS_WITH_OPERATOR + "requires value");
+                        }
+                    }
                     return combine(values, BoolQueryBuilder::should, v -> QueryBuilders.prefixQuery(key, v.toString()));
 
                 case PredicateParser.CONTAINS_OPERATOR :
@@ -515,10 +594,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         if (builder.hasClauses()) {
-            LOGGER.info("ELK combine predicate [{}]", builder.toString());
+            //LOGGER.info("ELK combine predicate [{}]", builder.toString());
             return builder;
         } else {
-            LOGGER.info("ELK combine predicate default [{}]", QueryBuilders.matchAllQuery());
+            //LOGGER.info("ELK combine predicate default [{}]", QueryBuilders.matchAllQuery());
             return QueryBuilders.matchAllQuery();
         }
     }
@@ -536,7 +615,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setSource(json));
             BulkResponse bulkResponse = bulk.get();
             if (bulkResponse.hasFailures()) {
-                LOGGER.info("ELK saveJson Save Json not working");
+                LOGGER.info("ELK saveJson Save Json hasFailures()");
             }
 
         } finally {
@@ -554,6 +633,41 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static void convertLocationToName(Map<String, Object> map, String name) {
+
+        Iterator<Map.Entry<String, Object>> it = map.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, Object> pair = it.next();
+            String key = pair.getKey();
+            Object value = pair.getValue();
+
+            if (value instanceof Map) {
+                Map<String, Object> valueMap = (Map<String, Object>) value;
+                if (valueMap.size() == 2) {
+                    if (valueMap.get("x") != null && valueMap.get("y") != null) {
+                        valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y") );
+                    }
+                }
+                convertLocationToName((Map<String, Object>) value, name);
+
+            } else if (value instanceof List) {
+                for (Object item : (List<?>) value) {
+                    if (item instanceof Map) {
+                        Map<String, Object> valueMap = (Map<String, Object>) item;
+                        if (valueMap.size() == 2) {
+                            if (valueMap.get("x") != null && valueMap.get("y") != null) {
+                                valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y") );
+                            }
+                        }
+                        convertLocationToName((Map<String, Object>) item, name);
+                    }
+                }
+            }
+        }
+    }
+
+
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
         try {
@@ -563,17 +677,21 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (saves != null) {
                     for (State state : saves) {
-                        LOGGER.info("ELK doWrites saving _id [{}] and _type [{}]",
-                                state.getId().toString(),
-                                state.getTypeId().toString());
                         try {
-                            // before saving might want to theck if there
+                            String documentType = state.getTypeId().toString();
+                            String documentId = state.getId().toString();
+
                             Map<String, Object> t = state.getSimpleValues();
                             t.remove("_id");
                             t.remove("_type");
-                            bulk.add(client
-                                    .prepareIndex(indexName, state.getTypeId().toString(), state.getId().toString())
-                                    .setSource(t));
+                            LOGGER.info("ELK doWrites saving _type [{}] and _id [{}]",
+                                    documentType, documentId);
+
+                            convertLocationToName(t, "_location");
+
+                            LOGGER.info("ELK doWrites saving _type [{}] and _id [{}] = [{}]",
+                                    documentType, documentId, t.toString());
+                            bulk.add(client.prepareIndex(indexName, documentType, documentId).setSource(t));
                         } catch (Exception error) {
                             LOGGER.info(
                                     String.format("ELK doWrites saves Exception [%s: %s]",
@@ -586,9 +704,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (deletes != null) {
                 for (State state : deletes) {
-                    LOGGER.info("ELK doWrites deleting _id [{}] and _type [{}]",
-                            state.getId().toString(),
-                            state.getTypeId().toString());
+                    LOGGER.info("ELK doWrites deleting _type [{}] and _id [{}]",
+                            state.getId().toString(), state.getTypeId().toString());
                     try {
                         bulk.add(client
                                 .prepareDelete(indexName, state.getTypeId().toString(), state.getId().toString()));

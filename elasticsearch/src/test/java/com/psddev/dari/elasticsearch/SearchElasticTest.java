@@ -1,43 +1,18 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Query;
-import com.psddev.dari.util.Settings;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.BasicHttpEntity;
-import org.apache.http.entity.StringEntity;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
-
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
-
-import java.util.*;
-import com.psddev.dari.util.PaginatedResult;
-import org.apache.http.util.EntityUtils;
-import org.junit.*;
-
-import static com.psddev.dari.db.Database.DEFAULT_DATABASE_SETTING;
-import static org.junit.Assert.*;
-import org.json.JSONObject;
-import java.io.IOException;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SearchElastic extends AbstractTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SearchElastic.class);
+public class SearchElasticTest extends AbstractElasticTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SearchElasticTest.class);
 
     private static final String FOO = "foo";
 

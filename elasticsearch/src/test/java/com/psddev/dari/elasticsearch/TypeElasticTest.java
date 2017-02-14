@@ -4,14 +4,9 @@ package com.psddev.dari.elasticsearch;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.Record;
 import com.psddev.dari.db.Recordable;
-import com.psddev.dari.util.Settings;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.stream.IntStream;
 
 import static org.hamcrest.Matchers.everyItem;
@@ -21,7 +16,7 @@ import static org.junit.Assert.assertThat;
 
 
 
-public class ElasticTypeTest extends AbstractTest {
+public class TypeElasticTest extends AbstractElasticTest {
 
     private ElasticsearchDatabase database;
 
