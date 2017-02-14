@@ -60,7 +60,6 @@ import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
-
 //Note: http://elasticsearch-users.115913.n3.nabble.com/What-is-your-best-practice-to-access-a-cluster-by-a-Java-client-td4015311.html
 // Decided to implement a Singleton
 
@@ -265,7 +264,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
         return false;
     }
-
 
     public boolean isAlive() {
         TransportClient client = openConnection();
@@ -646,7 +644,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 Map<String, Object> valueMap = (Map<String, Object>) value;
                 if (valueMap.size() == 2) {
                     if (valueMap.get("x") != null && valueMap.get("y") != null) {
-                        valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y") );
+                        valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y"));
                     }
                 }
                 convertLocationToName((Map<String, Object>) value, name);
@@ -657,7 +655,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         Map<String, Object> valueMap = (Map<String, Object>) item;
                         if (valueMap.size() == 2) {
                             if (valueMap.get("x") != null && valueMap.get("y") != null) {
-                                valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y") );
+                                valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y"));
                             }
                         }
                         convertLocationToName((Map<String, Object>) item, name);
@@ -666,7 +664,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
     }
-
 
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
