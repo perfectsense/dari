@@ -62,26 +62,29 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(total - count, field + " != missing");
     }
 
-//    @Test
-//    public void missingOne() {
-//        model().create();
-//        model().one(value(0)).create();
-//        assertMissing("one", 1L);
-//    }
+    @Test
+    public void missingOne() {
+        model().create();
+        model().create();
+        model().one(value(0)).create();
+        assertMissing("one", 2L);
+    }
 
-//    @Test
-//    public void missingSet() {
-//        model().create();
-//        model().set(value(0)).create();
-//        assertMissing("set", 1L);
-//    }
+    @Test
+    public void missingSet() {
+        model().create();
+        model().create();
+        model().set(value(0)).create();
+        assertMissing("set", 2L);
+    }
 
-//    @Test
-//    public void missingList() {
-//        model().create();
-//        model().list(value(0)).create();
-//        assertMissing("list", 1L);
-//    }
+    @Test
+    public void missingList() {
+        model().create();
+        model().create();
+        model().list(value(0)).create();
+        assertMissing("list", 2L);
+    }
 
 //    @Test
 //    public void missingReferenceOne() {
@@ -113,35 +116,45 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
 //        assertCount(1L, "referenceList/list != missing");
 //    }
 
-//    @Test
-//    public void missingEmbeddedOne() {
-//        model().embeddedOne(model()).create();
-//        assertMissing("embeddedOne", 1L);
-//    }
+    @Test
+    public void missingEmbeddedOne() {
+        model().embeddedOne(model()).create();
+        // Spacial is not required.
+        assertMissing("embeddedOne", 0L);
+    }
 
-//    @Test
-//    public void missingEmbeddedOneOne() {
-//        model().embeddedOne(model()).create();
-//        model().embeddedOne(model().one(value(0))).create();
-//        assertCount(1L, "embeddedOne/one = missing");
-//        assertCount(1L, "embeddedOne/one != missing");
-//    }
+    @Test
+    public void missingEmbeddedOneOne() {
+        model().embeddedOne(model()).create();
+        model().embeddedOne(model()).create();
+        model().embeddedOne(model().one(value(0))).create();
+        //assertCount(1L, "embeddedOne/one = missing");
+        //assertCount(1L, "embeddedOne/one != missing");
+        assertCount(2L, "embeddedOne.one = missing");
+        assertCount(1L, "embeddedOne.one != missing");
+    }
 
-//    @Test
-//    public void missingEmbeddedSetSet() {
-//        model().embeddedSet(model()).create();
-//        model().embeddedSet(model().set(value(0))).create();
-//        assertCount(1L, "embeddedSet/set = missing");
-//        assertCount(1L, "embeddedSet/set != missing");
-//    }
+    @Test
+    public void missingEmbeddedSetSet() {
+        model().embeddedSet(model()).create();
+        model().embeddedSet(model()).create();
+        model().embeddedSet(model().set(value(0))).create();
+        //assertCount(1L, "embeddedSet/set = missing");
+        //assertCount(1L, "embeddedSet/set != missing");
+        assertCount(2L, "embeddedSet.set = missing");
+        assertCount(1L, "embeddedSet.set != missing");
+    }
 
-//    @Test
-//    public void missingEmbeddedListList() {
-//        model().embeddedList(model()).create();
-//        model().embeddedList(model().list(value(0))).create();
-//        assertCount(1L, "embeddedList/list = missing");
-//        assertCount(1L, "embeddedList/list != missing");
-//    }
+    @Test
+    public void missingEmbeddedListList() {
+        model().embeddedList(model()).create();
+        model().embeddedList(model()).create();
+        model().embeddedList(model().list(value(0))).create();
+        //assertCount(1L, "embeddedList/list = missing");
+        //assertCount(1L, "embeddedList/list != missing");
+        assertCount(2L, "embeddedList.list = missing");
+        assertCount(1L, "embeddedList.list != missing");
+    }
 
     protected void createMissingCompoundTestModels() {
         T value0 = value(0);
@@ -212,13 +225,13 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         IntStream.range(0, 5).forEach(i -> model().all(value(i)).create());
     }
 
-//    @Test
-//    public void eq() {
-//        createCompareTestModels();
-//        assertCount(1L, "one = ?", value(2));
-//        assertCount(1L, "set = ?", value(2));
-//        assertCount(1L, "list = ?", value(2));
-//    }
+    @Test
+    public void eq() {
+        createCompareTestModels();
+        assertCount(1L, "one = ?", value(2));
+        assertCount(1L, "set = ?", value(2));
+        assertCount(1L, "list = ?", value(2));
+    }
 
 //    @Test
 //    public void eqOneEmpty() {
@@ -238,13 +251,13 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
 //        assertCount(0L, "list = ?", Collections.emptyList());
 //    }
 
-//    @Test
-//    public void ne() {
-//        createCompareTestModels();
-//        assertCount(4L, "one != ?", value(2));
-//        assertCount(4L, "set != ?", value(2));
-//        assertCount(4L, "list != ?", value(2));
-//    }
+    @Test
+    public void ne() {
+        createCompareTestModels();
+        assertCount(4L, "one != ?", value(2));
+        assertCount(4L, "set != ?", value(2));
+        assertCount(4L, "list != ?", value(2));
+    }
 
 //    @Test(expected = IllegalArgumentException.class)
 //    public void contains() {

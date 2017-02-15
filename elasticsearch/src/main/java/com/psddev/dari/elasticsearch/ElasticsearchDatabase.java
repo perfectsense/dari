@@ -380,6 +380,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private String getElkField(String internalType) {
         return "";
         // how do we handle internal types? Solr does it with a sortPrefix.
+        // Reserved:  `_uid`, `_id`, `_type`, `_source`, `_all`, `_parent`, `_field_names`, `_routing`, `_index`, `_size`, `_timestamp`, and `_ttl`
     }
 
     // use the _mapping, so that we have field.raw set for sorting.
@@ -479,13 +480,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             switch (compound.getOperator()) {
                 case PredicateParser.AND_OPERATOR :
-                    return combine(children, BoolQueryBuilder::must, this::predicateToQueryBuilder);
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::must, this::predicateToQueryBuilder);
 
                 case PredicateParser.OR_OPERATOR :
-                    return combine(children, BoolQueryBuilder::should, this::predicateToQueryBuilder);
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::should, this::predicateToQueryBuilder);
 
                 case PredicateParser.NOT_OPERATOR :
-                    return combine(children, BoolQueryBuilder::mustNot, this::predicateToQueryBuilder);
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::mustNot, this::predicateToQueryBuilder);
 
                 default :
                     break;
@@ -496,71 +497,86 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             String key = "_any".equals(comparison.getKey()) ? "_all" : comparison.getKey();
             List<Object> values = comparison.getValues();
 
-            switch (comparison.getOperator()) {
+            String operator = comparison.getOperator();
+
+            switch (operator) {
                 case PredicateParser.EQUALS_ANY_OPERATOR :
+                    // could be 'missing'
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.EQUALS_ANY_OPERATOR + "requires value");
+                            throw new IllegalArgumentException(PredicateParser.EQUALS_ANY_OPERATOR + " requires value");
                         }
                     }
-                    return combine(values, BoolQueryBuilder::should, v -> QueryBuilders.termQuery(key, v));
+
+                    return combine(operator, values, BoolQueryBuilder::should, v -> Query.MISSING_VALUE.equals(v)
+                           // ? QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(key))
+                            ? QueryBuilders.existsQuery(key)
+                            : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
+                                                                                .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
+                                                     : QueryBuilders.termQuery(key, v)));
 
                 case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.NOT_EQUALS_ALL_OPERATOR + "requires value");
+                            throw new IllegalArgumentException(PredicateParser.NOT_EQUALS_ALL_OPERATOR + " requires value");
                         }
                     }
-                    return combine(values, BoolQueryBuilder::mustNot, v -> QueryBuilders.termQuery(key, v));
+                    return combine(operator, values, BoolQueryBuilder::mustNot, v -> Query.MISSING_VALUE.equals(v)
+                           // ? QueryBuilders.boolQuery().must(QueryBuilders.existsQuery(key))
+                            ? QueryBuilders.existsQuery(key)
+                            : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
+                                                                                .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
+                                                     : QueryBuilders.termQuery(key, v)));
+                    //return combine(values, BoolQueryBuilder::mustNot, v -> QueryBuilders.termQuery(key, v));
 
                 case PredicateParser.LESS_THAN_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OPERATOR + "requires value");
+                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OPERATOR + " requires value");
                         }
                     }
-                    return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lt(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lt(v));
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR + "requires value");
+                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR + " requires value");
                         }
                     }
-                    return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lte(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lte(v));
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OPERATOR + "requires value");
+                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OPERATOR + " requires value");
                         }
                     }
-                    return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gt(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gt(v));
 
                 case PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR + "requires value");
+                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR + " requires value");
                         }
                     }
-                    return combine(values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gte(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gte(v));
 
                 case PredicateParser.STARTS_WITH_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.STARTS_WITH_OPERATOR + "requires value");
+                            throw new IllegalArgumentException(PredicateParser.STARTS_WITH_OPERATOR + " requires value");
                         }
                     }
-                    return combine(values, BoolQueryBuilder::should, v -> QueryBuilders.prefixQuery(key, v.toString()));
+                    return combine(operator, values, BoolQueryBuilder::should, v -> QueryBuilders.prefixQuery(key, v.toString()));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
-                    return combine(values, BoolQueryBuilder::should, v -> "*".equals(v)
+                    return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
                             ? QueryBuilders.matchAllQuery()
                             : QueryBuilders.matchPhrasePrefixQuery(key, v));
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
-                    return combine(values, BoolQueryBuilder::must, v -> "*".equals(v)
+                    return combine(operator, values, BoolQueryBuilder::must, v -> "*".equals(v)
                             ? QueryBuilders.matchAllQuery()
                             : QueryBuilders.matchPhrasePrefixQuery(key, v));
 
@@ -575,7 +591,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> QueryBuilder combine(
+    private <T> QueryBuilder combine(String operatorType,
             Collection<T> items,
             BiFunction<BoolQueryBuilder, QueryBuilder, BoolQueryBuilder> operator,
             Function<T, QueryBuilder> itemFunction) {
@@ -587,6 +603,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 item = (T) item.toString();
             }
             if (!Query.MISSING_VALUE.equals(item)) {
+                builder = operator.apply(builder, itemFunction.apply(item));
+            } else {
+                if (operatorType.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
+                    operator = BoolQueryBuilder::mustNot;
+                }
+                if (operatorType.equals(PredicateParser.NOT_EQUALS_ALL_OPERATOR)) {
+                    operator = BoolQueryBuilder::must;
+                }
                 builder = operator.apply(builder, itemFunction.apply(item));
             }
         }
