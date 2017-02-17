@@ -1,17 +1,7 @@
 package com.psddev.dari.elasticsearch;
 
 import com.google.common.base.Preconditions;
-import com.psddev.dari.db.AbstractDatabase;
-import com.psddev.dari.db.ComparisonPredicate;
-import com.psddev.dari.db.CompoundPredicate;
-import com.psddev.dari.db.Location;
-import com.psddev.dari.db.Predicate;
-import com.psddev.dari.db.PredicateParser;
-import com.psddev.dari.db.Query;
-import com.psddev.dari.db.Sorter;
-import com.psddev.dari.db.State;
-import com.psddev.dari.db.UnsupportedIndexException;
-import com.psddev.dari.db.UnsupportedPredicateException;
+import com.psddev.dari.db.*;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import org.apache.http.HttpResponse;
@@ -19,10 +9,20 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
+import org.elasticsearch.ExceptionsHelper;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
+import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
+import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
+import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Requests;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.geo.GeoPoint;
@@ -44,21 +44,15 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
+import static org.yaml.snakeyaml.nodes.NodeId.mapping;
 
 //Note: http://elasticsearch-users.115913.n3.nabble.com/What-is-your-best-practice-to-access-a-cluster-by-a-Java-client-td4015311.html
 // Decided to implement a Singleton
@@ -307,7 +301,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
                         .setSize(limit);
-                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb)) {
+                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb, null)) {
                     srb = srb.addSort(sb);
                 }
                 LOGGER.info("ELK srb [{}]", srb.toString());
@@ -319,7 +313,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setQuery(predicateToQueryBuilder(query.getPredicate()))
                         .setFrom((int) offset)
                         .setSize(limit);
-                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb)) {
+                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb, typeIdStrings)) {
                     srb.addSort(sb);
                 }
                 LOGGER.info("ELK srb typeIds [{}] - [{}]",  typeIdStrings, srb.toString());
@@ -377,14 +371,62 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
-    private String getElkField(String internalType) {
-        return "";
+
+    private boolean findElasticMap(Map<String, Object> properties, List<String> key, int length) {
+        if (properties != null) {
+            if (length < key.size()) {
+                /* check fields separate */
+                if (properties.get("fields") != null) {
+                    Map<String, Object> fields = (Map<String, Object>) properties.get("fields");
+                    if (fields.get(key.get(length)) != null) {
+                        if (length == key.size() - 1) {
+                            return true;
+                        }
+                    }
+                }
+                if (properties.get("properties") != null) {
+                    Map<String, Object> p = (Map<String, Object>) properties.get("properties");
+                    return findElasticMap(p, key, length);
+                } else if (properties.get(key.get(length)) != null) {
+                    if (length == key.size() - 1) {
+                        return true;
+                    }
+                    if (properties.get(key.get(length)) instanceof Map) {
+                        return findElasticMap((Map<String, Object>) properties.get(key.get(length)), key, length + 1);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    /**
+     * Verify the field exists in the map!
+     * @param
+     * @return
+     */
+    private boolean checkElasticMappingField(String[] typeIds, String field) throws IOException {
+
+        GetMappingsResponse response = client.admin().indices()
+                .prepareGetMappings(indexName)
+                .setTypes(typeIds)
+                .execute().actionGet();
+
+        for (String typeId : typeIds) {
+            Map<String, Object> source = response.getMappings().get(indexName).get(typeId).sourceAsMap();
+            Map<String, Object> properties
+                    = (Map<String, Object>) source.get("properties");
+            List<String> items = Arrays.asList(field.split("\\."));
+            if (findElasticMap(properties, items, 0) == false) {
+                return false;
+            }
+        }
+        return true;
         // how do we handle internal types? Solr does it with a sortPrefix.
         // Reserved:  `_uid`, `_id`, `_type`, `_source`, `_all`, `_parent`, `_field_names`, `_routing`, `_index`, `_size`, `_timestamp`, and `_ttl`
     }
 
     // use the _mapping, so that we have field.raw set for sorting.
-    private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb) {
+    private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb, String[] typeIds) {
         List<SortBuilder> list = new ArrayList<>();
         if (sorters == null || sorters.size() == 0) {
             list.add(new ScoreSortBuilder());
@@ -396,13 +438,30 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isAscending = Sorter.ASCENDING_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(0);
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
-                    String elkField = specialFields.get(mappedKey);
+                    String elkField;
+                    elkField = specialFields.get(mappedKey);
 
+                    /* skip for special */
                     if (elkField == null) {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
                             if (internalType.equals("text")) {
                                 elkField = queryKey + ".raw";
+                            } else if (internalType.equals("location")) {
+                                elkField = queryKey + "._location";
+                                // not sure what to do with lat,long and sort?
+                                throw new IllegalArgumentException();
+                            } else {
+                                elkField = queryKey;
+                            }
+                        }
+                        if (typeIds != null) {
+                            try {
+                                if (!checkElasticMappingField(typeIds, elkField)) {
+                                    throw new UnsupportedIndexException(this, queryKey);
+                                }
+                            } catch (IOException e) {
+                                throw new UnsupportedIndexException(this, queryKey);
                             }
                         }
                     }
@@ -652,6 +711,70 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 client.admin().indices().prepareFlush(this.indexName).get();
             }
             client.admin().indices().prepareRefresh(this.indexName).get();
+        }
+    }
+
+    public void defaultMap() {
+        String json = "{\n" +
+                "      \"dynamic_templates\": [\n" +
+                "        {\n" +
+                "          \"locationgeo\": {\n" +
+                "            \"match\": \"_location\",\n" +
+                "            \"match_mapping_type\": \"string\",\n" +
+                "            \"mapping\": {\n" +
+                "              \"type\": \"geo_point\"\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        {\n" +
+                "          \"int_template\": {\n" +
+                "            \"match\": \"_*\",\n" +
+                "            \"match_mapping_type\": \"string\",\n" +
+                "            \"mapping\": {\n" +
+                "              \"type\": \"keyword\"\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        {\n" +
+                "          \"notanalyzed\": {\n" +
+                "            \"match\": \"*\",\n" +
+                "            \"match_mapping_type\": \"string\",\n" +
+                "            \"mapping\": {\n" +
+                "              \"type\": \"text\",\n" +
+                "              \"fields\": {\n" +
+                "                \"raw\": {\n" +
+                "                  \"type\": \"keyword\"\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      ]\n" +
+                "    }\n";
+
+        if (client != null) {
+            CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(this.indexName).addMapping("_default_", json);
+            CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
+
+            client.admin().cluster().health(new ClusterHealthRequest(indexName).waitForYellowStatus());
+            // need to set environment.
+        }
+
+    }
+
+    public void deleteIndex() {
+        if (client != null) {
+            IndicesExistsRequest existsRequest = client.admin().indices().prepareExists(indexName).request();
+            if (client.admin().indices().exists(existsRequest).actionGet().isExists()) {
+                LOGGER.info("index %s exists... deleting!", indexName);
+                DeleteIndexResponse response = client.admin().indices().delete(new DeleteIndexRequest(indexName)).actionGet();
+                if (!response.isAcknowledged()) {
+                    LOGGER.error("Failed to delete elastic search index named %s", indexName);
+                }
+            }
+            client.close();
+            client = null;
+            this.client = openConnection();
         }
     }
 

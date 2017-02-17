@@ -420,11 +420,12 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
 //        }
 //    }
 
-//    @Test
-//    public void sortDescendingOne() {
-//        createSortTestModels();
-//        assertOrder(true, query().sortDescending("one"));
-//    }
+    /* sortDescending on Location makes no sense */
+    @Test(expected = IllegalArgumentException.class)
+    public void sortDescendingOne() {
+        createSortTestModels();
+        assertOrder(true, query().sortDescending("one"));
+    }
 
     @Test(expected = IllegalArgumentException.class)
     public void sortClosestOne() {
@@ -432,10 +433,29 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         query().sortClosest("one", new Location(0, 0)).first();
     }
 
+
     @Test(expected = IllegalArgumentException.class)
     public void sortFarthestOne() {
         createSortTestModels();
         query().sortFarthest("one", new Location(0, 0)).first();
+    }
+
+    @Test(expected = Query.NoFieldException.class)
+    public void sortFarthestOneAndField() {
+        createSortTestModels();
+        query().where("one = missing").and("two = missing").sortFarthest("one", new Location(0, 0)).selectAll();
+    }
+
+    @Test
+    public void sortFarthestOneAnd() {
+        createSortTestModels();
+        List<M> models = query().where("one != missing").and("set != missing").and("list != missing").sortFarthest("one", new Location(0, 0)).selectAll();
+        assertThat(models, hasSize(total));
+
+        for (int i = 0, size = models.size(); i < size; ++ i) {
+            assertThat(models.get(i).getOne(), is(value(total - i-1)));
+        }
+
     }
 
 //    @Test(expected = UnsupportedOperationException.class)

@@ -1,6 +1,9 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.UnsupportedIndexException;
+import org.elasticsearch.action.search.SearchPhaseExecutionException;
+import org.elasticsearch.index.query.QueryShardException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -249,7 +252,66 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
     }
 
+    @Test(expected = UnsupportedIndexException.class)
+    public void testSortStringOneField() throws Exception {
+        database.openConnection();
+        database.deleteIndex();
+        database.defaultMap();
 
+        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.f = f;
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("one")
+                .selectAll();
+    }
+
+    @Test(expected = Query.NoFieldException.class)
+    public void testSortStringNoSuchField() throws Exception {
+        database.openConnection();
+        database.deleteIndex();
+        database.defaultMap();
+
+        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.f = f;
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("nine")
+                .selectAll();
+    }
+
+
+    @Test
+    public void testSortFloat() throws Exception {
+        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.f = f;
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("f")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(3));
+        assertThat("check 0 and 1 order", fooResult.get(0).f, lessThan(fooResult.get(1).f));
+        assertThat("check 1 and 2 order", fooResult.get(1).f, lessThan(fooResult.get(2).f));
+    }
 
     @Test
     public void testQueryExtension() throws Exception {

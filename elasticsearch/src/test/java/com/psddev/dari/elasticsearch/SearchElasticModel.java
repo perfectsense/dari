@@ -30,6 +30,24 @@ public class SearchElasticModel extends Record {
         this.eid = eid;
     }
 
+    @Indexed
+    public Integer num;
+    public Integer getNum() {
+        return num;
+    }
+    public void setNum(Integer num) {
+        this.num = num;
+    }
+
+    @Indexed
+    public Float f;
+    public Float getF() {
+        return f;
+    }
+    public void setF(Float num) {
+        this.f = f;
+    }
+
 
     @Indexed
     public String post_date;
