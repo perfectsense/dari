@@ -6,6 +6,8 @@ import com.psddev.dari.util.TypeDefinition;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -86,11 +88,11 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertMissing("list", 2L);
     }
 
-//    @Test
-//    public void missingReferenceOne() {
-//        model().referenceOne(model().create()).create();
-//        assertMissing("referenceOne", 1L);
-//    }
+    @Test
+    public void missingReferenceOne() {
+        model().referenceOne(model().create()).create();
+        assertMissing("referenceOne", 1L);
+    }
 
 //    @Test
 //    public void missingReferenceOneOne() {
@@ -173,46 +175,46 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(total - count, field1 + " != missing or " + field2 + " != missing");
     }
 
-//    @Test
-//    public void missingOneAndSet() {
-//        createMissingCompoundTestModels();
-//        assertMissingBoth("one", "set", 2L);
-//    }
+    @Test
+    public void missingOneAndSet() {
+        createMissingCompoundTestModels();
+        assertMissingBoth("one", "set", 2L);
+    }
 
-//    @Test
-//    public void missingOneAndList() {
-//        createMissingCompoundTestModels();
-//        assertMissingBoth("one", "list", 2L);
-//    }
+    @Test
+    public void missingOneAndList() {
+        createMissingCompoundTestModels();
+        assertMissingBoth("one", "list", 2L);
+    }
 
-//    @Test
-//    public void missingSetAndList() {
-//        createMissingCompoundTestModels();
-//        assertMissingBoth("set", "list", 2L);
-//    }
+    @Test
+    public void missingSetAndList() {
+        createMissingCompoundTestModels();
+        assertMissingBoth("set", "list", 2L);
+    }
 
     protected void assertMissingEither(String field1, String field2, long count) {
         assertCount(count, field1 + " = missing or " + field2 + " = missing");
         assertCount(total - count, field1 + " != missing and " + field2 + " != missing");
     }
 
-//    @Test
-//    public void missingOneOrSet() {
-//        createMissingCompoundTestModels();
-//        assertMissingEither("one", "set", 6L);
-//    }
+    @Test
+    public void missingOneOrSet() {
+        createMissingCompoundTestModels();
+        assertMissingEither("one", "set", 6L);
+    }
 
-//    @Test
-//    public void missingOneOrList() {
-//        createMissingCompoundTestModels();
-//        assertMissingEither("one", "list", 6L);
-//    }
+    @Test
+    public void missingOneOrList() {
+        createMissingCompoundTestModels();
+        assertMissingEither("one", "list", 6L);
+    }
 
-//    @Test
-//    public void missingSetOrList() {
-//        createMissingCompoundTestModels();
-//        assertMissingEither("set", "list", 6L);
-//    }
+    @Test
+    public void missingSetOrList() {
+        createMissingCompoundTestModels();
+        assertMissingEither("set", "list", 6L);
+    }
 
 //    @Test
 //    public void missingReferenceOneOrReferenceOneOne() {
@@ -259,11 +261,11 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(4L, "list != ?", value(2));
     }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void contains() {
-//        createCompareTestModels();
-//        query().where("one contains ?", value(0)).count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void contains() {
+        createCompareTestModels();
+        query().where("one contains ?", value(0)).count();
+    }
 
     @Test
     public void containsNull() {
@@ -271,17 +273,17 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(0, "one contains ?", (Object) null);
     }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void containsMissing() {
-//        createCompareTestModels();
-//        query().where("one contains missing").count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void containsMissing() {
+        createCompareTestModels();
+        query().where("one contains missing").count();
+    }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void startsWith() {
-//        createCompareTestModels();
-//        query().where("one startsWith ?", value(0)).count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void startsWith() {
+        createCompareTestModels();
+        query().where("one startsWith ?", value(0)).count();
+    }
 
     @Test
     public void startsWithNull() {
@@ -289,17 +291,17 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(0, "one startsWith ?", (Object) null);
     }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void startsWithMissing() {
-//        createCompareTestModels();
-//        query().where("one startsWith missing").count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void startsWithMissing() {
+        createCompareTestModels();
+        query().where("one startsWith missing").count();
+    }
 
-//    @Test
-//    public void gt() {
-//        createCompareTestModels();
-//        assertCount(2L, "one > ?", value(2));
-//    }
+    @Test
+    public void gt() {
+        createCompareTestModels();
+        assertCount(2L, "one > ?", value(2));
+    }
 
     @Test
     public void gtNull() {
@@ -307,17 +309,17 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(0, "one > ?", (Object) null);
     }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void gtMissing() {
-//        createCompareTestModels();
-//        query().where("one > missing").count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void gtMissing() {
+        createCompareTestModels();
+        query().where("one > missing").count();
+    }
 
-//    @Test
-//    public void ge() {
-//        createCompareTestModels();
-//        assertCount(3L, "one >= ?", value(2));
-//    }
+    @Test
+    public void ge() {
+        createCompareTestModels();
+        assertCount(3L, "one >= ?", value(2));
+    }
 
     @Test
     public void geNull() {
@@ -325,17 +327,17 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(0, "one >= ?", (Object) null);
     }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void geMissing() {
-//        createCompareTestModels();
-//        query().where("one >= missing").count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void geMissing() {
+        createCompareTestModels();
+        query().where("one >= missing").count();
+    }
 
-//    @Test
-//    public void lt() {
-//        createCompareTestModels();
-//        assertCount(2L, "one < ?", value(2));
-//    }
+    @Test
+    public void lt() {
+        createCompareTestModels();
+        assertCount(2L, "one < ?", value(2));
+    }
 
     @Test
     public void ltNull() {
@@ -343,17 +345,17 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(0, "one < ?", (Object) null);
     }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void ltMissing() {
-//        createCompareTestModels();
-//        query().where("one < missing").count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void ltMissing() {
+        createCompareTestModels();
+        query().where("one < missing").count();
+    }
 
-//    @Test
-//    public void le() {
-//        createCompareTestModels();
-//        assertCount(3L, "one <= ?", value(2));
-//    }
+    @Test
+    public void le() {
+        createCompareTestModels();
+        assertCount(3L, "one <= ?", value(2));
+    }
 
     @Test
     public void leNull() {
@@ -361,11 +363,11 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(0, "one <= ?", (Object) null);
     }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void leMissing() {
-//        createCompareTestModels();
-//        query().where("one <= missing").count();
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void leMissing() {
+        createCompareTestModels();
+        query().where("one <= missing").count();
+    }
 
     protected void createSortTestModels() {
         for (int i = 0, size = 26; i < size; ++ i) {
@@ -383,11 +385,12 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         }
     }
 
-//    @Test
-//    public void sortAscendingOne() {
-//        createSortTestModels();
-//        assertOrder(false, query().sortAscending("one"));
-//    }
+    /* sortAscending on Location makes no sense */
+    @Test(expected = IllegalArgumentException.class)
+    public void sortAscendingOne() {
+        createSortTestModels();
+        assertOrder(false, query().sortAscending("one"));
+    }
 
 //    @Test
 //    public void sortAscendingReferenceOneOne() {
@@ -458,11 +461,11 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
 
     }
 
-//    @Test(expected = UnsupportedOperationException.class)
-//    public void sortUnknown() {
-//        createSortTestModels();
-//        query().sort("unknown", "one").first();
-//    }
+    @Test(expected = UnsupportedOperationException.class)
+    public void sortUnknown() {
+        createSortTestModels();
+        query().sort("unknown", "one").first();
+    }
 
     protected class ModelBuilder {
 

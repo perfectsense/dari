@@ -399,10 +399,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
         return false;
     }
+
     /**
-     * Verify the field exists in the map!
-     * @param
+     *
+     * @param typeIds
+     * @param field
      * @return
+     * @throws IOException
      */
     private boolean checkElasticMappingField(String[] typeIds, String field) throws IOException {
 
@@ -474,7 +477,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     // OLDEST_OPERATOR, NEWEST_OPERATOR -- date ones
                 } else if (Sorter.FARTHEST_OPERATOR.equals(operator) || Sorter.CLOSEST_OPERATOR.equals(operator)) {
                     if (sorter.getOptions().size() < 2) {
-                        throw new IllegalArgumentException(operator + "requires Location");
+                        throw new IllegalArgumentException(operator + " requires Location");
                     }
                     boolean isClosest = Sorter.CLOSEST_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(0);
@@ -489,7 +492,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
                     if (!(sorter.getOptions().get(1) instanceof Location)) {
-                        throw new IllegalArgumentException(operator + "requires Location");
+                        throw new IllegalArgumentException(operator + " requires Location");
                     }
                     Location sort = (Location) sorter.getOptions().get(1);
                     list.add(new GeoDistanceSortBuilder(elkField, new GeoPoint(sort.getX(), sort.getY()))
@@ -515,8 +518,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 .maxBoost(1000.0f);
                         srb.setQuery(qb);
                     }
+                } else {
+                    throw new UnsupportedOperationException(operator + " not supported");
                 }
-            }
+        }
         }
         return list;
 
@@ -560,15 +565,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             switch (operator) {
                 case PredicateParser.EQUALS_ANY_OPERATOR :
-                    // could be 'missing'
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.EQUALS_ANY_OPERATOR + " requires value");
+                            throw new IllegalArgumentException(operator + " requires value");
                         }
                     }
 
                     return combine(operator, values, BoolQueryBuilder::should, v -> Query.MISSING_VALUE.equals(v)
-                           // ? QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(key))
                             ? QueryBuilders.existsQuery(key)
                             : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
                                                                                 .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
@@ -577,64 +580,116 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.NOT_EQUALS_ALL_OPERATOR + " requires value");
+                            throw new IllegalArgumentException(operator + " requires value");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::mustNot, v -> Query.MISSING_VALUE.equals(v)
-                           // ? QueryBuilders.boolQuery().must(QueryBuilders.existsQuery(key))
                             ? QueryBuilders.existsQuery(key)
                             : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
                                                                                 .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
                                                      : QueryBuilders.termQuery(key, v)));
-                    //return combine(values, BoolQueryBuilder::mustNot, v -> QueryBuilders.termQuery(key, v));
 
                 case PredicateParser.LESS_THAN_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OPERATOR + " requires value");
+                            throw new IllegalArgumentException(operator + " requires value");
+                        }
+                        if (v != null && Query.MISSING_VALUE.equals(v)) {
+                            throw new IllegalArgumentException(operator + " missing not allowed");
                         }
                     }
-                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lt(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v ->
+                              (v instanceof Location
+                                      ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
+                                        .must(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
+                                      : QueryBuilders.rangeQuery(key).lt(v)));
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR + " requires value");
+                            throw new IllegalArgumentException(operator + " requires value");
+                        }
+                        if (v != null && Query.MISSING_VALUE.equals(v)) {
+                            throw new IllegalArgumentException(operator + " missing not allowed");
                         }
                     }
-                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).lte(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v ->
+                            (v instanceof Location
+                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
+                                    .must(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(key).lte(v)));
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OPERATOR + " requires value");
+                            throw new IllegalArgumentException(operator + " requires value");
                         }
+                        if (v != null && Query.MISSING_VALUE.equals(v)) {
+                            throw new IllegalArgumentException(operator + " missing not allowed");
+                        }
+
                     }
-                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gt(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v ->
+                            (v instanceof Location
+                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
+                                    .must(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(key).gt(v)));
 
                 case PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR + " requires value");
+                            throw new IllegalArgumentException(operator + " requires value");
+                        }
+                        if (v != null && Query.MISSING_VALUE.equals(v)) {
+                            throw new IllegalArgumentException(operator + " missing not allowed");
                         }
                     }
-                    return combine(operator, values, BoolQueryBuilder::must, v -> QueryBuilders.rangeQuery(key).gte(v));
+                    return combine(operator, values, BoolQueryBuilder::must, v ->
+                            (v instanceof Location
+                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
+                                    .must(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(key).gte(v)));
 
                 case PredicateParser.STARTS_WITH_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
-                            throw new IllegalArgumentException(PredicateParser.STARTS_WITH_OPERATOR + " requires value");
+                            throw new IllegalArgumentException(operator + " requires value");
+                        }
+                        if (v != null && Query.MISSING_VALUE.equals(v)) {
+                            throw new IllegalArgumentException(operator + " missing not allowed");
+                        }
+                        if (v instanceof Location) {
+                            throw new IllegalArgumentException(operator + " location not allowed");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v -> QueryBuilders.prefixQuery(key, v.toString()));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
+                    for (Object v : values) {
+                        if (v == null) {
+                            throw new IllegalArgumentException(operator + " requires value");
+                        }
+                        if (v != null && Query.MISSING_VALUE.equals(v)) {
+                            throw new IllegalArgumentException(operator + " missing not allowed");
+                        }
+                        if (v instanceof Location) {
+                            throw new IllegalArgumentException(operator + " location not allowed");
+                        }
+                    }
                     return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
                             ? QueryBuilders.matchAllQuery()
                             : QueryBuilders.matchPhrasePrefixQuery(key, v));
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
+                    for (Object v : values) {
+                        if (v != null) {
+                            throw new IllegalArgumentException(operator + " requires value");
+                        }
+                        if (v != null && Query.MISSING_VALUE.equals(v)) {
+                            throw new IllegalArgumentException(operator + " missing not allowed");
+                        }
+                    }
                     return combine(operator, values, BoolQueryBuilder::must, v -> "*".equals(v)
                             ? QueryBuilders.matchAllQuery()
                             : QueryBuilders.matchPhrasePrefixQuery(key, v));

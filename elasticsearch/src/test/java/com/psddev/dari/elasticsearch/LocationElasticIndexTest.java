@@ -99,12 +99,12 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
         query().and("one <= ?", (Object) null).count();
     }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void sortAscendingOne() {
-//        createSortTestModels();
-//        query().sortAscending("one").count();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void sortAscendingOne() {
+        createSortTestModels();
+        query().sortAscending("one").count();
+    }
 
 //    @Override
 //    @Test(expected = IllegalArgumentException.class)
@@ -118,12 +118,12 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
 //        super.sortAscendingEmbeddedOneOne();
 //    }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void sortDescendingOne() {
-//        createSortTestModels();
-//        query().sortDescending("one").count();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void sortDescendingOne() {
+        createSortTestModels();
+        query().sortDescending("one").count();
+    }
 
     @Override
     @Test
