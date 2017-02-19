@@ -9,7 +9,6 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
-import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
@@ -52,11 +51,12 @@ import java.util.function.Function;
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
-import static org.yaml.snakeyaml.nodes.NodeId.mapping;
 
-//Note: http://elasticsearch-users.115913.n3.nabble.com/What-is-your-best-practice-to-access-a-cluster-by-a-Java-client-td4015311.html
-// Decided to implement a Singleton
 
+/**
+ * ElasticsearchDatabase for Elastic Search
+ * Note: http://elasticsearch-users.115913.n3.nabble.com/What-is-your-best-practice-to-access-a-cluster-by-a-Java-client-td4015311.html
+ */
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     public class Node {
@@ -79,23 +79,66 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     private List<Node> clusterNodes = new ArrayList<>();
-
     private String clusterName;
     private String indexName;
-
     private int searchTimeout;
-
     private transient Settings nodeSettings;
     private transient TransportClient client;
 
+    /**
+     *
+     * @param searchTimeout
+     */
+    public void setSearchTimeout(int searchTimeout) {
+
+        this.searchTimeout = searchTimeout;
+    }
+
+    /**
+     *
+     * @return
+     */
+    public int getSearchTimeout() {
+
+        return searchTimeout;
+    }
+
+    /**
+     *
+     * @param clusterName
+     */
+    public void setClusterName(String clusterName) {
+        this.clusterName = clusterName;
+    }
+
+    /**
+     *
+     * @return
+     */
+    public String getClusterName() {
+        return clusterName;
+    }
+
+    /**
+     *
+     * @return
+     */
     public String getIndexName() {
         return indexName;
     }
 
+    /**
+     *
+     * @param indexName
+     */
     public void setIndexName(String indexName) {
         this.indexName = indexName;
     }
 
+    /**
+     *
+     * @return TransportClient
+     */
     @Override
     public TransportClient openConnection() {
 
@@ -121,6 +164,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         //client.close();
     }
 
+    /**
+     *
+     * @param settingsKey
+     * @param settings
+     */
     @Override
     protected void doInitialize(String settingsKey, Map<String, Object> settings) {
 
@@ -172,6 +220,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     }
 
+    /**
+     *
+     * @param query
+     * @return
+     */
     @Override
     public Date readLastUpdate(Query<?> query) {
         return null;
@@ -187,6 +240,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
+    /**
+     *
+     * @param nodeHost
+     * @return
+     */
     public static String getVersion(String nodeHost) {
         try {
             HttpClient httpClient = HttpClientBuilder.create().build();
@@ -216,6 +274,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    /**
+     *
+     * @param nodeHost
+     * @return
+     */
     public static String getClusterName(String nodeHost) {
         try {
             HttpClient httpClient = HttpClientBuilder.create().build();
@@ -238,6 +301,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    /**
+     *
+     * @param nodeHost
+     * @return
+     */
     public static boolean checkAlive(String nodeHost) {
         try {
             HttpClient httpClient = HttpClientBuilder.create().build();
@@ -259,6 +327,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
+    /**
+     *
+     * @return
+     */
     public boolean isAlive() {
         TransportClient client = openConnection();
         if (client != null) {
@@ -271,6 +343,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
+    /**
+     *
+     * @param query
+     * @param offset
+     * @param limit
+     * @param <T>
+     * @return
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> PaginatedResult<T> readPartial(Query<T> query, long offset, int limit) {
@@ -342,6 +422,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         //if certain errors: return new PaginatedResult<>(offset, limit, 0, items);
     }
 
+    /**
+     *
+     * @param hit
+     * @param query
+     * @param <T>
+     * @return
+     */
     private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query) {
         T object = createSavedObject(hit.getType(), hit.getId(), query);
 
@@ -354,6 +441,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return swapObjectType(query, object);
     }
 
+    /**
+     *
+     */
     private final Map<Query.MappedKey, String> specialFields; {
         Map<Query.MappedKey, String> m = new HashMap<>();
         m.put(Query.MappedKey.ID, ID_FIELD);
@@ -362,6 +452,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         specialFields = m;
     }
 
+    /**
+     *
+     * @param query
+     * @param key
+     * @return
+     */
     private Query.MappedKey mapFullyDenormalizedKey(Query<?> query, String key) {
         Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), key);
         if (mappedKey.hasSubQuery()) {
@@ -372,6 +468,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
 
+    /**
+     *
+     * @param properties
+     * @param key
+     * @param length
+     * @return
+     */
     private boolean findElasticMap(Map<String, Object> properties, List<String> key, int length) {
         if (properties != null) {
             if (length < key.size()) {
@@ -428,7 +531,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         // Reserved:  `_uid`, `_id`, `_type`, `_source`, `_all`, `_parent`, `_field_names`, `_routing`, `_index`, `_size`, `_timestamp`, and `_ttl`
     }
 
-    // use the _mapping, so that we have field.raw set for sorting.
+    /**
+     *
+     * @param sorters
+     * @param orig
+     * @param query
+     * @param srb
+     * @param typeIds
+     * @return
+     */
     private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb, String[] typeIds) {
         List<SortBuilder> list = new ArrayList<>();
         if (sorters == null || sorters.size() == 0) {
@@ -527,7 +638,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     }
 
-    // must override since MAXIMUM_LIMIT is not good for ES
+     /**
+     * must override since MAXIMUM_LIMIT is not good for ES
+     *
+     * @param query
+     *        Can't be {@code null}.
+     *
+     * @param <T>
+     * @return
+     */
     @Override
     public <T> List<T> readAll(Query<T> query) {
         return readPartial(query, 0L, 1000).getItems();
@@ -558,10 +677,24 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         } else if (predicate instanceof ComparisonPredicate) {
             ComparisonPredicate comparison = (ComparisonPredicate) predicate;
-            String key = "_any".equals(comparison.getKey()) ? "_all" : comparison.getKey();
+            String pKey = "_any".equals(comparison.getKey()) ? "_all" : comparison.getKey();
             List<Object> values = comparison.getValues();
 
             String operator = comparison.getOperator();
+
+            if (pKey.startsWith("com.psddev.dari.db.ObjectType/")) {
+                int slash = pKey.indexOf('/');
+                pKey = pKey.substring(slash + 1) + ".raw";
+            } else {
+                if (pKey.indexOf('/') != -1) {
+                    // ELK does not support joins in 5.2. Might be memory issue and slow!
+                    // to do this requires query, take results and send to other query. Sample tests do this.
+                    //throw new IllegalArgumentException(key + " / joins not allowed in Elastic - do it in app code");
+                    LOGGER.info(pKey + " / joins not allowed in Elastic - do it in app code");
+                }
+            }
+
+            String key = pKey;
 
             switch (operator) {
                 case PredicateParser.EQUALS_ANY_OPERATOR :
@@ -704,6 +837,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         throw new UnsupportedPredicateException(this, predicate);
     }
 
+    /**
+     *
+     * @param operatorType
+     * @param items
+     * @param operator
+     * @param itemFunction
+     * @param <T>
+     * @return
+     */
     @SuppressWarnings("unchecked")
     private <T> QueryBuilder combine(String operatorType,
             Collection<T> items,
@@ -738,6 +880,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     *
+     * @param json
+     * @param typeId
+     * @param id
+     */
     public void saveJson(String json, String typeId, String id) {
 
         TransportClient client = openConnection();
@@ -759,6 +907,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     *
+     * @param client
+     * @param isImmediate If {@code true}, the saved data must be
+     * @throws Exception
+     */
     @Override
     protected void commitTransaction(TransportClient client, boolean isImmediate) throws Exception {
         if (client != null) {
@@ -769,6 +923,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     *
+     */
     public void defaultMap() {
         String json = "{\n" +
                 "      \"dynamic_templates\": [\n" +
@@ -817,6 +974,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     }
 
+    /**
+     *
+     */
     public void deleteIndex() {
         if (client != null) {
             IndicesExistsRequest existsRequest = client.admin().indices().prepareExists(indexName).request();
@@ -833,6 +993,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     *
+     * @param map
+     * @param name
+     */
     @SuppressWarnings("unchecked")
     private static void convertLocationToName(Map<String, Object> map, String name) {
 
@@ -867,6 +1032,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     *
+     * @param client
+     * @param isImmediate
+     * @param saves
+     * @param indexes
+     * @param deletes
+     * @throws Exception
+     */
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
         try {

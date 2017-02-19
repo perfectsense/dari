@@ -15,17 +15,31 @@ class ElasticsearchDatabaseConnection {
     private static TransportClient client = null;
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
+    /**
+     *
+     * @param client
+     * @return
+     */
     public static boolean isAlive(TransportClient client) {
         List<DiscoveryNode> nodes = client.connectedNodes();
         return !nodes.isEmpty();
     }
 
+    /**
+     *
+     */
     public static synchronized void closeClient() {
         if (client != null) {
             client.close();
         }
     }
 
+    /**
+     *
+     * @param nodeSettings
+     * @param nodes
+     * @return
+     */
     public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes) {
         if (nodeSettings == null) {
             LOGGER.warn("ELK openConnection Missing nodeSettings");

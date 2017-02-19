@@ -4,11 +4,11 @@ import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.util.TypeDefinition;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.IntStream;
 
 import static org.hamcrest.Matchers.*;
@@ -94,13 +94,47 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertMissing("referenceOne", 1L);
     }
 
-//    @Test
-//    public void missingReferenceOneOne() {
-//        model().referenceOne(model().create()).create();
-//        model().referenceOne(model().one(value(0)).create()).create();
-//        assertCount(1L, "referenceOne/one = missing");
-//        assertCount(1L, "referenceOne/one != missing");
-//    }
+    @Test
+    public void notMissingReferenceOneOne() {
+        model().referenceOne(model().create()).create();
+        model().referenceOne(model().one(value(0)).create()).create();
+        assertCount(4L, "_any matchesany *");
+        assertCount(2L, "referenceOne = missing");
+        assertCount(2L, "referenceOne != missing");
+        assertCount(3L, "one = missing");
+        assertCount(1L, "one != missing");
+        // example referenceOne/one != missing
+        List<M> list = query().where("referenceOne != missing").selectAll();
+
+        List<String> allids = new ArrayList<String>();
+        for (M item : list) {
+            Map<String,Object> m = item.getReferenceOne().getState().getSimpleValues();
+            if (m.get("_id") != null) {
+                allids.add((String) m.get("_id"));
+            }
+        }
+    }
+
+    @Test
+    public void missingReferenceOneOne() {
+        model().referenceOne(model().create()).create();
+        model().referenceOne(model().one(value(0)).create()).create();
+        assertCount(4L, "_any matchesany *");
+
+        // example referenceOne/one == missing
+        List<M> list = query().where("referenceOne != missing").selectAll();
+
+        List<String> allids = new ArrayList<String>();
+        for (M item : list) {
+            Map<String,Object> m = item.getReferenceOne().getState().getSimpleValues();
+            if (m.get("_id") != null) {
+                allids.add((String) m.get("_id"));
+            }
+        }
+        List<M> remaining = query().where("one = missing").and("_id contains ?", allids).selectAll();
+        assertThat("remaining count", 1, is(remaining.size()));
+    }
+
 
 //    @Test
 //    public void missingReferenceSetSet() {

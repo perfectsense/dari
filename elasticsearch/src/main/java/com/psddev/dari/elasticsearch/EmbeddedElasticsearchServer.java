@@ -19,6 +19,9 @@ public class EmbeddedElasticsearchServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedElasticsearchServer.class);
     private static Node node = null;
 
+    /**
+     *
+     */
     public static synchronized void setup() {
 
         try {
@@ -42,16 +45,26 @@ public class EmbeddedElasticsearchServer {
         }
     }
 
+    /**
+     *
+     */
     private static class MyNode extends Node {
         public MyNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
             super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null), classpathPlugins);
         }
     }
 
+    /**
+     *
+     * @return
+     */
     public static Node getNode() {
         return node;
     }
 
+    /**
+     *
+     */
     public static synchronized void shutdown() {
         try {
             node.close();
@@ -61,6 +74,9 @@ public class EmbeddedElasticsearchServer {
         deleteDataDirectory();
     }
 
+    /**
+     *
+     */
     private static void deleteDataDirectory() {
         try {
             FileUtils.deleteDirectory(new File(DEFAULT_DATA_DIRECTORY));
