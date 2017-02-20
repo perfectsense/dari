@@ -95,6 +95,22 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
     }
 
     @Test
+    public void notMissingReferenceOneReferenceOneOne() {
+        model().referenceOne(model().create()).create();
+        model().referenceOne(model().referenceOne(model().one(value(0)).create()).create()).create();
+        model().referenceOne(model().create()).create();
+        model().create();
+        assertCount(1L, "referenceOne/referenceOne/one != missing");
+        assertCount(1L, "referenceOne/referenceOne != missing");
+        assertCount(1L, "referenceOne/one != missing");
+        assertCount(8L, "_any matchesany *");
+        assertCount(4L, "referenceOne = missing");
+        assertCount(4L, "referenceOne != missing");
+        assertCount(7L, "one = missing");
+        assertCount(1L, "one != missing");
+    }
+
+    @Test
     public void notMissingReferenceOneOne() {
         model().referenceOne(model().create()).create();
         model().referenceOne(model().one(value(0)).create()).create();
@@ -103,16 +119,35 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(2L, "referenceOne != missing");
         assertCount(3L, "one = missing");
         assertCount(1L, "one != missing");
-        // example referenceOne/one != missing
-        List<M> list = query().where("referenceOne != missing").selectAll();
+        assertCount(1L, "referenceOne/one != missing");
 
+        // example referenceOne/one != missing another app way
+        String key = "referenceOne/one";
+        String[] keyArr = key.split("\\/");
         List<String> allids = new ArrayList<String>();
-        for (M item : list) {
-            Map<String,Object> m = item.getReferenceOne().getState().getSimpleValues();
-            if (m.get("_id") != null) {
-                allids.add((String) m.get("_id"));
+        List<M> list = new ArrayList<M>();
+        for (int i = 0; i < keyArr.length; i++) {
+            if (allids.size() == 0) {
+                list = query().where(keyArr[i] + " != missing").selectAll();
+            } else {
+                list = query().where(keyArr[i] + " != missing").and("_id contains ?", allids).selectAll();
+            }
+            allids = new ArrayList<String>();
+            for (M item : list) {
+                if (item.getState().getSimpleValues() instanceof Map) {
+                    Map<String, Object> m = item.getState().getSimpleValues();
+                    if (m.get(keyArr[i]) != null) {
+                        if (m instanceof Map) {
+                            Map<String, Object> o = (Map<String, Object>) m.get(keyArr[i]);
+                            if (o.get("_ref") != null) {
+                                allids.add((String) o.get("_ref"));
+                            }
+                        }
+                    }
+                }
             }
         }
+        assertThat("remaining count", 1, is(list.size()));
     }
 
     @Test
@@ -120,15 +155,21 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         model().referenceOne(model().create()).create();
         model().referenceOne(model().one(value(0)).create()).create();
         assertCount(4L, "_any matchesany *");
+        assertCount(1L, "referenceOne/one = missing");
 
-        // example referenceOne/one == missing
+        // example referenceOne/one = missing
         List<M> list = query().where("referenceOne != missing").selectAll();
 
         List<String> allids = new ArrayList<String>();
         for (M item : list) {
-            Map<String,Object> m = item.getReferenceOne().getState().getSimpleValues();
-            if (m.get("_id") != null) {
-                allids.add((String) m.get("_id"));
+            Map<String,Object> m = item.getState().getSimpleValues();
+            if (m.get("referenceOne") != null) {
+                if (m instanceof Map) {
+                    Map<String, Object> o = (Map<String, Object>) m.get("referenceOne");
+                    if (o.get("_ref") != null) {
+                        allids.add((String) o.get("_ref"));
+                    }
+                }
             }
         }
         List<M> remaining = query().where("one = missing").and("_id contains ?", allids).selectAll();

@@ -362,64 +362,55 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
         List<T> items = new ArrayList<>();
 
-        //try {
-            Set<UUID> typeIds = query.getConcreteTypeIds(this);
+        Set<UUID> typeIds = query.getConcreteTypeIds(this);
 
-            if (query.getGroup() != null && typeIds.size() == 0) {
-                // should limit by the type
-                LOGGER.info("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+        if (query.getGroup() != null && typeIds.size() == 0) {
+            // should limit by the type
+            LOGGER.info("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+        }
+        String[] typeIdStrings = typeIds.size() == 0
+                ? new String[]{ "_all" }
+                : typeIds.stream().map(UUID::toString).toArray(String[]::new);
+
+        SearchResponse response;
+        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
+        if (typeIds.size() == 0) {
+            SearchRequestBuilder srb = client.prepareSearch(getIndexName())
+                    .setFetchSource(!query.isReferenceOnly())
+                    .setTimeout(new TimeValue(this.searchTimeout))
+                    .setQuery(qb)
+                    .setFrom((int) offset)
+                    .setSize(limit);
+            for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, null)) {
+                srb = srb.addSort(sb);
             }
-            String[] typeIdStrings = typeIds.size() == 0
-                    ? new String[]{ "_all" }
-                    : typeIds.stream().map(UUID::toString).toArray(String[]::new);
-
-            SearchResponse response;
-            if (typeIds.size() == 0) {
-                SearchRequestBuilder srb = client.prepareSearch(getIndexName())
-                        .setFetchSource(!query.isReferenceOnly())
-                        .setTimeout(new TimeValue(this.searchTimeout))
-                        .setQuery(predicateToQueryBuilder(query.getPredicate()))
-                        .setFrom((int) offset)
-                        .setSize(limit);
-                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb, null)) {
-                    srb = srb.addSort(sb);
-                }
-                LOGGER.info("ELK srb [{}]", srb.toString());
-                response = srb.execute().actionGet();
-            } else {
-                SearchRequestBuilder srb = client.prepareSearch(getIndexName())
-                        .setFetchSource(!query.isReferenceOnly())
-                        .setTypes(typeIdStrings)
-                        .setQuery(predicateToQueryBuilder(query.getPredicate()))
-                        .setFrom((int) offset)
-                        .setSize(limit);
-                for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), predicateToQueryBuilder(query.getPredicate()), query, srb, typeIdStrings)) {
-                    srb.addSort(sb);
-                }
-                LOGGER.info("ELK srb typeIds [{}] - [{}]",  typeIdStrings, srb.toString());
-                response = srb.execute().actionGet();
+            LOGGER.info("ELK srb [{}]", srb.toString());
+            response = srb.execute().actionGet();
+        } else {
+            SearchRequestBuilder srb = client.prepareSearch(getIndexName())
+                    .setFetchSource(!query.isReferenceOnly())
+                    .setTypes(typeIdStrings)
+                    .setQuery(qb)
+                    .setFrom((int) offset)
+                    .setSize(limit);
+            for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, typeIdStrings)) {
+                srb.addSort(sb);
             }
-            SearchHits hits = response.getHits();
+            LOGGER.info("ELK srb typeIds [{}] - [{}]",  typeIdStrings, srb.toString());
+            response = srb.execute().actionGet();
+        }
+        SearchHits hits = response.getHits();
 
-            LOGGER.info("ELK PaginatedResult readPartial hits [{}]", hits.getTotalHits());
+        LOGGER.info("ELK PaginatedResult readPartial hits [{}]", hits.getTotalHits());
 
-            for (SearchHit hit : hits.getHits()) {
+        for (SearchHit hit : hits.getHits()) {
 
-                items.add(createSavedObjectWithHit(hit, query));
+            items.add(createSavedObjectWithHit(hit, query));
 
-            }
+        }
 
-            PaginatedResult<T> p = new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
-            return p;
-    /*     } catch (Exception error) {
-            LOGGER.info(
-                    String.format("ELK PaginatedResult readPartial Exception [%s: %s]",
-                            error.getClass().getName(),
-                            error.getMessage()),
-                    error);
-            throw error;
-        } */
-        //if certain errors: return new PaginatedResult<>(offset, limit, 0, items);
+        PaginatedResult<T> p = new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
+        return p;
     }
 
     /**
@@ -619,7 +610,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         sortPredicate = (Predicate) predicateObject;
                         FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = {
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                                        predicateToQueryBuilder(sortPredicate),
+                                        predicateToQueryBuilder(sortPredicate, query),
                                         weightFactorFunction(boost))
                         };
 
@@ -638,7 +629,52 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     }
 
-     /**
+    /**
+     *
+     * @param key
+     * @param query
+     * @param <T>
+     * @return
+     */
+    private <T> List<String> referenceSwitcher(String key, Query<T> query) {
+        String[] keyArr = key.split("\\/");
+        List<String> allids = new ArrayList<String>();
+        List<?> list = new ArrayList<T>();
+        String lastKey = key;
+        // Go until last - since the user might want something besides != missing...
+        for (int i = 0; i < keyArr.length - 1; i++) {
+            lastKey = keyArr[i];
+            if (allids.size() == 0) {
+                list = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").selectAll();
+            } else {
+                list = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").and("_id contains ?", allids).selectAll();
+            }
+            if (list.size() > 999) {
+                // hit limit
+                LOGGER.warn("reference join in ELK is > 999 which will limit results");
+                throw new IllegalArgumentException(key + " / joins > 999 not allowed");
+            }
+            allids = new ArrayList<String>();
+            for (int j = 0; j < list.size(); j++) {
+                if (list.get(j) instanceof Record) {
+                    Map<String, Object> itemMap = ((Record) list.get(j)).getState().getSimpleValues(false);
+                    if (itemMap instanceof Map && itemMap.get(keyArr[i]) != null) {
+                        Map<String, Object> o = (Map<String, Object>) itemMap.get(keyArr[i]);
+                        if (o.get("_ref") != null) {
+                            allids.add((String) o.get("_ref"));
+                        }
+                    }
+                }
+            }
+        }
+        if (list.size() > 0) {
+            return allids;
+        } else {
+            return null;
+        }
+    }
+
+    /**
      * must override since MAXIMUM_LIMIT is not good for ES
      *
      * @param query
@@ -653,7 +689,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     // Used to convert the query to ELK
-    private QueryBuilder predicateToQueryBuilder(Predicate predicate) {
+    private QueryBuilder predicateToQueryBuilder(Predicate predicate, Query<?> query) {
         if (predicate == null) {
             return QueryBuilders.matchAllQuery();
         }
@@ -663,13 +699,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             switch (compound.getOperator()) {
                 case PredicateParser.AND_OPERATOR :
-                    return combine(compound.getOperator(), children, BoolQueryBuilder::must, this::predicateToQueryBuilder);
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::must, (predicate1) -> predicateToQueryBuilder(predicate1, query));
 
                 case PredicateParser.OR_OPERATOR :
-                    return combine(compound.getOperator(), children, BoolQueryBuilder::should, this::predicateToQueryBuilder);
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::should, (predicate1) -> predicateToQueryBuilder(predicate1, query));
 
                 case PredicateParser.NOT_OPERATOR :
-                    return combine(compound.getOperator(), children, BoolQueryBuilder::mustNot, this::predicateToQueryBuilder);
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::mustNot, (predicate1) -> predicateToQueryBuilder(predicate1, query));
 
                 default :
                     break;
@@ -678,19 +714,30 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } else if (predicate instanceof ComparisonPredicate) {
             ComparisonPredicate comparison = (ComparisonPredicate) predicate;
             String pKey = "_any".equals(comparison.getKey()) ? "_all" : comparison.getKey();
+            int slash = pKey.lastIndexOf('/');
+
             List<Object> values = comparison.getValues();
 
             String operator = comparison.getOperator();
 
+            // this specific one needs to be reduced */
             if (pKey.startsWith("com.psddev.dari.db.ObjectType/")) {
-                int slash = pKey.indexOf('/');
                 pKey = pKey.substring(slash + 1) + ".raw";
             } else {
                 if (pKey.indexOf('/') != -1) {
                     // ELK does not support joins in 5.2. Might be memory issue and slow!
                     // to do this requires query, take results and send to other query. Sample tests do this.
+                    // need to check > 1000
                     //throw new IllegalArgumentException(key + " / joins not allowed in Elastic - do it in app code");
                     LOGGER.info(pKey + " / joins not allowed in Elastic - do it in app code");
+                    List<String> ids = referenceSwitcher(pKey, query);
+                    if (ids != null && ids.size() > 0) {
+                        pKey = pKey.substring(slash + 1);
+                        ComparisonPredicate nComparison = new ComparisonPredicate(comparison.getOperator(),
+                                comparison.isIgnoreCase(), pKey, comparison.getValues());
+                        Query n = Query.fromAll().where(nComparison).and("_id contains ?", ids);
+                        return predicateToQueryBuilder(n.getPredicate(), query);
+                    }
                 }
             }
 
