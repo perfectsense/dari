@@ -658,10 +658,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             for (int j = 0; j < list.size(); j++) {
                 if (list.get(j) instanceof Record) {
                     Map<String, Object> itemMap = ((Record) list.get(j)).getState().getSimpleValues(false);
-                    if (itemMap instanceof Map && itemMap.get(keyArr[i]) != null) {
+                    if (itemMap.get(keyArr[i]) instanceof Map && itemMap.get(keyArr[i]) != null) {
                         Map<String, Object> o = (Map<String, Object>) itemMap.get(keyArr[i]);
                         if (o.get("_ref") != null) {
                             allids.add((String) o.get("_ref"));
+                        }
+                    } else if (itemMap.get(keyArr[i]) instanceof List && itemMap.get(keyArr[i]) != null) {
+                        List<Object> subList = (List<Object>) itemMap.get(keyArr[i]);
+                        for (Object sub: subList) {
+                            Map<String, Object> s = (Map<String, Object>) sub;
+                            if (s.get("_ref") != null) {
+                                allids.add((String) s.get("_ref"));
+                            }
                         }
                     }
                 }

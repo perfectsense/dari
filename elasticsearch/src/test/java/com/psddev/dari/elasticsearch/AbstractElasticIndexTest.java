@@ -177,21 +177,23 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
     }
 
 
-//    @Test
-//    public void missingReferenceSetSet() {
-//        model().referenceSet(model().create()).create();
-//        model().referenceSet(model().set(value(0)).create()).create();
-//        assertCount(1L, "referenceSet/set = missing");
-//        assertCount(1L, "referenceSet/set != missing");
-//    }
+    @Test
+    public void missingReferenceSetSet() {
+        model().referenceSet(model().create()).create();
+        model().referenceSet(model().create()).create();
+        model().referenceSet(model().set(value(0)).create()).create();
+        assertCount(2L, "referenceSet/set = missing");
+        assertCount(1L, "referenceSet/set != missing");
+    }
 
-//    @Test
-//    public void missingReferenceListList() {
-//        model().referenceList(model().create()).create();
-//        model().referenceList(model().list(value(0)).create()).create();
-//        assertCount(1L, "referenceList/list = missing");
-//        assertCount(1L, "referenceList/list != missing");
-//    }
+    @Test
+    public void missingReferenceListList() {
+        model().referenceList(model().create()).create();
+        model().referenceList(model().create()).create();
+        model().referenceList(model().list(value(0)).create()).create();
+        assertCount(2L, "referenceList/list = missing");
+        assertCount(1L, "referenceList/list != missing");
+    }
 
     @Test
     public void missingEmbeddedOne() {
@@ -227,8 +229,6 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         model().embeddedList(model()).create();
         model().embeddedList(model()).create();
         model().embeddedList(model().list(value(0))).create();
-        //assertCount(1L, "embeddedList/list = missing");
-        //assertCount(1L, "embeddedList/list != missing");
         assertCount(2L, "embeddedList.list = missing");
         assertCount(1L, "embeddedList.list != missing");
     }
