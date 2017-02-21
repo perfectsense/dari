@@ -94,5 +94,15 @@ public class SearchElasticModel extends Record {
 
     @Indexed
     public final Map<String, String> map = new HashMap<>();
+
+    @Indexed
+    public SearchElasticModel reference;
+    public SearchElasticModel getReference() {
+        return reference;
+    }
+    public void setReference(SearchElasticModel reference) {
+        this.reference = reference;
+    }
+
 }
 

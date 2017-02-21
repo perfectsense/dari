@@ -291,12 +291,17 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertMissingEither("set", "list", 6L);
     }
 
-//    @Test
-//    public void missingReferenceOneOrReferenceOneOne() {
-//        model().referenceOne(model().create()).create();
-//        model().referenceOne(model().one(value(0)).create()).create();
-//        assertCount(3L, "referenceOne = missing or referenceOne/one = missing");
-//    }
+    /**
+     * referenceOne = missing => this is model().create, and model().one(value(0)).create()
+     * referenceOne/one = missing => this is model().referenceOne(model().create()).create() which is model().create()
+     * thus = 2
+     */
+    @Test
+    public void missingReferenceOneOrReferenceOneOne() {
+        model().referenceOne(model().create()).create();
+        model().referenceOne(model().one(value(0)).create()).create();
+        assertCount(2L, "referenceOne = missing or referenceOne/one = missing");
+    }
 
     protected void createCompareTestModels() {
         IntStream.range(0, 5).forEach(i -> model().all(value(i)).create());
@@ -310,23 +315,23 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(1L, "list = ?", value(2));
     }
 
-//    @Test
-//    public void eqOneEmpty() {
-//        createCompareTestModels();
-//        assertCount(0L, "one = ?", Collections.emptyList());
-//    }
+    @Test
+    public void eqOneEmpty() {
+        createCompareTestModels();
+        assertCount(0L, "one = ?", Collections.emptyList());
+    }
 
-//    @Test
-//    public void eqSetEmpty() {
-//        createCompareTestModels();
-//        assertCount(0L, "set = ?", Collections.emptyList());
-//    }
+    @Test
+    public void eqSetEmpty() {
+        createCompareTestModels();
+        assertCount(0L, "set = ?", Collections.emptyList());
+    }
 
-//    @Test
-//    public void eqListEmpty() {
-//        createCompareTestModels();
-//        assertCount(0L, "list = ?", Collections.emptyList());
-//    }
+    @Test
+    public void eqListEmpty() {
+        createCompareTestModels();
+        assertCount(0L, "list = ?", Collections.emptyList());
+    }
 
     @Test
     public void ne() {
@@ -467,36 +472,80 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertOrder(false, query().sortAscending("one"));
     }
 
-//    @Test
-//    public void sortAscendingReferenceOneOne() {
-//        for (int i = 0, size = 26; i < size; ++ i) {
-//            M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
-//            model().referenceAll(reference).create();
-//        }
-//
-//        List<M> models = query().where("referenceOne/one != missing").sortAscending("referenceOne/one").selectAll();
-//
-//        assertThat(models, hasSize(total / 2));
-//
-//        for (int i = 0, size = models.size(); i < size; ++ i) {
-//            assertThat(models.get(i).getReferenceOne().getOne(), is(value(i)));
-//        }
-//    }
+    @Test(expected = IllegalArgumentException.class)
+    public void sortAscendingReferenceOneOne() {
+        for (int i = 0, size = 26; i < size; ++i) {
+            M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
+            model().referenceAll(reference).create();
+        }
 
-//    @Test
-//    public void sortAscendingEmbeddedOneOne() {
-//        for (int i = 0, size = 26; i < size; ++ i) {
-//            model().embeddedAll(model().all(value(i % 2 == 0 ? i : size - i))).create();
-//        }
-//
-//        List<M> models = query().where("embeddedOne/one != missing").sortAscending("embeddedOne/one").selectAll();
-//
-//        assertThat(models, hasSize(total));
-//
-//        for (int i = 0, size = models.size(); i < size; ++ i) {
-//            assertThat(models.get(i).getEmbeddedOne().getOne(), is(value(i)));
-//        }
-//    }
+        List<M> models = query().where("referenceOne/one != missing").sortAscending("referenceOne/one").selectAll();
+    }
+
+    @Test
+    public void sortClosestReferenceOneOne() {
+        for (int i = 0, size = 26; i < size; ++ i) {
+            M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
+            model().referenceAll(reference).create();
+        }
+
+        List<M> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
+
+        assertThat(models, hasSize(total / 2));
+
+        // these are the model() one after joining.
+        for (int i = 0, size = models.size(); i < size; ++ i) {
+            assertThat(models.get(i).getOne(), is(value(i)));
+        }
+    }
+
+    @Test(expected = Query.NoFieldException.class)
+    public void sortClosestReferenceOneOneJunkSort() {
+        for (int i = 0, size = 26; i < size; ++ i) {
+            M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
+            model().referenceAll(reference).create();
+        }
+
+        List<M> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/junk", new Location(0, 0)).selectAll();
+    }
+
+    @Test
+    public void sortClosestReferenceOneOneJunkExistsWhere() {
+        for (int i = 0, size = 26; i < size; ++ i) {
+            M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
+            model().referenceAll(reference).create();
+        }
+
+        List<M> models = query().where("referenceOne/junk != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
+
+        assertThat(models, hasSize(0));
+
+    }
+
+
+    @Test
+    public void sortClosestEmbeddedOneOne() {
+        for (int i = 0, size = 26; i < size; ++ i) {
+            model().embeddedAll(model().all(value(i % 2 == 0 ? i : size - i))).create();
+        }
+
+        List<M> models = query().where("embeddedOne.one != missing").sortClosest("embeddedOne.one", new Location(0, 0)).selectAll();
+
+        assertThat(models, hasSize(total));
+
+        for (int i = 0, size = models.size(); i < size; ++ i) {
+            assertThat(models.get(i).getEmbeddedOne().getOne(), is(value(i)));
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void sortAscendingEmbeddedOneOne() {
+        for (int i = 0, size = 26; i < size; ++ i) {
+            model().embeddedAll(model().all(value(i % 2 == 0 ? i : size - i))).create();
+        }
+
+        List<M> models = query().where("embeddedOne/one != missing").sortAscending("embeddedOne/one").selectAll();
+    }
 
     /* sortDescending on Location makes no sense */
     @Test(expected = IllegalArgumentException.class)

@@ -123,6 +123,7 @@ public abstract class AbstractElasticTest {
         settings.put("indexName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "indexName"));
         settings.put("clusterPort", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterPort"));
         settings.put("clusterHostname", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterHostname"));
+        settings.put("searchMaxRows", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "searchMaxRows"));
         return settings;
     }
 

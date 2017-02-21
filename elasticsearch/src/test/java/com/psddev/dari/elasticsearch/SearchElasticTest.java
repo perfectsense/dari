@@ -2,6 +2,7 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
+import com.psddev.dari.util.Settings;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
 import org.elasticsearch.index.query.QueryShardException;
 import org.junit.After;
@@ -274,9 +275,9 @@ public class SearchElasticTest extends AbstractElasticTest {
 
     @Test(expected = Query.NoFieldException.class)
     public void testSortStringNoSuchField() throws Exception {
-        database.openConnection();
-        database.deleteIndex();
-        database.defaultMap();
+        //database.openConnection();
+        //database.deleteIndex();
+        //database.defaultMap();
 
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
             SearchElasticModel model = new SearchElasticModel();
@@ -292,6 +293,29 @@ public class SearchElasticTest extends AbstractElasticTest {
                 .selectAll();
     }
 
+
+    @Test
+    public void testReadAllAt2() throws Exception {
+
+        Settings.setOverride(database.SETTING_KEY_PREFIX + "searchMaxRows", "2");
+
+        for (int i = 0; i < 50; i++) {
+            SearchElasticModel model = new SearchElasticModel();
+            model.f = (float) i;
+            model.save();
+        }
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("f")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(50));
+
+        Settings.setOverride(database.SETTING_KEY_PREFIX + "searchMaxRows", "1000");
+    }
 
     @Test
     public void testSortFloat() throws Exception {
@@ -334,7 +358,31 @@ public class SearchElasticTest extends AbstractElasticTest {
             assertEquals("Bill", r.get(0).getName());
             assertEquals("Welcome", r.get(0).getMessage());
         }
-
     }
+
+    @Test
+    public void testReferenceAscending() throws Exception {
+        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+            SearchElasticModel ref = new SearchElasticModel();
+            ref.f = f;
+            ref.save();
+            SearchElasticModel model = new SearchElasticModel();
+            //model.f = f;
+            model.setReference(ref);
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("reference/f")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(6));
+        assertThat("check 0 and 1 order", fooResult.get(0).f, lessThan(fooResult.get(1).f));
+        assertThat("check 1 and 2 order", fooResult.get(1).f, lessThan(fooResult.get(2).f));
+    }
+
 
 }
