@@ -16,17 +16,16 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
-import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Requests;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.geo.GeoPoint;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -64,13 +63,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         public int port;
     }
 
-    private static final String DATABASE_NAME = "elasticsearch";
+    public static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
+    public static final String DATABASE_NAME = "elasticsearch";
     public static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
     public static final String CLUSTER_NAME_SUB_SETTING = "clusterName";
     public static final String CLUSTER_PORT_SUB_SETTING = "clusterPort";
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
-    public static final String SEARCH_TIMEOUT = "searchTimeout";
+    public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SEARCH_MAX_ROWS_SETTING = "searchMaxRows";
 
     public static final String ID_FIELD = "_uid";  // special for aggregations
@@ -182,6 +182,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    /**
+     *
+     * @param client
+     */
     @Override
     public void closeConnection(TransportClient client) {
         //client.close();
@@ -228,7 +232,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         }
 
-        String clusterTimeout = ObjectUtils.to(String.class, settings.get(SEARCH_TIMEOUT));
+        String clusterTimeout = ObjectUtils.to(String.class, settings.get(SEARCH_TIMEOUT_SETTING));
 
         if (clusterTimeout == null) {
             this.searchTimeout = TIMEOUT;
@@ -441,7 +445,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         }
 
-        LOGGER.info("ELK PaginatedResult readPartial hits [{} or {}]", hits.getTotalHits(), items.size());
+        LOGGER.info("ELK PaginatedResult readPartial hits [{} of {}]", items.size(), hits.getTotalHits());
 
         PaginatedResult<T> p = new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
         return p;
@@ -659,6 +663,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
+    /**
+     *
+     * @param queryKey
+     * @param query
+     * @param typeIds
+     * @param <T>
+     * @return
+     */
     private <T> String convertAscendingElkField(String queryKey,  Query<T> query, String[] typeIds) {
         String elkField = null;
 
@@ -732,6 +744,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return elkField;
     }
 
+    /**
+     *
+     * @param queryKey
+     * @param query
+     * @param typeIds
+     * @param <T>
+     * @return
+     */
     private <T> String convertFarthestElkField(String queryKey,  Query<T> query, String[] typeIds) {
         String elkField = null;
 
@@ -803,7 +823,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * @param <T>
      * @return
      */
-    //mapFullyDenormalizedKey(query, "embeddedOne").getField().isEmbedded() use "."
     private <T> List<String> referenceSwitcher(String key, Query<T> query) {
         String[] keyArr = key.split("/");
         List<String> allids = new ArrayList<String>();
@@ -879,7 +898,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return listFinal;
     }
 
-    // Used to convert the query to ELK
+    /**
+     *
+     * @param predicate
+     * @param query
+     * @return
+     */
     private QueryBuilder predicateToQueryBuilder(Predicate predicate, Query<?> query) {
         if (predicate == null) {
             return QueryBuilders.matchAllQuery();
@@ -937,26 +961,48 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     for (Object v : values) {
                         if (v == null) {
                             throw new IllegalArgumentException(operator + " requires value");
+                        } else if (v instanceof Boolean) {
+                            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+                            String checkField = specialFields.get(mappedKey);
+                            if (checkField == null) {
+                                String internalType = mappedKey.getInternalType();
+                                if (internalType.equals("location")) {
+                                    throw new IllegalArgumentException(key + " cannot be boolean for location");
+                                }
+                            }
                         }
                     }
 
                     return combine(operator, values, BoolQueryBuilder::should, v -> Query.MISSING_VALUE.equals(v)
                             ? QueryBuilders.existsQuery(key)
+                            : (v instanceof Region ? QueryBuilders.geoDistanceQuery(key + "._location").point(((Region) v).getX(), ((Region) v).getY())
+                                        .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS)
                             : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
                                                                                 .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
-                                                     : QueryBuilders.termQuery(key, v)));
+                                                     : QueryBuilders.termQuery(key, v))));
 
                 case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
                     for (Object v : values) {
                         if (v == null) {
                             throw new IllegalArgumentException(operator + " requires value");
+                        } else if (v instanceof Boolean) {
+                            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+                            String checkField = specialFields.get(mappedKey);
+                            if (checkField == null) {
+                                String internalType = mappedKey.getInternalType();
+                                if (internalType.equals("location")) {
+                                    throw new IllegalArgumentException(key + " cannot be boolean for location");
+                                }
+                            }
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::mustNot, v -> Query.MISSING_VALUE.equals(v)
                             ? QueryBuilders.existsQuery(key)
+                            : (v instanceof Region ? QueryBuilders.geoDistanceQuery(key + "._location").point(((Region) v).getX(), ((Region) v).getY())
+                            .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS)
                             : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
                                                                                 .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
-                                                     : QueryBuilders.termQuery(key, v)));
+                                                     : QueryBuilders.termQuery(key, v))));
 
                 case PredicateParser.LESS_THAN_OPERATOR :
                     for (Object v : values) {

@@ -24,12 +24,13 @@ import static org.junit.Assert.assertTrue;
 
 public abstract class AbstractElasticTest {
 
-    private static final String DATABASE_NAME = "elasticsearch";
-    private static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractElasticTest.class);
 
-
+    /**
+     *
+     * @param index
+     * @param nodeHost
+     */
     public static void deleteIndex(String index, String nodeHost) {
         LOGGER.info("Deleting Index " + index);
         try {
@@ -47,6 +48,11 @@ public abstract class AbstractElasticTest {
         }
     }
 
+    /**
+     *
+     * @param index
+     * @param nodeHost
+     */
     public static void createIndexandMapping(String index, String nodeHost) {
         LOGGER.info("Mapping Index " + index);
         try {
@@ -112,47 +118,61 @@ public abstract class AbstractElasticTest {
         }
     }
 
+    /**
+     *
+     * @return
+     */
     private static String getNodeHost() {
-        String host = (String) Settings.get("dari/database/elasticsearch/clusterHostname");
+        String host = (String) Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING);
         return "http://" + host + ":9200/";
     }
 
+    /**
+     *
+     * @return
+     */
     public static Map<String, Object> getDatabaseSettings() {
         Map<String, Object> settings = new HashMap<>();
-        settings.put("clusterName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName"));
-        settings.put("indexName", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "indexName"));
-        settings.put("clusterPort", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterPort"));
-        settings.put("clusterHostname", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterHostname"));
-        settings.put("searchMaxRows", Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "searchMaxRows"));
+        settings.put(ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING));
+        settings.put(ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING));
+        settings.put(ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING));
+        settings.put(ElasticsearchDatabase.HOSTNAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING));
+        settings.put(ElasticsearchDatabase.SEARCH_MAX_ROWS_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SEARCH_MAX_ROWS_SETTING));
+        settings.put(ElasticsearchDatabase.SEARCH_TIMEOUT_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SEARCH_TIMEOUT_SETTING));
         return settings;
     }
 
+    /**
+     *
+     */
     public void before() {
         String nodeHost = getNodeHost();
         String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "clusterName", clusterName);
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
         assertThat(clusterName, notNullValue());
         String version = ElasticsearchDatabase.getVersion(nodeHost);
         assertEquals(version.substring(0, 2), "5.");
     }
 
-
+    /**
+     *
+     */
     @BeforeClass
     public static void createDatabase() {
-        Settings.setOverride("dari/defaultDatabase", DATABASE_NAME);
-        Settings.setOverride(SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
-        Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", "elasticsearch_a");
-        Settings.setOverride(SETTING_KEY_PREFIX + "indexName", "index1");
-        Settings.setOverride(SETTING_KEY_PREFIX + "clusterPort", "9300");
-        Settings.setOverride(SETTING_KEY_PREFIX + "clusterHostname", "localhost");
+        Settings.setOverride(ElasticsearchDatabase.DEFAULT_DATABASE_NAME, ElasticsearchDatabase.DATABASE_NAME);
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, "elasticsearch_a");
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
         String nodeHost = getNodeHost();
         if (ElasticsearchDatabase.checkAlive(nodeHost) == false) {
             // ok create embedded since it is not already running for test
             EmbeddedElasticsearchServer.setup();
         }
         String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
-        Settings.setOverride(SETTING_KEY_PREFIX + "clusterName", clusterName);
-        deleteIndex((String)Settings.get("dari/database/elasticsearch/indexName"), nodeHost);
-        createIndexandMapping((String)Settings.get("dari/database/elasticsearch/indexName"), nodeHost);
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
+        deleteIndex((String)Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING), nodeHost);
+        createIndexandMapping((String)Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING), nodeHost);
     }
 }

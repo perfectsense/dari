@@ -17,17 +17,23 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
         return new Location(index, index);
     }
 
-//    @Test
-//    public void eqRegion() {
-//        createCompareTestModels();
-//        assertCount(5, "one = ?", Region.sphericalCircle(0.0d, 0.0d, 5.5d));
-//    }
+    @Test
+    public void eqRegion() {
+        createCompareTestModels();
+        assertCount(4, "one = ?", Region.sphericalCircle(0.0d, 0.0d, 5.5d));
+    }
 
-//    @Test(expected = IllegalArgumentException.class)
-//    public void eqIllegal() {
-//        createCompareTestModels();
-//        query().and("one = true").count();
-//    }
+    @Test
+    public void eqRegionNotIn() {
+        createCompareTestModels();
+        assertCount(1, "one != ?", Region.sphericalCircle(0.0d, 0.0d, 5.5d));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void eqIllegal() {
+        createCompareTestModels();
+        query().and("one = true").count();
+    }
 
     @Override
     @Test(expected = IllegalArgumentException.class)
