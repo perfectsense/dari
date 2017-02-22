@@ -49,12 +49,12 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
         query().and("one startsWith ?", (Object) null).count();
     }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void gt() {
-//        createCompareTestModels();
-//        query().where("one > ?", value(0)).count();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void gt() {
+        createCompareTestModels();
+        query().where("one > ?", value(0)).count();
+    }
 
     @Override
     @Test(expected = IllegalArgumentException.class)
@@ -63,12 +63,12 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
         query().and("one > ?", (Object) null).count();
     }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void ge() {
-//        createCompareTestModels();
-//        query().where("one >= ?", value(0)).count();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void ge() {
+        createCompareTestModels();
+        query().where("one >= ?", value(0)).count();
+    }
 
     @Override
     @Test(expected = IllegalArgumentException.class)
@@ -77,12 +77,12 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
         query().and("one >= ?", (Object) null).count();
     }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void lt() {
-//        createCompareTestModels();
-//        query().where("one < ?", value(0)).count();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void lt() {
+        createCompareTestModels();
+        query().where("one < ?", value(0)).count();
+    }
 
     @Override
     @Test(expected = IllegalArgumentException.class)
@@ -91,12 +91,12 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
         query().and("one < ?", (Object) null).count();
     }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void le() {
-//        createCompareTestModels();
-//        query().where("one <= ?", value(0)).count();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void le() {
+        createCompareTestModels();
+        query().where("one <= ?", value(0)).count();
+    }
 
     @Override
     @Test(expected = IllegalArgumentException.class)
@@ -112,17 +112,17 @@ public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationE
         query().sortAscending("one").count();
     }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void sortAscendingReferenceOneOne() {
-//        super.sortAscendingReferenceOneOne();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void sortAscendingReferenceOneOne() {
+        super.sortAscendingReferenceOneOne();
+    }
 
-//    @Override
-//    @Test(expected = IllegalArgumentException.class)
-//    public void sortAscendingEmbeddedOneOne() {
-//        super.sortAscendingEmbeddedOneOne();
-//    }
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void sortAscendingEmbeddedOneOne() {
+        super.sortAscendingEmbeddedOneOne();
+    }
 
     @Override
     @Test(expected = IllegalArgumentException.class)

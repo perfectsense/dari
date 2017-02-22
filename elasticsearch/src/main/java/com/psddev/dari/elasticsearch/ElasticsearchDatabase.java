@@ -1013,6 +1013,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
                     }
+                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+                    String checkField = specialFields.get(mappedKey);
+                    if (checkField == null) {
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType.equals("location")) {
+                            throw new IllegalArgumentException(operator + " cannot be location");
+                        }
+                    }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                               (v instanceof Location
                                       ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
@@ -1026,6 +1034,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
+                        }
+                    }
+                    mappedKey = mapFullyDenormalizedKey(query, key);
+                    checkField = specialFields.get(mappedKey);
+                    if (checkField == null) {
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType.equals("location")) {
+                            throw new IllegalArgumentException(operator + " cannot be location");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
@@ -1044,6 +1060,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
 
                     }
+                    mappedKey = mapFullyDenormalizedKey(query, key);
+                    checkField = specialFields.get(mappedKey);
+                    if (checkField == null) {
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType.equals("location")) {
+                            throw new IllegalArgumentException(operator + " cannot be location");
+                        }
+                    }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
@@ -1057,6 +1081,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
+                        }
+                    }
+                    mappedKey = mapFullyDenormalizedKey(query, key);
+                    checkField = specialFields.get(mappedKey);
+                    if (checkField == null) {
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType.equals("location")) {
+                            throw new IllegalArgumentException(operator + " cannot be location");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
