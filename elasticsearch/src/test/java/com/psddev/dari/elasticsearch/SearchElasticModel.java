@@ -2,12 +2,7 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Record;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class SearchElasticModel extends Record {
 
@@ -50,11 +45,11 @@ public class SearchElasticModel extends Record {
 
 
     @Indexed
-    public String post_date;
-    public String getPostDate() {
+    public Date post_date;
+    public Date getPostDate() {
         return post_date;
     }
-    public void setPostDate(String post_date) {
+    public void setPostDate(Date post_date) {
         this.post_date = post_date;
     }
 

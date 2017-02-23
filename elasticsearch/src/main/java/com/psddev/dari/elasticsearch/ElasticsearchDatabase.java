@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.psddev.dari.db.*;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -31,13 +32,10 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
-import org.elasticsearch.search.sort.ScoreSortBuilder;
-import org.elasticsearch.search.sort.SortBuilder;
-import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.search.sort.*;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -573,7 +571,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (sorters == null || sorters.size() == 0) {
             list.add(new ScoreSortBuilder());
         } else {
-
+            List<FunctionScoreQueryBuilder.FilterFunctionBuilder> filterFunctionBuilders = new ArrayList<>();
             for (Sorter sorter : sorters) {
                 String operator = sorter.getOperator();
                 if (Sorter.ASCENDING_OPERATOR.equals(operator) || Sorter.DESCENDING_OPERATOR.equals(operator)) {
@@ -587,7 +585,56 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     list.add(new FieldSortBuilder(elkField).order(isAscending ? ASC : DESC));
                 } else if (Sorter.OLDEST_OPERATOR.equals(operator) || Sorter.NEWEST_OPERATOR.equals(operator)) {
-                    // OLDEST_OPERATOR, NEWEST_OPERATOR -- date ones
+                    // OLDEST_OPERATOR, NEWEST_OPERATOR these are just boosts per Solr
+                    // weight, key
+                    if (sorter.getOptions().size() < 2) {
+                        throw new IllegalArgumentException(operator + " requires Date");
+                    }
+                    boolean isOldest = Sorter.OLDEST_OPERATOR.equals(operator);
+                    String queryKey = (String) sorter.getOptions().get(1);
+                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
+                    String elkField = specialFields.get(mappedKey);
+
+                    if (elkField == null) {
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType != null) {
+                            // text and location cannot boost
+                            if (internalType.equals("date")) {
+                                elkField = queryKey;
+                            } else {
+                                throw new IllegalArgumentException();
+                            }
+                        }
+                    }
+
+                    if (elkField == null) {
+                        throw new UnsupportedIndexException(this, queryKey);
+                    }
+
+                    float boost = ObjectUtils.to(float.class, sorter.getOptions().get(0));
+                    if (boost == 0) {
+                        boost = 1.0f;
+                    }
+                    boost = .1f * boost;
+
+                    QueryBuilder qb;
+                    long scale = 1000L * 60L * 60L * 24L * 30L * 12L * 5L; // 5 years scaling
+                    if (!isOldest) {
+                        filterFunctionBuilders.add(
+                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, new Date().getTime(), scale, 0, .1).setWeight(boost))
+                        );
+                        // recip(x,m,a,b) implementing a/(m*x+b)
+                        //boostFunctionBuilder.append(String.format("{!boost b=recip(ms(NOW/HOUR,%s),3.16e-11,%s,%s)}", solrField, boost, boost));
+                    } else {
+                        filterFunctionBuilders.add(
+                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, DateUtils.addYears(new java.util.Date(), -5).getTime(), scale, 0, .1).setWeight(boost))
+                        );
+                        // linear(x,2,4) returns 2*x+4
+                        //boostFunctionBuilder.append(String.format("{!boost b=linear(ms(NOW/HOUR,%s),3.16e-11,%s)}", solrField, boost));
+                    }
+
+                    list.add(new ScoreSortBuilder());
+
                 } else if (Sorter.FARTHEST_OPERATOR.equals(operator) || Sorter.CLOSEST_OPERATOR.equals(operator)) {
                     if (sorter.getOptions().size() < 2) {
                         throw new IllegalArgumentException(operator + " requires Location");
@@ -612,21 +659,25 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     Float boost = Float.valueOf(boostStr);
                     if (predicateObject instanceof Predicate) {
                         sortPredicate = (Predicate) predicateObject;
-                        FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = {
+                        filterFunctionBuilders.add(
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
                                         predicateToQueryBuilder(sortPredicate, query),
-                                        weightFactorFunction(boost))
-                        };
-
-                        QueryBuilder qb = QueryBuilders.functionScoreQuery(orig, functions)
-                                .boostMode(CombineFunction.MULTIPLY)
-                                .boost(boost)
-                                .maxBoost(1000.0f);
-                        srb.setQuery(qb);
+                                        weightFactorFunction(boost)));
                     }
                 } else {
                     throw new UnsupportedOperationException(operator + " not supported");
                 }
+            }
+            if (filterFunctionBuilders.size() > 0) {
+                FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = new FunctionScoreQueryBuilder.FilterFunctionBuilder[filterFunctionBuilders.size()];
+                for (int i = 0; i < filterFunctionBuilders.size(); i++) {
+                    functions[i] = filterFunctionBuilders.get(i);
+                }
+                orig = QueryBuilders.functionScoreQuery(orig, functions)
+                        .boostMode(CombineFunction.MULTIPLY)
+                        .boost(1.0f)
+                        .maxBoost(1000.0f);
+                srb.setQuery(orig);
             }
         }
         return list;

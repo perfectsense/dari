@@ -3,6 +3,7 @@ package com.psddev.dari.elasticsearch;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.util.Settings;
+import org.apache.commons.lang3.time.DateUtils;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
 import org.elasticsearch.index.query.QueryShardException;
 import org.junit.After;
@@ -382,6 +383,69 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check size", fooResult, hasSize(6));
         assertThat("check 0 and 1 order", fooResult.get(0).f, lessThan(fooResult.get(1).f));
         assertThat("check 1 and 2 order", fooResult.get(1).f, lessThan(fooResult.get(2).f));
+    }
+
+    @Test
+    public void testDateNewestBoost() throws Exception {
+        Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.post_date = d;
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortNewest(2.0, "post_date")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(4));
+        assertThat("check 0 and 1 order", fooResult.get(0).post_date.getTime(), greaterThan(fooResult.get(1).post_date.getTime()));
+        assertThat("check 1 and 2 order", fooResult.get(1).post_date.getTime(), greaterThan(fooResult.get(2).post_date.getTime()));
+        assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), greaterThan(fooResult.get(3).post_date.getTime()));
+    }
+
+    @Test
+    public void testDateOldestBoost() throws Exception {
+        Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.post_date = d;
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortOldest(2.0, "post_date")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(4));
+        assertThat("check 0 and 1 order", fooResult.get(0).post_date.getTime(), lessThan(fooResult.get(1).post_date.getTime()));
+        assertThat("check 1 and 2 order", fooResult.get(1).post_date.getTime(), lessThan(fooResult.get(2).post_date.getTime()));
+        assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), lessThan(fooResult.get(3).post_date.getTime()));
+    }
+
+    @Test
+    public void testDateOldestBoostRelevant() throws Exception {
+        Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.post_date = d;
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortOldest(2.0, "post_date").sortRelevant(10.0, "post_date matches ?", new java.util.Date())
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(4));
+        assertThat("check 0 and 1 order", fooResult.get(0).post_date.getTime(), lessThan(fooResult.get(1).post_date.getTime()));
+        assertThat("check 1 and 2 order", fooResult.get(1).post_date.getTime(), lessThan(fooResult.get(2).post_date.getTime()));
+        assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), lessThan(fooResult.get(3).post_date.getTime()));
     }
 
 
