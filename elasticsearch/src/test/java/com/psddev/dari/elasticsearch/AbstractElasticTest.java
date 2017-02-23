@@ -70,6 +70,15 @@ public abstract class AbstractElasticTest {
                     "          }\n" +
                     "        },\n" +
                     "        {\n" +
+                    "          \"shapegeo\": {\n" +
+                    "            \"match\": \"_polygon\",\n" +
+                    "            \"match_mapping_type\": \"object\",\n" +
+                    "            \"mapping\": {\n" +
+                    "              \"type\": \"geo_shape\"\n" +
+                    "            }\n" +
+                    "          }\n" +
+                    "        }," +
+                    "        {\n" +
                     "          \"int_template\": {\n" +
                     "            \"match\": \"_*\",\n" +
                     "            \"match_mapping_type\": \"string\",\n" +
