@@ -26,6 +26,7 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.geo.GeoPoint;
 import org.elasticsearch.common.geo.ShapeRelation;
 import com.vividsolutions.jts.geom.Coordinate;
+import org.elasticsearch.common.geo.builders.GeometryCollectionBuilder;
 import org.elasticsearch.common.geo.builders.ShapeBuilders;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.settings.Settings;
@@ -79,7 +80,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String TYPE_ID_FIELD = "_type";
     public static final String ALL_FIELD = "_all";
     public static final int MAX_ROWS = 1000;
-    public static final int TIMEOUT = 50000;
+    public static final int TIMEOUT = 500000;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
@@ -648,6 +649,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (!(sorter.getOptions().get(1) instanceof Location)) {
                         throw new IllegalArgumentException(operator + " requires Location");
                     }
+                    /* Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
+                    elkField = specialFields.get(mappedKey);
+                    String internalType = null;
+                    if (elkField == null) {
+                        internalType = mappedKey.getInternalType();
+                        if (internalType.equals("region")) {
+                            throw new IllegalArgumentException(operator + " cannot sort GeoJSON in Elastic Search");
+                        }
+                    } */
                     Location sort = (Location) sorter.getOptions().get(1);
                     list.add(new GeoDistanceSortBuilder(elkField, new GeoPoint(sort.getX(), sort.getY()))
                             .order(isClosest ? SortOrder.ASC : SortOrder.DESC));
@@ -745,6 +755,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             } else if (internalType.equals("location")) {
                                 elkField = k + "._location";
                                 throw new IllegalArgumentException();
+                            } else if (internalType.equals("region")) {
+                                elkField = k + "._polygon";
+                                throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                             }
                         }
                         if (elkField == null) {
@@ -779,6 +792,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         elkField = queryKey + "._location";
                         // not sure what to do with lat,long and sort?
                         throw new IllegalArgumentException();
+                    } else if (internalType.equals("region")) {
+                        elkField = queryKey + "._polygon";
+                        throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                     }
                 }
                 if (elkField == null) {
@@ -824,6 +840,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             if (internalType.equals("location")) {
                                 elkField = k + "._location";
                             }
+                            if (internalType.equals("region")) {
+                                elkField = k + "._polygon";
+                                throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
+                            }
                         }
                         if (elkField == null) {
                             elkField = k;
@@ -850,6 +870,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if (internalType != null) {
                     if (internalType.equals("location")) {
                         elkField = queryKey + "._location";
+                    }
+                    if (internalType.equals("region")) {
+                        elkField = queryKey + "._polygon";
+                        throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                     }
                 }
                 if (elkField == null) {
@@ -952,12 +976,97 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return listFinal;
     }
 
+    public String getGeoJson(List<Region.Circle> circles, Region.MultiPolygon polygons) {
+        List<Map<String, Object>> features = new ArrayList<Map<String, Object>>();
+
+        Map<String, Object> featureCollection = new HashMap<String, Object>();
+        featureCollection.put("type", "geometrycollection");
+        featureCollection.put("geometries", features);
+
+        if (circles != null && circles.size() > 0) {
+
+            for (Region.Circle circle : circles) {
+                Map<String, Object> geometry = new HashMap<String, Object>();
+                geometry.put("type", "circle");
+                geometry.put("coordinates", circle.getGeoJsonArray().get(0)); // required for ELK
+                geometry.put("radius", circle.getRadius() + "m");
+
+                features.add(geometry);
+            }
+        }
+
+        if (polygons != null && polygons.size() > 0) {
+            Map<String, Object> geometry = new HashMap<String, Object>();
+            geometry.put("type", "multipolygon");
+            geometry.put("coordinates", polygons);
+
+            features.add(geometry);
+        }
+
+        return ObjectUtils.toJson(featureCollection);
+    }
+
+    /**
+     *
+     * @param v
+     * @param type
+     * @param key
+     * @return
+     */
+    private QueryBuilder geoLocation(Object v, String type, String key, ShapeRelation sr) {
+
+        if (type != null && type.equals("location")) {
+            if (v instanceof Location) {
+                return QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
+                    .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()));
+            } else if (v instanceof Region) {
+                return QueryBuilders.geoDistanceQuery(key + "._location").point(((Region) v).getX(), ((Region) v).getY())
+                        .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS);
+            }
+        } else if (type != null && type.equals("polygon")) {
+            if (v instanceof Location) {
+                return QueryBuilders.boolQuery().must(geoShape(key + "._polygon", ((Location) v).getX(), ((Location) v).getY()));
+
+            } else if (v instanceof Region) {
+                // required to fix array issue on Circles and capitals
+                Region region = (Region) v;
+                String geoJson = getGeoJson(region.getCircles(), region.getPolygons());
+
+                String shapeJson = "{" + "\"shape\":" + geoJson + ",\"relation\": \"" + sr + "\"}";
+                String nameJson = "{" + "\"" + key + "._polygon" + "\":" + shapeJson + "}";
+                String json = "{" + "\"geo_shape\":" + nameJson + "}";
+                return QueryBuilders.boolQuery().must(QueryBuilders.wrapperQuery(json));
+            }
+        }
+        return QueryBuilders.termQuery(key, v);
+    }
+
+    private GeoShapeQueryBuilder geoShapeIntersects(String key, double x, double y) {
+        try {
+            return QueryBuilders
+                    .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.INTERSECTS);
+        } catch (Exception e) {
+            LOGGER.warn("geoShape threw exception");
+        }
+        return null;
+    }
+
     private GeoShapeQueryBuilder geoShape(String key, double x, double y) {
         try {
             return QueryBuilders
                     .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.CONTAINS);
         } catch (Exception e) {
             LOGGER.warn("geoShape threw exception");
+        }
+        return null;
+    }
+
+    private GeoShapeQueryBuilder geoCircle(String key, double x, double y, double r) {
+        try {
+            return QueryBuilders
+                    .geoShapeQuery(key, ShapeBuilders.newCircleBuilder().center(x,y).radius(r, DistanceUnit.KILOMETERS)).relation(ShapeRelation.CONTAINS);
+        } catch (Exception e) {
+            LOGGER.warn("geoCircle threw exception");
         }
         return null;
     }
@@ -1022,51 +1131,68 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             switch (operator) {
                 case PredicateParser.EQUALS_ANY_OPERATOR :
+                    String geoType = null;
                     for (Object v : values) {
                         if (v == null) {
                             throw new IllegalArgumentException(operator + " requires value");
-                        } else if (v instanceof Boolean) {
+                        } else if (!(v instanceof String)) {
                             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
                             String checkField = specialFields.get(mappedKey);
                             if (checkField == null) {
                                 String internalType = mappedKey.getInternalType();
-                                if (internalType.equals("location")) {
-                                    throw new IllegalArgumentException(key + " cannot be boolean for location");
+                                if (v instanceof Boolean) {
+                                    if (internalType != null && internalType.equals("location")) {
+                                        throw new IllegalArgumentException(key + " boolean cannot be location");
+                                    }
+                                    if (internalType != null && internalType.equals("region")) {
+                                        throw new IllegalArgumentException(key + " boolean cannot be region");
+                                    }
+                                } else if (internalType != null && internalType.equals("region")) {
+                                    geoType = "polygon";
+                                } else if (internalType != null && internalType.equals("location")) {
+                                    geoType = "location";
                                 }
                             }
                         }
                     }
 
+                    String finalGeoType = geoType;
+                    String finalKey = key;
                     return combine(operator, values, BoolQueryBuilder::should, v -> Query.MISSING_VALUE.equals(v)
-                            ? QueryBuilders.existsQuery(key)
-                            : (v instanceof Region ? QueryBuilders.geoDistanceQuery(key + "._location").point(((Region) v).getX(), ((Region) v).getY())
-                                        .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS)
-                            : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
-                                                                                .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
-                                                     : QueryBuilders.termQuery(key, v))));
+                            ? QueryBuilders.existsQuery(finalKey)
+                            : geoLocation(v, finalGeoType, finalKey, ShapeRelation.WITHIN));
 
                 case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
+                    String geoTypeNotEq = null;
                     for (Object v : values) {
                         if (v == null) {
                             throw new IllegalArgumentException(operator + " requires value");
-                        } else if (v instanceof Boolean) {
+                        } else if (!(v instanceof String)) {
                             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
                             String checkField = specialFields.get(mappedKey);
                             if (checkField == null) {
                                 String internalType = mappedKey.getInternalType();
-                                if (internalType.equals("location")) {
-                                    throw new IllegalArgumentException(key + " cannot be boolean for location");
+                                if (v instanceof Boolean) {
+                                    if (internalType != null && internalType.equals("location")) {
+                                        throw new IllegalArgumentException(key + " boolean cannot be location");
+                                    }
+                                    if (internalType != null && internalType.equals("region")) {
+                                        throw new IllegalArgumentException(key + " boolean cannot be region");
+                                    }
+                                } else if (internalType != null && internalType.equals("region")) {
+                                    geoTypeNotEq = "polygon";
+                                } else if (internalType != null && internalType.equals("location")) {
+                                    geoTypeNotEq = "location";
                                 }
                             }
                         }
                     }
+
+                    String finalGeoTypeNotEq = geoTypeNotEq;
+                    String finalKeyNotEq = key;
                     return combine(operator, values, BoolQueryBuilder::mustNot, v -> Query.MISSING_VALUE.equals(v)
-                            ? QueryBuilders.existsQuery(key)
-                            : (v instanceof Region ? QueryBuilders.geoDistanceQuery(key + "._location").point(((Region) v).getX(), ((Region) v).getY())
-                            .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS)
-                            : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
-                                                                                .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()))
-                                                     : QueryBuilders.termQuery(key, v))));
+                            ? QueryBuilders.existsQuery(finalKeyNotEq)
+                            : geoLocation(v, finalGeoTypeNotEq, finalKeyNotEq, ShapeRelation.WITHIN));
 
                 case PredicateParser.LESS_THAN_OPERATOR :
                     for (Object v : values) {
@@ -1083,8 +1209,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType.equals("location")) {
+                        if (internalType != null && internalType.equals("location")) {
                             throw new IllegalArgumentException(operator + " cannot be location");
+                        }
+                        if (internalType != null && internalType.equals("region")) {
+                            throw new IllegalArgumentException(key + " cannot be region");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
@@ -1108,8 +1237,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType.equals("location")) {
+                        if (internalType != null && internalType.equals("location")) {
                             throw new IllegalArgumentException(operator + " cannot be location");
+                        }
+                        if (internalType != null && internalType.equals("region")) {
+                            throw new IllegalArgumentException(key + " cannot be region");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
@@ -1134,8 +1266,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType.equals("location")) {
+                        if (internalType != null && internalType.equals("location")) {
                             throw new IllegalArgumentException(operator + " cannot be location");
+                        }
+                        if (internalType != null && internalType.equals("region")) {
+                            throw new IllegalArgumentException(operator + " cannot be region");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
@@ -1159,8 +1294,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType.equals("location")) {
+                        if (internalType != null && internalType.equals("location")) {
                             throw new IllegalArgumentException(operator + " cannot be location");
+                        }
+                        if (internalType != null && internalType.equals("region")) {
+                            throw new IllegalArgumentException(key + " cannot be region");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::must, v ->
@@ -1177,8 +1315,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
-                        if (v instanceof Location) {
+                        if (v != null && v instanceof Location) {
                             throw new IllegalArgumentException(operator + " location not allowed");
+                        }
+                        if (v != null && v instanceof Region) {
+                            throw new IllegalArgumentException(operator + " region not allowed");
                         }
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v -> QueryBuilders.prefixQuery(key, v.toString()));
@@ -1203,35 +1344,40 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
-                        if (v instanceof Location) {
+                        if (v != null && v instanceof Boolean) {
+                            if (internalType != null && internalType.equals("region")) {
+                                throw new IllegalArgumentException(operator + " region with boolean not allowed");
+                            }
+                        }
+                        if (v != null && v instanceof Location) {
                             if (internalType == null) {
                                 throw new IllegalArgumentException(operator + " location not allowed");
-                            } else if (!internalType.equals("region")) {
-                                throw new IllegalArgumentException(operator + " location not allowed");
+                            } else if (!internalType.equals("region") && !internalType.equals("location")) {
+                                throw new IllegalArgumentException(operator + " location not allowed except for region/location");
                             }
                         }
                     }
-                    // if region use one._polygon
-                    // Location or Region on Query.
-                    /* "geo_shape": {
-                          "location": {
-                            "shape": {
-                              "type": "polygon",
-                              "coordinates": [
-                                  [[-87.6363976, 41.8772528], [-87.6363976, 41.8902152],
-                                   [-87.62131840000001, 41.8902152], [-87.62131840000001, 41.8772528],
-                                   [-87.6363976, 41.8772528]]
-                              ]
-                            }
-                          }
-                        } */
 
+                    String geoType1 = null;
+                    if (internalType != null && internalType.equals("region")) {
+                        geoType1 = "polygon";
+                    } else if (internalType != null && internalType.equals("location")) {
+                        geoType1 = "location";
+                    }
+
+                    String finalGeoType1 = geoType1;
+                    String finalKey1 = key;
                     if (internalType != null && internalType.equals("region")) {
                         return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must( geoShape(key + "._polygon", ((Location) v).getX(), ((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(key).gte(v)));
+                                    ? QueryBuilders.boolQuery().must(geoShapeIntersects(key + "._polygon", ((Location) v).getX(), ((Location) v).getY()))
+                                    : (v instanceof Region
+                                    ? QueryBuilders.boolQuery().must(geoLocation(v, finalGeoType1, finalKey1, ShapeRelation.CONTAINS))
+
+                                            //geoShape(key + "._polygon", ((Location) v).getX(), ((Location) v).getY()))
+//                   ? QueryBuilders.boolQuery().must( geoCircle(key + "._polygon", ((Region) v).getX(), ((Region) v).getY(), Region.degreesToKilometers(((Region) v).getRadius())))
+                                        : QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
@@ -1429,25 +1575,82 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * {polygons=[[[[1.0, 1.0], [1.0, -1.0], [-1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]]], circles=null, x=0.0, y=0.0, radius=1.0}
-     * to ELK
-     * "_polygon" : {
-     "type" : "multipolygon",
-     "coordinates" : [[
-     [ 4.89218, 52.37356 ],
-     [ 4.89205, 52.37276 ],
-     [ 4.89301, 52.37274 ],
-     [ 4.89392, 52.37250 ],
-     [ 4.89431, 52.37287 ],
-     [ 4.89331, 52.37346 ],
-     [ 4.89305, 52.37326 ],
-     [ 4.89218, 52.37356 ]
-     ]]
-     }
-     * "type" : "polygon",
-     "coordinates" : [
-     [ [100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0] ]
-     ]
+     *
+     * @param valueMap
+     */
+    private static void convertToGeometryCollection(Map<String, Object> valueMap, String name) {
+
+        if (valueMap.size() > 2) {
+            if (valueMap.containsKey("polygons") && valueMap.containsKey("circles") && valueMap.containsKey("radius")) {
+                Map<String, Object> newValueMap = new HashMap();
+                newValueMap.put("type", "geometrycollection");
+
+                List newGeometries = new ArrayList();
+                if (valueMap.get("polygons") != null && valueMap.get("polygons") instanceof List) {
+                    List polygons = (List) valueMap.get("polygons");
+                    if (polygons.size() > 0) {
+                        Map<String, Object> newObject = new HashMap<String, Object>();
+                        newObject.put("type", "multipolygon");
+                        List newPolygons = new ArrayList();
+                        for (Object p : polygons) {
+                            List newPolygon = new ArrayList();
+                            if (p instanceof List) {
+                                for (Object ring : (List) p) {
+                                    List<List> newRing = new ArrayList();
+                                    for (Object latlon : (List) ring) {
+                                        Double lat = (Double) ((List) latlon).get(0);
+                                        Double lon = (Double) ((List) latlon).get(1);
+                                        List<Double> newLatLon = new ArrayList();
+                                        newLatLon.add(lat);
+                                        newLatLon.add(lon);
+                                        newRing.add(newLatLon);
+                                    }
+                                    newPolygon.add(newRing);
+                                }
+                                newPolygons.add(newPolygon);
+                            }
+                        }
+                        newObject.put("coordinates", newPolygons);
+                        newGeometries.add(newObject);
+                    }
+                    //valueMap.remove("polygons");
+                }
+
+                if (valueMap.get("circles") != null && valueMap.get("circles") instanceof List) {
+                    List circles = (List) valueMap.get("circles");
+                    if (circles.size() > 0) {
+                        for (Object c : circles) {
+                            if (c instanceof List) {
+                                Map<String, Object> newGeometry = new HashMap<String, Object>();
+                                newGeometry.put("type", "circle");
+                                Double lat = (Double) ((List) c).get(0);
+                                Double lon = (Double) ((List) c).get(1);
+                                Double r = (Double) ((List) c).get(2);
+                                List<Double> newCircle = new ArrayList();
+                                newCircle.add(lat);
+                                newCircle.add(lon);
+                                newGeometry.put("coordinates", newCircle);
+                                newGeometry.put("radius", Region.degreesToMeters(r) + "m");
+                                newGeometries.add(newGeometry);
+                            }
+                        }
+                    }
+                    //valueMap.remove("circles");
+                }
+                newValueMap.put("geometries", newGeometries);
+                if (valueMap.containsKey("x")) valueMap.remove("x");
+                if (valueMap.containsKey("y")) valueMap.remove("y");
+                if (valueMap.containsKey("radius")) valueMap.remove("radius");
+                if (valueMap.containsKey("circles")) valueMap.remove("circles");
+                if (valueMap.containsKey("polygons")) valueMap.remove("polygons");
+                valueMap.put(name, newValueMap);
+            }
+        }
+    }
+
+
+
+    /**
      * @param map
      * @param name
      */
@@ -1462,74 +1665,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (value instanceof Map) {
                 Map<String, Object> valueMap = (Map<String, Object>) value;
-                if (valueMap.size() > 2) {
-                    if (valueMap.containsKey("polygons") && valueMap.containsKey("circles")) {
-                        if (valueMap.get("polygons") instanceof List) {
-                            List polygons = (List) valueMap.get("polygons");
-                            Map<String, Object> newObject = new HashMap<String, Object>();
-                            newObject.put("type", "multipolygon"); // polygon
-                            List newPolygons = new ArrayList();
-                            for (Object p : polygons) {
-                                List newPolygon = new ArrayList();
-                                if (p instanceof List) {
-                                    for (Object ring : (List) p) {
-                                        List<List> newRing = new ArrayList();
-                                        for (Object latlon : (List) ring) {
-                                            Double lat = (Double) ((List) latlon).get(0);
-                                            Double lon = (Double) ((List) latlon).get(1);
-                                            List<Double> newLatLon = new ArrayList();
-                                            newLatLon.add(lat);
-                                            newLatLon.add(lon);
-                                            newRing.add(newLatLon);
-                                        }
-                                        newPolygon.add(newRing);
-                                    }
-                                    newPolygons.add(newPolygon);
-                                }
-                            }
-                            newObject.put("coordinates", newPolygons);
-                            valueMap.put(name, newObject);
-                            valueMap.remove("polygons");
-                        }
-                    }
-                }
-                convertRegionToName((Map<String, Object>) value, name);
 
+                convertToGeometryCollection(valueMap, name);
+                convertRegionToName((Map<String, Object>) value, name);
             } else if (value instanceof List) {
                 for (Object item : (List<?>) value) {
                     if (item instanceof Map) {
                         Map<String, Object> valueMap = (Map<String, Object>) item;
-                        if (valueMap.size() > 2) {
-                            if (valueMap.containsKey("polygons") && valueMap.containsKey("circles")) {
-                                if (valueMap.get("polygons") instanceof List) {
-                                    List polygons = (List) valueMap.get("polygons");
-                                    Map<String, Object> newObject = new HashMap<String, Object>();
-                                    newObject.put("type", "multipolygon"); // polygon
-                                    List newPolygons = new ArrayList();
-                                    for (Object p : polygons) {
-                                        List newPolygon = new ArrayList();
-                                        if (p instanceof List) {
-                                            for (Object ring : (List) p) {
-                                                List<List> newRing = new ArrayList();
-                                                for (Object latlon : (List) ring) {
-                                                    Double lat = (Double) ((List) latlon).get(0);
-                                                    Double lon = (Double) ((List) latlon).get(1);
-                                                    List<Double> newLatLon = new ArrayList();
-                                                    newLatLon.add(lat);
-                                                    newLatLon.add(lon);
-                                                    newRing.add(newLatLon);
-                                                }
-                                                newPolygon.add(newRing);
-                                            }
-                                            newPolygons.add(newPolygon);
-                                        }
-                                    }
-                                    newObject.put("coordinates", newPolygons);
-                                    valueMap.put(name, newObject);
-                                    valueMap.remove("polygons");
-                                }
-                            }
-                        }
+
+                        convertToGeometryCollection(valueMap, name);
                         convertRegionToName((Map<String, Object>) item, name);
                     }
                 }

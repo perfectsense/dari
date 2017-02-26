@@ -347,7 +347,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         query().where("one contains ?", value(0)).count();
     }
 
-    @Test
+    @Test(expected = IllegalArgumentException.class)
     public void containsNull() {
         createCompareTestModels();
         assertCount(0, "one contains ?", (Object) null);
@@ -383,7 +383,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(2L, "one > ?", value(2));
     }
 
-    @Test
+    @Test(expected = IllegalArgumentException.class)
     public void gtNull() {
         createCompareTestModels();
         assertCount(0, "one > ?", (Object) null);
@@ -401,7 +401,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(3L, "one >= ?", value(2));
     }
 
-    @Test
+    @Test(expected = IllegalArgumentException.class)
     public void geNull() {
         createCompareTestModels();
         assertCount(0, "one >= ?", (Object) null);
@@ -419,7 +419,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(2L, "one < ?", value(2));
     }
 
-    @Test
+    @Test(expected = IllegalArgumentException.class)
     public void ltNull() {
         createCompareTestModels();
         assertCount(0, "one < ?", (Object) null);
@@ -437,7 +437,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(3L, "one <= ?", value(2));
     }
 
-    @Test
+    @Test(expected = IllegalArgumentException.class)
     public void leNull() {
         createCompareTestModels();
         assertCount(0, "one <= ?", (Object) null);
@@ -509,7 +509,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         List<M> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/junk", new Location(0, 0)).selectAll();
     }
 
-    @Test
+    @Test(expected = Query.NoFieldException.class)
     public void sortClosestReferenceOneOneJunkExistsWhere() {
         for (int i = 0, size = 26; i < size; ++ i) {
             M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
