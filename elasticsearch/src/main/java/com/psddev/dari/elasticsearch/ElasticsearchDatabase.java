@@ -120,9 +120,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private transient TransportClient client;
 
     /**
-     * The amount of rows per each call to Elastic Search
+     * The amount of rows per each call to Elastic Search wrapped in readAll()
      *
-     * @param searchMaxRows the searchable MaxRows
+     * @see #readAll(Query)
+     *
      */
     public void setSearchMaxRows(int searchMaxRows) {
 
@@ -130,8 +131,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * The amount of rows per call to Elastic Search
      *
-     * @return the maxRows to return on one partial return
+     * @see #readAll(Query)
      */
     public int getSearchMaxRows() {
 
@@ -139,8 +141,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Set the timeout for calls into Elastic - might want to set lower/higher based on systems
+     * Used in .setTimeout(new TimeValue(this.searchTimeout))
      *
-     * @param searchTimeout set the search Timeout
+     * @see #doInitialize
      */
     public void setSearchTimeout(int searchTimeout) {
 
@@ -148,8 +152,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * The timeout for calls to Elastic
      *
-     * @return set timeout
+     * @see #readPartial(Query, long, int)
      */
     public int getSearchTimeout() {
 
@@ -157,40 +162,42 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Set the ClusterName for Elastic
      *
-     * @param clusterName set the clusterName
+     * @see #doInitialize
      */
     public void setClusterName(String clusterName) {
         this.clusterName = clusterName;
     }
 
     /**
+     * Get the ClusterName for Elastic
      *
-     * @return the clusterName
      */
     public String getClusterName() {
         return clusterName;
     }
 
     /**
+     * Get the indexName for Elastic
      *
-     * @return the indexName
      */
     public String getIndexName() {
         return indexName;
     }
 
     /**
+     * Set the index for Elastic
      *
-     * @param indexName the indexName to set
+     * @see #doInitialize
      */
     public void setIndexName(String indexName) {
         this.indexName = indexName;
     }
 
     /**
+     * The Elastic TransportClient using ElasticsearchDatabaseConnection.getClient()
      *
-     * @return TransportClient
      */
     @Override
     public TransportClient openConnection() {
@@ -213,8 +220,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     *
-     * @param client the client to close
+     * Close the connection. Actually does not close() since the connection is persistent
      */
     @Override
     public void closeConnection(TransportClient client) {
@@ -222,9 +228,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Initialize all the settings for Elastic
      *
-     * @param settingsKey the settings for Elastic Search
-     * @param settings the object with the name/values
      */
     @Override
     protected void doInitialize(String settingsKey, Map<String, Object> settings) {
@@ -288,9 +293,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Override to not support in Elastic.
      *
-     * @param query the query to check. LastUpdate not supported
-     * @return not supported
      */
     @Override
     public Date readLastUpdate(Query<?> query) {
@@ -308,8 +312,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Get The running version of Elastic
      *
-     * @param nodeHost the Host for the node
      * @return the version running
      */
     public static String getVersion(String nodeHost) {
@@ -345,8 +349,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Get the clusterName from the running version
      *
-     * @param nodeHost the node to check
      * @return the clusterName
      */
     public static String getClusterName(String nodeHost) {
@@ -375,8 +379,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Check to see if the running version is alive.
      *
-     * @param nodeHost the nodeHost to check
      * @return true indicates node is alive
      */
     public static boolean checkAlive(String nodeHost) {
@@ -401,8 +405,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Grab a connection and check it
      *
-     * @return get a new connection and return true if alive
      */
     public boolean isAlive() {
         TransportClient client = openConnection();
@@ -418,11 +422,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      *
-     * @param query the query to run
-     * @param offset the beginning row
-     * @param limit the number of rows
-     * @param <T> the Type
-     * @return readPartial (usually first 1000)
+     * Read partial results from Elastic - convert Query to SearchRequestBuilder
+     *
+     * @see #getSearchMaxRows()
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -492,11 +494,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Take the saved object and convert to objectState and swap it
      *
-     * @param hit the row returned
-     * @param query the query for swap
-     * @param <T> the type
-     * @return the new object
      */
     private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query) {
         T object = createSavedObject(hit.getType(), hit.getId(), query);
@@ -511,6 +510,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Check special fields for Elastic
      *
      */
     private final Map<Query.MappedKey, String> specialFields; {
@@ -522,10 +522,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Denormalize the key or return Query.NoFieldException
      *
-     * @param query query to check key
-     * @param key the key to check
      * @return Query.MappedKey
+     * @throws Query.NoFieldException
      */
     private Query.MappedKey mapFullyDenormalizedKey(Query<?> query, String key) {
         Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), key);
@@ -537,11 +537,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Look for key split by '/' in elastic _mapping for the type
+     * Return true if found it, else false
      *
-     * @param properties the properties to check in Elastic Mapping
-     * @param key the key to find (if in there)
-     * @param length the location for recursion
-     * @return false if did not find in Mapping
+     * @see #checkElasticMappingField
+     *
      */
     private boolean findElasticMap(Map<String, Object> properties, List<String> key, int length) {
         if (properties != null) {
@@ -576,10 +576,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     // how do we handle internal types? Solr does it with a sortPrefix.
-     // Reserved:  `_uid`, `_id`, `_type`, `_source`, `_all`, `_parent`, `_field_names`, `_routing`, `_index`, `_size`, `_timestamp`, and `_ttl`
-     * @param typeIds the typeIds to check _mapping
-     * @param field the field name
+     *  Check types for field in Elastic mapping
+     *
+     * @see #findElasticMap
      * @return true if the field exists
      * @throws IOException the Elastic could fail on getting _mapping on the type
      */
@@ -605,12 +604,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      *
-     * @param sorters the list of sorts to add
-     * @param orig the original QueryBuilder
-     * @param query the Query
-     * @param srb the SearchRequestBuilder to use
-     * @param typeIds if we have types and what they are[]
-     * @return the List for Sorting
+     * Build a list of SortBuilder sorters based on Elastic
+     *
      */
     private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb, String[] typeIds) {
         List<SortBuilder> list = new ArrayList<>();
@@ -731,10 +726,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Handy to see if the object is a reference and not Record or Embedded
      *
-     * @param queryKey the key to check fior reference object
-     * @param query the current query
-     * @return if the queryKey is a reference and nopt an Object or Embedded object
+     * @return if the queryKey is a reference and not an Object or Embedded object
      */
     private boolean isReference(String queryKey, Query<?> query) {
         Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), queryKey);
@@ -761,12 +755,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Take queryKey and return the Elastic equivalent for text, location and region
      *
-     * @param queryKey the key to set with '/'
-     * @param query the current query
-     * @param typeIds the list of typeIds
-     * @param <T> the type
-     * @return the String converted
+     * @throws IllegalArgumentException
+     *
      */
     private <T> String convertAscendingElkField(String queryKey,  Query<T> query, String[] typeIds) {
         String elkField = null;
@@ -847,12 +839,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * For Farthest/Nearest concert queryKey to Elastic key, allow location thru but not region
      *
-     * @param queryKey the key to sort on Farthest
-     * @param query the current query
-     * @param typeIds the type Ids
-     * @param <T> the type
-     * @return the String converted
+     * @throws IllegalArgumentException
      */
     private <T> String convertFarthestElkField(String queryKey,  Query<T> query, String[] typeIds) {
         String elkField = null;
@@ -927,11 +916,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * A reference is difficult to join in Elastic. This returns a list of Ids so you can join on next level of reference
      *
-     * @param key the key to split '/'
-     * @param query the query
-     * @param <T> the type
-     * @return the List of Strings of Ids for Joining
+     * @throws IllegalArgumentException
      */
     private <T> List<String> referenceSwitcher(String key, Query<T> query) {
         String[] keyArr = key.split("/");
@@ -981,13 +968,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * must override since MAXIMUM_LIMIT is not good for ES
+     * Override to loop through at searchMaxRows at a time
+     *
+     * @see #readPartial(Query, long, int)
+     * @see #getSearchMaxRows()
      *
      * @param query
      *        Can't be {@code null}.
      *
-     * @param <T> the type
-     * @return the List of all T
      */
     @Override
     public <T> List<T> readAll(Query<T> query) {
@@ -1010,6 +998,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return listFinal;
     }
 
+    /**
+     *
+     * Take circles and polygons and build a new GeoJson that works with Elastic
+     *
+     */
     public String getGeoJson(List<Region.Circle> circles, Region.MultiPolygon polygons) {
         List<Map<String, Object>> features = new ArrayList<Map<String, Object>>();
 
@@ -1041,11 +1034,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Get the QueryBuilder for "Location" and "Region"
      *
-     * @param v the Predicate value
-     * @param type the type location or polygon
-     * @param key the key
-     * @return the QueryBuilder
      */
     private QueryBuilder geoLocation(Object v, String type, String key, ShapeRelation sr) {
 
@@ -1075,6 +1065,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return QueryBuilders.termQuery(key, v);
     }
 
+    /**
+     * Get QueryBuilder for geoShape for intersects
+     *
+     * @see #predicateToQueryBuilder
+     *
+     */
     private GeoShapeQueryBuilder geoShapeIntersects(String key, double x, double y) {
         try {
             return QueryBuilders
@@ -1089,6 +1085,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    /**
+     * Get QueryBuilder for geoShape for contains
+     *
+     * @see #predicateToQueryBuilder
+     */
     private GeoShapeQueryBuilder geoShape(String key, double x, double y) {
         try {
             return QueryBuilders
@@ -1103,6 +1104,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    /**
+     * Get QueryBuilder for Circle for contains
+     * Currently use geoShape higher level
+     */
     private GeoShapeQueryBuilder geoCircle(String key, double x, double y, double r) {
         try {
             return QueryBuilders
@@ -1118,10 +1123,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     *
-     * @param predicate the predicate to build query from
-     * @param query the query used
-     * @return the QueryBuilder Elastic
+     * This is the main method for querying Elastic. Converts predicate and query into QueryBuilder
      */
     private QueryBuilder predicateToQueryBuilder(Predicate predicate, Query<?> query) {
         if (predicate == null) {
@@ -1451,13 +1453,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Combines the items and operators
      *
-     * @param operatorType
-     * @param items
-     * @param operator
-     * @param itemFunction
-     * @param <T>
-     * @return
+     * @see #predicateToQueryBuilder(Predicate, Query)
      */
     @SuppressWarnings("unchecked")
     private <T> QueryBuilder combine(String operatorType,
@@ -1494,12 +1492,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Ability to save a string of JSON into Elastic. Might not be a good idea.
      *
-     * @param json
-     * @param typeId
-     * @param id
      */
-    public void saveJson(String json, String typeId, String id) {
+    private void saveJson(String json, String typeId, String id) {
 
         TransportClient client = openConnection();
 
@@ -1521,10 +1517,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Force a flush if isImmediate, otherwise just do a refresh
      *
-     * @param client the TransportClient
-     * @param isImmediate If {@code true}, the saved data must be
-     * @throws Exception Elastic can throw exception on flushing
      */
     @Override
     protected void commitTransaction(TransportClient client, boolean isImmediate) throws Exception {
@@ -1601,6 +1595,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Delete the index, can be used to reset the mapping for the index
      *
      */
     public void deleteIndex() {
@@ -1620,9 +1615,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Take the polygons and circles used for Region, and convert to Elastic format
+     * This removes valueMap items and converts to new geoJson
      *
-     * @param valueMap the map to convert to Elastic format
-     * @param name the new name to store
      */
     private static void convertToGeometryCollection(Map<String, Object> valueMap, String name) {
 
@@ -1706,8 +1701,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * @param map the map to convert
-     * @param name the name to add
+     * Main function to convert a Geometry to Elastic before writing. This is recursive.
+     *
+     * @see #doWrites
+     * @see #convertLocationToName(Map, String)
+     *
      */
     @SuppressWarnings("unchecked")
     private static void convertRegionToName(Map<String, Object> map, String name) throws IOException {
@@ -1737,11 +1735,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Main function to convert a Geometry to Elastic before writing. This is recursive.
      *
-     * @param map the X,Y to convert
-     * @param name the new key name
+     * @see #doWrites
+     * @see #convertRegionToName(Map, String)
+     *
      */
-    @SuppressWarnings("unchecked")
     private static void convertLocationToName(Map<String, Object> map, String name) {
 
         Iterator<Map.Entry<String, Object>> it = map.entrySet().iterator();
@@ -1776,13 +1775,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Write saves, indexes, deletes as a bulk Elastic operation
      *
-     * @param client the client to write to
-     * @param isImmediate if should write immediately
-     * @param saves the list of State saves
-     * @param indexes the list of State indexes
-     * @param deletes the list of State deletes
-     * @throws Exception Elastic exception
+     * @param indexes Not used
      */
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
