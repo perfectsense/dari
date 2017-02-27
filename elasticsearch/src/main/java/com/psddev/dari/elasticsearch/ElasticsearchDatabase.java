@@ -39,7 +39,6 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.geo.GeoPoint;
 import org.elasticsearch.common.geo.ShapeRelation;
 import com.vividsolutions.jts.geom.Coordinate;
-import org.elasticsearch.common.geo.builders.GeometryCollectionBuilder;
 import org.elasticsearch.common.geo.builders.ShapeBuilders;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.settings.Settings;
@@ -53,8 +52,6 @@ import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
@@ -81,7 +78,6 @@ import java.util.function.Function;
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
-
 
 /**
  * ElasticsearchDatabase for Elastic Search
@@ -540,7 +536,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
-
     /**
      *
      * @param properties
@@ -938,32 +933,34 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         List<?> list = new ArrayList<T>();
         String lastKey = null;
         // Go until last - since the user might want something besides != missing...
-        for (int i = 0; i < keyArr.length - 1; i++) {
-            lastKey = keyArr[i];
-            if (allids.size() == 0) {
-                list = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").selectAll();
-            } else {
-                list = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").and("_id contains ?", allids).selectAll();
-            }
-            if (list.size() > (MAX_ROWS-1)) {
-                LOGGER.warn("reference join in ELK is > " + (MAX_ROWS-1) + " which will limit results");
-                throw new IllegalArgumentException(key + " / joins > " + (MAX_ROWS-1) + " not allowed");
-            }
-            allids = new ArrayList<String>();
-            for (int j = 0; j < list.size(); j++) {
-                if (list.get(j) instanceof Record) {
-                    Map<String, Object> itemMap = ((Record) list.get(j)).getState().getSimpleValues(false);
-                    if (itemMap.get(keyArr[i]) instanceof Map && itemMap.get(keyArr[i]) != null) {
-                        Map<String, Object> o = (Map<String, Object>) itemMap.get(keyArr[i]);
-                        if (o.get(StateSerializer.REFERENCE_KEY) != null) {
-                            allids.add((String) o.get(StateSerializer.REFERENCE_KEY));
-                        }
-                    } else if (itemMap.get(keyArr[i]) instanceof List && itemMap.get(keyArr[i]) != null) {
-                        List<Object> subList = (List<Object>) itemMap.get(keyArr[i]);
-                        for (Object sub: subList) {
-                            Map<String, Object> s = (Map<String, Object>) sub;
-                            if (s.get(StateSerializer.REFERENCE_KEY) != null) {
-                                allids.add((String) s.get(StateSerializer.REFERENCE_KEY));
+        if (keyArr.length > 0) {
+            for (int i = 0; i < keyArr.length - 1; i++) {
+                lastKey = keyArr[i];
+                if (allids.size() == 0) {
+                    list = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").selectAll();
+                } else {
+                    list = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").and("_id contains ?", allids).selectAll();
+                }
+                if (list.size() > (MAX_ROWS - 1)) {
+                    LOGGER.warn("reference join in ELK is > " + (MAX_ROWS - 1) + " which will limit results");
+                    throw new IllegalArgumentException(key + " / joins > " + (MAX_ROWS - 1) + " not allowed");
+                }
+                allids = new ArrayList<String>();
+                for (int j = 0; j < list.size(); j++) {
+                    if (list.get(j) instanceof Record) {
+                        Map<String, Object> itemMap = ((Record) list.get(j)).getState().getSimpleValues(false);
+                        if (itemMap.get(keyArr[i]) instanceof Map && itemMap.get(keyArr[i]) != null) {
+                            Map<String, Object> o = (Map<String, Object>) itemMap.get(keyArr[i]);
+                            if (o.get(StateSerializer.REFERENCE_KEY) != null) {
+                                allids.add((String) o.get(StateSerializer.REFERENCE_KEY));
+                            }
+                        } else if (itemMap.get(keyArr[i]) instanceof List && itemMap.get(keyArr[i]) != null) {
+                            List<Object> subList = (List<Object>) itemMap.get(keyArr[i]);
+                            for (Object sub : subList) {
+                                Map<String, Object> s = (Map<String, Object>) sub;
+                                if (s.get(StateSerializer.REFERENCE_KEY) != null) {
+                                    allids.add((String) s.get(StateSerializer.REFERENCE_KEY));
+                                }
                             }
                         }
                     }
@@ -1677,17 +1674,25 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                 }
                 newValueMap.put("geometries", newGeometries);
-                if (valueMap.containsKey("x")) valueMap.remove("x");
-                if (valueMap.containsKey("y")) valueMap.remove("y");
-                if (valueMap.containsKey("radius")) valueMap.remove("radius");
-                if (valueMap.containsKey("circles")) valueMap.remove("circles");
-                if (valueMap.containsKey("polygons")) valueMap.remove("polygons");
+                if (valueMap.containsKey("x")) {
+                    valueMap.remove("x");
+                }
+                if (valueMap.containsKey("y")) {
+                    valueMap.remove("y");
+                }
+                if (valueMap.containsKey("radius")) {
+                    valueMap.remove("radius");
+                }
+                if (valueMap.containsKey("circles")) {
+                    valueMap.remove("circles");
+                }
+                if (valueMap.containsKey("polygons")) {
+                    valueMap.remove("polygons");
+                }
                 valueMap.put(name, newValueMap);
             }
         }
     }
-
-
 
     /**
      * @param map
