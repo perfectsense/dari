@@ -1017,7 +1017,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 Map<String, Object> geometry = new HashMap<String, Object>();
                 geometry.put("type", "circle");
                 geometry.put("coordinates", circle.getGeoJsonArray().get(0)); // required for ELK
-                geometry.put("radius", circle.getRadius() + "m");
+                geometry.put("radius", Math.ceil(circle.getRadius()) + "m");
 
                 features.add(geometry);
             }
@@ -1671,7 +1671,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 newCircle.add(lat);
                                 newCircle.add(lon);
                                 newGeometry.put("coordinates", newCircle);
-                                newGeometry.put("radius", Region.degreesToMeters(r) + "m");
+                                newGeometry.put("radius", Math.ceil(Region.degreesToMeters(r)) + "m");
                                 newGeometries.add(newGeometry);
                             }
                         }
