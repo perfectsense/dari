@@ -659,7 +659,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boost = .1f * boost;
 
                     QueryBuilder qb;
-                    long scale = 1000L * 60L * 60L * 24L * 30L * 12L * 5L; // 5 years scaling
+                    long scale = 1000L * 60L * 60L * 24L * 365L * 5L; // 5 years scaling
                     if (!isOldest) {
                         filterFunctionBuilders.add(
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, new Date().getTime(), scale, 0, .1).setWeight(boost))
@@ -1056,7 +1056,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 Region region = (Region) v;
                 String geoJson = getGeoJson(region.getCircles(), region.getPolygons());
 
-                String shapeJson = "{" + "\"shape\":" + geoJson + ",\"relation\": \"" + sr + "\"}";
+                String shapeJson = "{" + "\"shape\":" + geoJson + ", \"relation\": \"" + sr + "\"}";
                 String nameJson = "{" + "\"" + key + "." + REGION_FIELD + "\":" + shapeJson + "}";
                 String json = "{" + "\"geo_shape\":" + nameJson + "}";
                 return QueryBuilders.boolQuery().must(QueryBuilders.wrapperQuery(json));
