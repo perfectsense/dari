@@ -1534,51 +1534,55 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      *
      */
     public void defaultMap() {
-        String json = "{\n" +
-                "      \"dynamic_templates\": [\n" +
-                "        {\n" +
-                "          \"locationgeo\": {\n" +
-                "            \"match\": \"" + LOCATION_FIELD + "\",\n" +
-                "            \"match_mapping_type\": \"string\",\n" +
-                "            \"mapping\": {\n" +
-                "              \"type\": \"geo_point\"\n" +
-                "            }\n" +
-                "          }\n" +
-                "        },\n" +
-                "        {\n" +
-                "          \"shapegeo\": {\n" +
-                "            \"match\": \"" + REGION_FIELD + "\",\n" +
-                "            \"match_mapping_type\": \"object\",\n" +
-                "            \"mapping\": {\n" +
-                "              \"type\": \"geo_shape\"\n" +
-                "            }\n" +
-                "          }\n" +
-                "        }," +
-                "        {\n" +
-                "          \"int_template\": {\n" +
-                "            \"match\": \"_*\",\n" +
-                "            \"match_mapping_type\": \"string\",\n" +
-                "            \"mapping\": {\n" +
-                "              \"type\": \"keyword\"\n" +
-                "            }\n" +
-                "          }\n" +
-                "        },\n" +
-                "        {\n" +
-                "          \"notanalyzed\": {\n" +
-                "            \"match\": \"*\",\n" +
-                "            \"match_mapping_type\": \"string\",\n" +
-                "            \"mapping\": {\n" +
-                "              \"type\": \"text\",\n" +
-                "              \"fields\": {\n" +
-                "                \"raw\": {\n" +
-                "                  \"type\": \"keyword\"\n" +
-                "                }\n" +
-                "              }\n" +
-                "            }\n" +
-                "          }\n" +
-                "        }\n" +
-                "      ]\n" +
-                "    }\n";
+        String json = "{\n"
+                + "      \"dynamic_templates\": [\n"
+                + "        {\n"
+                + "          \"locationgeo\": {\n"
+                + "            \"match\": \""
+                                    + LOCATION_FIELD
+                                    + "\",\n"
+                + "            \"match_mapping_type\": \"string\",\n"
+                + "            \"mapping\": {\n"
+                + "              \"type\": \"geo_point\"\n"
+                + "            }\n"
+                + "          }\n"
+                + "        },\n"
+                + "        {\n"
+                + "          \"shapegeo\": {\n"
+                + "            \"match\": \""
+                                    + REGION_FIELD
+                                    + "\",\n"
+                + "            \"match_mapping_type\": \"object\",\n"
+                + "            \"mapping\": {\n"
+                + "              \"type\": \"geo_shape\"\n"
+                + "            }\n"
+                + "          }\n"
+                + "        },\n"
+                + "        {\n"
+                + "          \"int_template\": {\n"
+                + "            \"match\": \"_*\",\n"
+                + "            \"match_mapping_type\": \"string\",\n"
+                + "            \"mapping\": {\n"
+                + "              \"type\": \"keyword\"\n"
+                + "            }\n"
+                + "          }\n"
+                + "        },\n"
+                + "        {\n"
+                + "          \"notanalyzed\": {\n"
+                + "            \"match\": \"*\",\n"
+                + "            \"match_mapping_type\": \"string\",\n"
+                + "            \"mapping\": {\n"
+                + "              \"type\": \"text\",\n"
+                + "              \"fields\": {\n"
+                + "                \"raw\": {\n"
+                + "                  \"type\": \"keyword\"\n"
+                + "                }\n"
+                + "              }\n"
+                + "            }\n"
+                + "          }\n"
+                + "        }\n"
+                + "      ]\n"
+                + "    }\n";
 
         if (client != null) {
             CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(this.indexName).addMapping("_default_", json);
