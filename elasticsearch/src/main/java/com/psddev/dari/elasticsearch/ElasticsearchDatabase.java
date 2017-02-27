@@ -1,7 +1,20 @@
 package com.psddev.dari.elasticsearch;
 
 import com.google.common.base.Preconditions;
-import com.psddev.dari.db.*;
+import com.psddev.dari.db.AbstractDatabase;
+import com.psddev.dari.db.ComparisonPredicate;
+import com.psddev.dari.db.CompoundPredicate;
+import com.psddev.dari.db.Location;
+import com.psddev.dari.db.Predicate;
+import com.psddev.dari.db.PredicateParser;
+import com.psddev.dari.db.Query;
+import com.psddev.dari.db.Record;
+import com.psddev.dari.db.Region;
+import com.psddev.dari.db.Sorter;
+import com.psddev.dari.db.State;
+import com.psddev.dari.db.StateSerializer;
+import com.psddev.dari.db.UnsupportedIndexException;
+import com.psddev.dari.db.UnsupportedPredicateException;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import org.apache.commons.lang3.time.DateUtils;
@@ -40,13 +53,28 @@ import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.sort.*;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
+import org.elasticsearch.search.sort.ScoreSortBuilder;
+import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -430,6 +458,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setQuery(qb)
                     .setFrom((int) offset)
                     .setSize(limit);
+            //if (query.getGroup() != null) {
+            //    srb.addAggregation(AggregationBuilders.terms(query.getGroup() + "_aggs").field(query.getGroup() + ".raw").size(100));
+            //}
             for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, null)) {
                 srb = srb.addSort(sb);
             }
@@ -443,6 +474,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setQuery(qb)
                     .setFrom((int) offset)
                     .setSize(limit);
+            //if (query.getGroup() != null) {
+            //    srb.addAggregation(AggregationBuilders.terms(query.getGroup() + "_aggs").field(query.getGroup() + ".raw").size(100));
+            //}
             for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, typeIdStrings)) {
                 srb.addSort(sb);
             }
