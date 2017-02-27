@@ -62,7 +62,7 @@ public abstract class AbstractElasticTest {
                     "      \"dynamic_templates\": [\n" +
                     "        {\n" +
                     "          \"locationgeo\": {\n" +
-                    "            \"match\": \"_location\",\n" +
+                    "            \"match\": \"" + ElasticsearchDatabase.LOCATION_FIELD + "\",\n" +
                     "            \"match_mapping_type\": \"string\",\n" +
                     "            \"mapping\": {\n" +
                     "              \"type\": \"geo_point\"\n" +
@@ -71,7 +71,7 @@ public abstract class AbstractElasticTest {
                     "        },\n" +
                     "        {\n" +
                     "          \"shapegeo\": {\n" +
-                    "            \"match\": \"_polygon\",\n" +
+                    "            \"match\": \"" + ElasticsearchDatabase.REGION_FIELD + "\",\n" +
                     "            \"match_mapping_type\": \"object\",\n" +
                     "            \"mapping\": {\n" +
                     "              \"type\": \"geo_shape\"\n" +

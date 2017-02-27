@@ -82,6 +82,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int MAX_ROWS = 1000;
     public static final int TIMEOUT = 500000;
 
+    public static final String LOCATION_FIELD = "_location";
+    public static final String REGION_FIELD = "_polygon";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     private List<Node> clusterNodes = new ArrayList<>();
@@ -307,9 +310,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                 }
             }
-        } catch (Exception e) {
-            LOGGER.warn("Warning: ELK cannot get version");
-            e.printStackTrace();
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("Warning: ELK cannot get version [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         }
         return null;
     }
@@ -334,9 +340,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     return j.getString("cluster_name");
                 }
             }
-        } catch (Exception e) {
-            LOGGER.warn("Warning: ELK cannot get cluster_name");
-            e.printStackTrace();
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("Warning: ELK cannot get cluster_name [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         }
         return null;
     }
@@ -443,9 +452,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         SearchHits hits = response.getHits();
 
         for (SearchHit hit : hits.getHits()) {
-
             items.add(createSavedObjectWithHit(hit, query));
-
         }
 
         LOGGER.info("ELK PaginatedResult readPartial hits [{} of {}]", items.size(), hits.getTotalHits());
@@ -592,7 +599,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     // OLDEST_OPERATOR, NEWEST_OPERATOR these are just boosts per Solr
                     // weight, key
                     if (sorter.getOptions().size() < 2) {
-                        throw new IllegalArgumentException(operator + " requires Date");
+                        throw new IllegalArgumentException(operator + " requires Date field");
                     }
                     boolean isOldest = Sorter.OLDEST_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(1);
@@ -627,13 +634,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         filterFunctionBuilders.add(
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, new Date().getTime(), scale, 0, .1).setWeight(boost))
                         );
-                        // recip(x,m,a,b) implementing a/(m*x+b)
+                        // Solr: recip(x,m,a,b) implementing a/(m*x+b)
                         // boostFunctionBuilder.append(String.format("{!boost b=recip(ms(NOW/HOUR,%s),3.16e-11,%s,%s)}", solrField, boost, boost));
                     } else {
                         filterFunctionBuilders.add(
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, DateUtils.addYears(new java.util.Date(), -5).getTime(), scale, 0, .1).setWeight(boost))
                         );
-                        // linear(x,2,4) returns 2*x+4
+                        // Solr: linear(x,2,4) returns 2*x+4
                         // boostFunctionBuilder.append(String.format("{!boost b=linear(ms(NOW/HOUR,%s),3.16e-11,%s)}", solrField, boost));
                     }
 
@@ -649,15 +656,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (!(sorter.getOptions().get(1) instanceof Location)) {
                         throw new IllegalArgumentException(operator + " requires Location");
                     }
-                    /* Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
-                    elkField = specialFields.get(mappedKey);
-                    String internalType = null;
-                    if (elkField == null) {
-                        internalType = mappedKey.getInternalType();
-                        if (internalType.equals("region")) {
-                            throw new IllegalArgumentException(operator + " cannot sort GeoJSON in Elastic Search");
-                        }
-                    } */
                     Location sort = (Location) sorter.getOptions().get(1);
                     list.add(new GeoDistanceSortBuilder(elkField, new GeoPoint(sort.getX(), sort.getY()))
                             .order(isClosest ? SortOrder.ASC : SortOrder.DESC));
@@ -753,10 +751,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             if (internalType.equals("text")) {
                                 elkField = queryKey + ".raw";
                             } else if (internalType.equals("location")) {
-                                elkField = k + "._location";
-                                throw new IllegalArgumentException();
+                                elkField = k + "." + LOCATION_FIELD;
+                                throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending");
                             } else if (internalType.equals("region")) {
-                                elkField = k + "._polygon";
+                                elkField = k + "." + REGION_FIELD;
                                 throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                             }
                         }
@@ -769,7 +767,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                 }
             }
-            //queryKey = queryKey.substring(slash + 1);
             elkField = (newKey == null ? queryKey : newKey);
         } else {
             int dot = queryKey.lastIndexOf('.');
@@ -789,11 +786,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (internalType.equals("text")) {
                         elkField = queryKey + ".raw";
                     } else if (internalType.equals("location")) {
-                        elkField = queryKey + "._location";
+                        elkField = queryKey + "." + LOCATION_FIELD;
                         // not sure what to do with lat,long and sort?
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending");
                     } else if (internalType.equals("region")) {
-                        elkField = queryKey + "._polygon";
+                        elkField = queryKey + "." + REGION_FIELD;
                         throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                     }
                 }
@@ -838,10 +835,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
                             if (internalType.equals("location")) {
-                                elkField = k + "._location";
+                                elkField = k + "." + LOCATION_FIELD;
                             }
                             if (internalType.equals("region")) {
-                                elkField = k + "._polygon";
+                                elkField = k + "." + REGION_FIELD;
                                 throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                             }
                         }
@@ -869,10 +866,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
                     if (internalType.equals("location")) {
-                        elkField = queryKey + "._location";
+                        elkField = queryKey + "." + LOCATION_FIELD;
                     }
                     if (internalType.equals("region")) {
-                        elkField = queryKey + "._polygon";
+                        elkField = queryKey + "." + REGION_FIELD;
                         throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                     }
                 }
@@ -1020,12 +1017,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 return QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
                     .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()));
             } else if (v instanceof Region) {
-                return QueryBuilders.geoDistanceQuery(key + "._location").point(((Region) v).getX(), ((Region) v).getY())
+                return QueryBuilders.geoDistanceQuery(key + "." + LOCATION_FIELD).point(((Region) v).getX(), ((Region) v).getY())
                         .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS);
             }
         } else if (type != null && type.equals("polygon")) {
             if (v instanceof Location) {
-                return QueryBuilders.boolQuery().must(geoShape(key + "._polygon", ((Location) v).getX(), ((Location) v).getY()));
+                return QueryBuilders.boolQuery().must(geoShape(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()));
 
             } else if (v instanceof Region) {
                 // required to fix array issue on Circles and capitals
@@ -1033,7 +1030,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 String geoJson = getGeoJson(region.getCircles(), region.getPolygons());
 
                 String shapeJson = "{" + "\"shape\":" + geoJson + ",\"relation\": \"" + sr + "\"}";
-                String nameJson = "{" + "\"" + key + "._polygon" + "\":" + shapeJson + "}";
+                String nameJson = "{" + "\"" + key + "." + REGION_FIELD + "\":" + shapeJson + "}";
                 String json = "{" + "\"geo_shape\":" + nameJson + "}";
                 return QueryBuilders.boolQuery().must(QueryBuilders.wrapperQuery(json));
             }
@@ -1045,8 +1042,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         try {
             return QueryBuilders
                     .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.INTERSECTS);
-        } catch (Exception e) {
-            LOGGER.warn("geoShape threw exception");
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("geoShapeIntersects threw Exception [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         }
         return null;
     }
@@ -1055,8 +1056,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         try {
             return QueryBuilders
                     .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.CONTAINS);
-        } catch (Exception e) {
-            LOGGER.warn("geoShape threw exception");
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("geoShape threw Exception [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         }
         return null;
     }
@@ -1065,8 +1070,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         try {
             return QueryBuilders
                     .geoShapeQuery(key, ShapeBuilders.newCircleBuilder().center(x,y).radius(r, DistanceUnit.KILOMETERS)).relation(ShapeRelation.CONTAINS);
-        } catch (Exception e) {
-            LOGGER.warn("geoCircle threw exception");
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("geoCircle threw Exception [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         }
         return null;
     }
@@ -1371,12 +1380,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(geoShapeIntersects(key + "._polygon", ((Location) v).getX(), ((Location) v).getY()))
+                                    ? QueryBuilders.boolQuery().must(geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
                                     : (v instanceof Region
-                                    ? QueryBuilders.boolQuery().must(geoLocation(v, finalGeoType1, finalKey1, ShapeRelation.CONTAINS))
-
-                                            //geoShape(key + "._polygon", ((Location) v).getX(), ((Location) v).getY()))
-//                   ? QueryBuilders.boolQuery().must( geoCircle(key + "._polygon", ((Region) v).getX(), ((Region) v).getY(), Region.degreesToKilometers(((Region) v).getRadius())))
+                                        ? QueryBuilders.boolQuery().must(geoLocation(v, finalGeoType1, finalKey1, ShapeRelation.CONTAINS))
                                         : QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
@@ -1444,10 +1450,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         if (builder.hasClauses()) {
-            //LOGGER.info("ELK combine predicate [{}]", builder.toString());
             return builder;
         } else {
-            //LOGGER.info("ELK combine predicate default [{}]", QueryBuilders.matchAllQuery());
             return QueryBuilders.matchAllQuery();
         }
     }
@@ -1503,7 +1507,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 "      \"dynamic_templates\": [\n" +
                 "        {\n" +
                 "          \"locationgeo\": {\n" +
-                "            \"match\": \"_location\",\n" +
+                "            \"match\": \"" + LOCATION_FIELD + "\",\n" +
                 "            \"match_mapping_type\": \"string\",\n" +
                 "            \"mapping\": {\n" +
                 "              \"type\": \"geo_point\"\n" +
@@ -1512,7 +1516,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 "        },\n" +
                 "        {\n" +
                 "          \"shapegeo\": {\n" +
-                "            \"match\": \"_polygon\",\n" +
+                "            \"match\": \"" + REGION_FIELD + "\",\n" +
                 "            \"match_mapping_type\": \"object\",\n" +
                 "            \"mapping\": {\n" +
                 "              \"type\": \"geo_shape\"\n" +
@@ -1598,9 +1602,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 for (Object ring : (List) p) {
                                     List<List> newRing = new ArrayList();
                                     for (Object latlon : (List) ring) {
+                                        List<Double> newLatLon = new ArrayList();
+
                                         Double lat = (Double) ((List) latlon).get(0);
                                         Double lon = (Double) ((List) latlon).get(1);
-                                        List<Double> newLatLon = new ArrayList();
                                         newLatLon.add(lat);
                                         newLatLon.add(lon);
                                         newRing.add(newLatLon);
@@ -1613,7 +1618,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         newObject.put("coordinates", newPolygons);
                         newGeometries.add(newObject);
                     }
-                    //valueMap.remove("polygons");
                 }
 
                 if (valueMap.get("circles") != null && valueMap.get("circles") instanceof List) {
@@ -1622,11 +1626,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         for (Object c : circles) {
                             if (c instanceof List) {
                                 Map<String, Object> newGeometry = new HashMap<String, Object>();
+                                List<Double> newCircle = new ArrayList();
+
                                 newGeometry.put("type", "circle");
                                 Double lat = (Double) ((List) c).get(0);
                                 Double lon = (Double) ((List) c).get(1);
                                 Double r = (Double) ((List) c).get(2);
-                                List<Double> newCircle = new ArrayList();
+
                                 newCircle.add(lat);
                                 newCircle.add(lon);
                                 newGeometry.put("coordinates", newCircle);
@@ -1635,7 +1641,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             }
                         }
                     }
-                    //valueMap.remove("circles");
                 }
                 newValueMap.put("geometries", newGeometries);
                 if (valueMap.containsKey("x")) valueMap.remove("x");
@@ -1743,13 +1748,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             String documentId = state.getId().toString();
 
                             Map<String, Object> t = state.getSimpleValues();
+                            // Elastic requires us to remove the 2
                             t.remove("_id");
                             t.remove("_type");
                             LOGGER.info("ELK doWrites saving _type [{}] and _id [{}]",
                                     documentType, documentId);
 
-                            convertLocationToName(t, "_location");
-                            convertRegionToName(t, "_polygon");
+                            convertLocationToName(t, LOCATION_FIELD);
+                            convertRegionToName(t, REGION_FIELD);
 
                             LOGGER.info("ELK doWrites saving _type [{}] and _id [{}] = [{}]",
                                     documentType, documentId, t.toString());
