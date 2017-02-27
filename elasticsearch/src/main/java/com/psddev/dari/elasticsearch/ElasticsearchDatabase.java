@@ -105,6 +105,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String ALL_FIELD = "_all";
     public static final int MAX_ROWS = 1000;
     public static final int TIMEOUT = 500000;
+    private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
 
     public static final String LOCATION_FIELD = "_location";
     public static final String REGION_FIELD = "_polygon";
@@ -659,7 +660,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boost = .1f * boost;
 
                     QueryBuilder qb;
-                    long scale = 1000L * 60L * 60L * 24L * 365L * 5L; // 5 years scaling
+                    long scale = MILLISECONDS_IN_5YEAR; // 5 years scaling
                     if (!isOldest) {
                         filterFunctionBuilders.add(
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, new Date().getTime(), scale, 0, .1).setWeight(boost))
