@@ -451,8 +451,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         SearchResponse response;
         QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
+        SearchRequestBuilder srb;
         if (typeIds.size() == 0) {
-            SearchRequestBuilder srb = client.prepareSearch(getIndexName())
+            srb = client.prepareSearch(getIndexName())
                     .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(new TimeValue(this.searchTimeout))
                     .setQuery(qb)
@@ -464,10 +465,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, null)) {
                 srb = srb.addSort(sb);
             }
-            LOGGER.info("ELK srb [{}]", srb.toString());
-            response = srb.execute().actionGet();
         } else {
-            SearchRequestBuilder srb = client.prepareSearch(getIndexName())
+            srb = client.prepareSearch(getIndexName())
                     .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(new TimeValue(this.searchTimeout))
                     .setTypes(typeIdStrings)
@@ -480,9 +479,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, typeIdStrings)) {
                 srb.addSort(sb);
             }
-            LOGGER.info("ELK srb typeIds [{}] - [{}]",  typeIdStrings, srb.toString());
-            response = srb.execute().actionGet();
+
         }
+        LOGGER.debug("ELK srb typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
 
         for (SearchHit hit : hits.getHits()) {
@@ -1791,7 +1791,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             convertLocationToName(t, LOCATION_FIELD);
                             convertRegionToName(t, REGION_FIELD);
 
-                            LOGGER.info("ELK doWrites saving _type [{}] and _id [{}] = [{}]",
+                            LOGGER.debug("ELK doWrites saving _type [{}] and _id [{}] = [{}]",
                                     documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(indexName, documentType, documentId).setSource(t));
                         } catch (Exception error) {
