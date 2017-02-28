@@ -1,7 +1,22 @@
 package com.psddev.dari.elasticsearch;
 
 import com.google.common.base.Preconditions;
-import com.psddev.dari.db.*;
+import com.psddev.dari.db.AbstractDatabase;
+import com.psddev.dari.db.AbstractGrouping;
+import com.psddev.dari.db.ComparisonPredicate;
+import com.psddev.dari.db.CompoundPredicate;
+import com.psddev.dari.db.Grouping;
+import com.psddev.dari.db.Location;
+import com.psddev.dari.db.Predicate;
+import com.psddev.dari.db.PredicateParser;
+import com.psddev.dari.db.Query;
+import com.psddev.dari.db.Record;
+import com.psddev.dari.db.Region;
+import com.psddev.dari.db.Sorter;
+import com.psddev.dari.db.State;
+import com.psddev.dari.db.StateSerializer;
+import com.psddev.dari.db.UnsupportedIndexException;
+import com.psddev.dari.db.UnsupportedPredicateException;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import org.apache.commons.lang3.time.DateUtils;
@@ -462,7 +477,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setSize(0);
 
             RangeAggregationBuilder ab = AggregationBuilders.range("agg").field(field);
-            for (double i=start; i < end; i = i + gap) {
+            for (double i = start; i < end; i = i + gap) {
                 ab.addRange(i, i + gap);
             }
             srb.addAggregation(ab);
