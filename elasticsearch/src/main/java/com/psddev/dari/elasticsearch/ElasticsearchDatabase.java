@@ -315,7 +315,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Get The running version of Elastic
      *
-     * @return the version running
+     * @return the version running can return null on exception
      */
     public static String getVersion(String nodeHost) {
         try {
