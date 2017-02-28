@@ -12,7 +12,7 @@ public class SearchElasticModel extends Record {
     public String getOne() {
         return one;
     }
-    public void setOne(String _type) {
+    public void setOne(String one) {
         this.one = one;
     }
 
@@ -39,7 +39,7 @@ public class SearchElasticModel extends Record {
     public Float getF() {
         return f;
     }
-    public void setF(Float num) {
+    public void setF(Float f) {
         this.f = f;
     }
 

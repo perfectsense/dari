@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 
 public class EmbeddedElasticsearchServer {
 
@@ -34,14 +35,14 @@ public class EmbeddedElasticsearchServer {
                             .put("http.enabled", "true")
                             .put("path.home", DEFAULT_DATA_DIRECTORY)
                             .build(),
-                    java.util.Arrays.asList(Netty4Plugin.class));
+                    Collections.singletonList(Netty4Plugin.class));
 
             node.start();
             node.client().admin().cluster().prepareHealth()
                     .setWaitForYellowStatus()
                     .get();
         } catch (Exception e) {
-            LOGGER.info("EmbeddedElasticsearchServer cannot create embedded node");
+            LOGGER.warn("EmbeddedElasticsearchServer cannot create embedded node");
         }
     }
 
@@ -56,7 +57,6 @@ public class EmbeddedElasticsearchServer {
 
     /**
      *
-     * @return
      */
     public static Node getNode() {
         return node;
@@ -69,7 +69,7 @@ public class EmbeddedElasticsearchServer {
         try {
             node.close();
         } catch (Exception e) {
-            LOGGER.info("EmbeddedElasticsearchServer cannot shutdown");
+            LOGGER.warn("EmbeddedElasticsearchServer cannot shutdown");
         }
         deleteDataDirectory();
     }

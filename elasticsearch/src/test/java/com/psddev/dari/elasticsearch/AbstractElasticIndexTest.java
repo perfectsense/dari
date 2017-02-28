@@ -123,16 +123,16 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
 
         // example referenceOne/one != missing another app way
         String key = "referenceOne/one";
-        String[] keyArr = key.split("\\/");
-        List<String> allids = new ArrayList<String>();
-        List<M> list = new ArrayList<M>();
+        String[] keyArr = key.split("/");
+        List<String> allids = new ArrayList<>();
+        List<M> list = new ArrayList<>();
         for (int i = 0; i < keyArr.length; i++) {
             if (allids.size() == 0) {
                 list = query().where(keyArr[i] + " != missing").selectAll();
             } else {
                 list = query().where(keyArr[i] + " != missing").and("_id contains ?", allids).selectAll();
             }
-            allids = new ArrayList<String>();
+            allids = new ArrayList<>();
             for (M item : list) {
                 if (item.getState().getSimpleValues() instanceof Map) {
                     Map<String, Object> m = item.getState().getSimpleValues();
@@ -160,7 +160,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         // example referenceOne/one = missing
         List<M> list = query().where("referenceOne != missing").selectAll();
 
-        List<String> allids = new ArrayList<String>();
+        List<String> allids = new ArrayList<>();
         for (M item : list) {
             Map<String,Object> m = item.getState().getSimpleValues();
             if (m.get("referenceOne") != null) {

@@ -4,8 +4,6 @@ import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.util.Settings;
 import org.apache.commons.lang3.time.DateUtils;
-import org.elasticsearch.action.search.SearchPhaseExecutionException;
-import org.elasticsearch.index.query.QueryShardException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -298,7 +296,7 @@ public class SearchElasticTest extends AbstractElasticTest {
     @Test
     public void testReadAllAt2() throws Exception {
 
-        Settings.setOverride(database.SETTING_KEY_PREFIX + "searchMaxRows", "2");
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "searchMaxRows", "2");
 
         for (int i = 0; i < 50; i++) {
             SearchElasticModel model = new SearchElasticModel();
@@ -315,7 +313,7 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         assertThat("check size", fooResult, hasSize(50));
 
-        Settings.setOverride(database.SETTING_KEY_PREFIX + "searchMaxRows", "1000");
+        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "searchMaxRows", "1000");
     }
 
     @Test

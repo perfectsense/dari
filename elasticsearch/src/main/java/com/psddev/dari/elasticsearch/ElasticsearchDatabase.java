@@ -332,7 +332,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (j.getJSONObject("version") != null) {
                         JSONObject jo = j.getJSONObject("version");
                         String version = jo.getString("number");
-                        if (!version.equals("5.2.0")) {
+                        if (!"5.2.0".equals(version)) {
                             LOGGER.warn("Warning: ELK {} version is not 5.2.0", version);
                         }
                         return version;
@@ -525,7 +525,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Denormalize the key or return Query.NoFieldException
      *
      * @return Query.MappedKey
-     * @throws Query.NoFieldException
+     * @throws Query.NoFieldException No field matches this key
      */
     private Query.MappedKey mapFullyDenormalizedKey(Query<?> query, String key) {
         Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), key);
@@ -640,7 +640,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
                             // only date can boost this way
-                            if (internalType.equals("date")) {
+                            if ("date".equals(internalType)) {
                                 elkField = queryKey;
                             } else {
                                 throw new IllegalArgumentException();
@@ -658,7 +658,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     boost = .1f * boost;
 
-                    QueryBuilder qb;
                     long scale = MILLISECONDS_IN_5YEAR; // 5 years scaling
                     if (!isOldest) {
                         filterFunctionBuilders.add(
@@ -757,11 +756,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Take queryKey and return the Elastic equivalent for text, location and region
      *
-     * @throws IllegalArgumentException
+     * @throws IllegalArgumentException the argument is illegal
      *
      */
     private <T> String convertAscendingElkField(String queryKey,  Query<T> query, String[] typeIds) {
-        String elkField = null;
+        String elkField;
 
         int slash = queryKey.indexOf('/');
         // if ref drop it, if embedded put "."
@@ -775,12 +774,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (elkField == null) {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
-                            if (internalType.equals("text")) {
+                            if ("text".equals(internalType)) {
                                 elkField = queryKey + ".raw";
-                            } else if (internalType.equals("location")) {
+                            } else if ("location".equals(internalType)) {
                                 elkField = k + "." + LOCATION_FIELD;
                                 throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending");
-                            } else if (internalType.equals("region")) {
+                            } else if ("region".equals(internalType)) {
                                 elkField = k + "." + REGION_FIELD;
                                 throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                             }
@@ -810,13 +809,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (elkField == null) {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
-                    if (internalType.equals("text")) {
+                    if ("text".equals(internalType)) {
                         elkField = queryKey + ".raw";
-                    } else if (internalType.equals("location")) {
+                    } else if ("location".equals(internalType)) {
                         elkField = queryKey + "." + LOCATION_FIELD;
                         // not sure what to do with lat,long and sort?
                         throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending");
-                    } else if (internalType.equals("region")) {
+                    } else if ("region".equals(internalType)) {
                         elkField = queryKey + "." + REGION_FIELD;
                         throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                     }
@@ -841,10 +840,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * For Farthest/Nearest concert queryKey to Elastic key, allow location thru but not region
      *
-     * @throws IllegalArgumentException
+     * @throws IllegalArgumentException the argument is illegal
      */
     private <T> String convertFarthestElkField(String queryKey,  Query<T> query, String[] typeIds) {
-        String elkField = null;
+        String elkField;
 
         int slash = queryKey.indexOf('/');
         // if ref drop it, if embedded put "."
@@ -858,10 +857,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (elkField == null) {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
-                            if (internalType.equals("location")) {
+                            if ("location".equals(internalType)) {
                                 elkField = k + "." + LOCATION_FIELD;
                             }
-                            if (internalType.equals("region")) {
+                            if ("region".equals(internalType)) {
                                 elkField = k + "." + REGION_FIELD;
                                 throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                             }
@@ -889,10 +888,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (elkField == null) {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
-                    if (internalType.equals("location")) {
+                    if ("location".equals(internalType)) {
                         elkField = queryKey + "." + LOCATION_FIELD;
                     }
-                    if (internalType.equals("region")) {
+                    if ("region".equals(internalType)) {
                         elkField = queryKey + "." + REGION_FIELD;
                         throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                     }
@@ -918,11 +917,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * A reference is difficult to join in Elastic. This returns a list of Ids so you can join on next level of reference
      *
-     * @throws IllegalArgumentException
+     * @throws IllegalArgumentException the argument is illegal
      */
     private <T> List<String> referenceSwitcher(String key, Query<T> query) {
         String[] keyArr = key.split("/");
-        List<String> allids = new ArrayList<String>();
+        List<String> allids = new ArrayList<>();
         List<?> list = new ArrayList<T>();
         //String lastKey = null;
         // Go until last - since the user might want something besides != missing...
@@ -938,7 +937,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     LOGGER.warn("reference join in ELK is > " + (MAX_ROWS - 1) + " which will limit results");
                     throw new IllegalArgumentException(key + " / joins > " + (MAX_ROWS - 1) + " not allowed");
                 }
-                allids = new ArrayList<String>();
+                allids = new ArrayList<>();
                 for (int j = 0; j < list.size(); j++) {
                     if (list.get(j) instanceof Record) {
                         Map<String, Object> itemMap = ((Record) list.get(j)).getState().getSimpleValues(false);
@@ -1004,7 +1003,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      *
      */
     public String getGeoJson(List<Region.Circle> circles, Region.MultiPolygon polygons) {
-        List<Map<String, Object>> features = new ArrayList<Map<String, Object>>();
+        List<Map<String, Object>> features = new ArrayList<>();
 
         Map<String, Object> featureCollection = new HashMap<>();
         featureCollection.put("type", "geometrycollection");
@@ -1039,7 +1038,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private QueryBuilder geoLocation(Object v, String type, String key, ShapeRelation sr) {
 
-        if (type != null && type.equals("location")) {
+        if (type != null && "location".equals(type)) {
             if (v instanceof Location) {
                 return QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
                     .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()));
@@ -1047,7 +1046,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 return QueryBuilders.geoDistanceQuery(key + "." + LOCATION_FIELD).point(((Region) v).getX(), ((Region) v).getY())
                         .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS);
             }
-        } else if (type != null && type.equals("polygon")) {
+        } else if (type != null && "polygon".equals(type)) {
             if (v instanceof Location) {
                 return QueryBuilders.boolQuery().must(geoShape(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()));
 
@@ -1189,15 +1188,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             if (checkField == null) {
                                 String internalType = mappedKey.getInternalType();
                                 if (v instanceof Boolean) {
-                                    if (internalType != null && internalType.equals("location")) {
+                                    if (internalType != null && "location".equals(internalType)) {
                                         throw new IllegalArgumentException(key + " boolean cannot be location");
                                     }
-                                    if (internalType != null && internalType.equals("region")) {
+                                    if (internalType != null && "region".equals(internalType)) {
                                         throw new IllegalArgumentException(key + " boolean cannot be region");
                                     }
-                                } else if (internalType != null && internalType.equals("region")) {
+                                } else if (internalType != null && "region".equals(internalType)) {
                                     geoType = "polygon";
-                                } else if (internalType != null && internalType.equals("location")) {
+                                } else if (internalType != null && "location".equals(internalType)) {
                                     geoType = "location";
                                 }
                             }
@@ -1221,15 +1220,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             if (checkField == null) {
                                 String internalType = mappedKey.getInternalType();
                                 if (v instanceof Boolean) {
-                                    if (internalType != null && internalType.equals("location")) {
+                                    if (internalType != null && "location".equals(internalType)) {
                                         throw new IllegalArgumentException(key + " boolean cannot be location");
                                     }
-                                    if (internalType != null && internalType.equals("region")) {
+                                    if (internalType != null && "region".equals(internalType)) {
                                         throw new IllegalArgumentException(key + " boolean cannot be region");
                                     }
-                                } else if (internalType != null && internalType.equals("region")) {
+                                } else if (internalType != null && "region".equals(internalType)) {
                                     geoTypeNotEq = "polygon";
-                                } else if (internalType != null && internalType.equals("location")) {
+                                } else if (internalType != null && "location".equals(internalType)) {
                                     geoTypeNotEq = "location";
                                 }
                             }
@@ -1257,10 +1256,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType != null && internalType.equals("location")) {
+                        if (internalType != null && "location".equals(internalType)) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
-                        if (internalType != null && internalType.equals("region")) {
+                        if (internalType != null && "region".equals(internalType)) {
                             throw new IllegalArgumentException(key + " cannot be region");
                         }
                     }
@@ -1285,10 +1284,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType != null && internalType.equals("location")) {
+                        if (internalType != null && "location".equals(internalType)) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
-                        if (internalType != null && internalType.equals("region")) {
+                        if (internalType != null && "region".equals(internalType)) {
                             throw new IllegalArgumentException(key + " cannot be region");
                         }
                     }
@@ -1314,10 +1313,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType != null && internalType.equals("location")) {
+                        if (internalType != null && "location".equals(internalType)) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
-                        if (internalType != null && internalType.equals("region")) {
+                        if (internalType != null && "region".equals(internalType)) {
                             throw new IllegalArgumentException(operator + " cannot be region");
                         }
                     }
@@ -1342,10 +1341,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     checkField = specialFields.get(mappedKey);
                     if (checkField == null) {
                         String internalType = mappedKey.getInternalType();
-                        if (internalType != null && internalType.equals("location")) {
+                        if (internalType != null && "location".equals(internalType)) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
-                        if (internalType != null && internalType.equals("region")) {
+                        if (internalType != null && "region".equals(internalType)) {
                             throw new IllegalArgumentException(key + " cannot be region");
                         }
                     }
@@ -1375,12 +1374,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
                     String internalType = null;
-                    if (!key.equals("_any") && !key.equals("_all")) {
+                    if (!"_any".equals(key) && !"_all".equals(key)) {
                         mappedKey = mapFullyDenormalizedKey(query, key);
                         checkField = specialFields.get(mappedKey);
                         if (checkField == null) {
                             internalType = mappedKey.getInternalType();
-                            if (internalType.equals("location")) {
+                            if ("location".equals(internalType)) {
                                 throw new IllegalArgumentException(operator + " cannot be location");
                             }
                         }
@@ -1393,29 +1392,29 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
                         if (v != null && v instanceof Boolean) {
-                            if (internalType != null && internalType.equals("region")) {
+                            if (internalType != null && "region".equals(internalType)) {
                                 throw new IllegalArgumentException(operator + " region with boolean not allowed");
                             }
                         }
                         if (v != null && v instanceof Location) {
                             if (internalType == null) {
                                 throw new IllegalArgumentException(operator + " location not allowed");
-                            } else if (!internalType.equals("region") && !internalType.equals("location")) {
+                            } else if (!"region".equals(internalType) && !"location".equals(internalType)) {
                                 throw new IllegalArgumentException(operator + " location not allowed except for region/location");
                             }
                         }
                     }
 
                     String geoType1 = null;
-                    if (internalType != null && internalType.equals("region")) {
+                    if (internalType != null && "region".equals(internalType)) {
                         geoType1 = "polygon";
-                    } else if (internalType != null && internalType.equals("location")) {
+                    } else if (internalType != null && "location".equals(internalType)) {
                         geoType1 = "location";
                     }
 
                     String finalGeoType1 = geoType1;
                     String finalKey1 = key;
-                    if (internalType != null && internalType.equals("region")) {
+                    if (internalType != null && "region".equals(internalType)) {
                         return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : (v instanceof Location
@@ -1602,10 +1601,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (client != null) {
             IndicesExistsRequest existsRequest = client.admin().indices().prepareExists(indexName).request();
             if (client.admin().indices().exists(existsRequest).actionGet().isExists()) {
-                LOGGER.info("index %s exists... deleting!", indexName);
+                LOGGER.info("index {} exists... deleting!", indexName);
                 DeleteIndexResponse response = client.admin().indices().delete(new DeleteIndexRequest(indexName)).actionGet();
                 if (!response.isAcknowledged()) {
-                    LOGGER.error("Failed to delete elastic search index named %s", indexName);
+                    LOGGER.error("Failed to delete elastic search index named {}", indexName);
                 }
             }
             client.close();

@@ -28,8 +28,6 @@ public abstract class AbstractElasticTest {
 
     /**
      *
-     * @param index
-     * @param nodeHost
      */
     public static void deleteIndex(String index, String nodeHost) {
         LOGGER.info("Deleting Index " + index);
@@ -50,8 +48,6 @@ public abstract class AbstractElasticTest {
 
     /**
      *
-     * @param index
-     * @param nodeHost
      */
     public static void createIndexandMapping(String index, String nodeHost) {
         LOGGER.info("Mapping Index " + index);
@@ -116,6 +112,7 @@ public abstract class AbstractElasticTest {
                 assertTrue("Response > 201", 1==0);
             }
             json = EntityUtils.toString(response.getEntity());
+            LOGGER.info("ELK createIndexandMapping Response " + json);
         } catch (ClientProtocolException e) {
             LOGGER.info("ELK createIndexandMapping ClientProtocolException");
             e.printStackTrace();
@@ -129,7 +126,6 @@ public abstract class AbstractElasticTest {
 
     /**
      *
-     * @return
      */
     private static String getNodeHost() {
         String host = (String) Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING);
@@ -138,7 +134,6 @@ public abstract class AbstractElasticTest {
 
     /**
      *
-     * @return
      */
     public static Map<String, Object> getDatabaseSettings() {
         Map<String, Object> settings = new HashMap<>();
@@ -175,7 +170,7 @@ public abstract class AbstractElasticTest {
         Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
         Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
         String nodeHost = getNodeHost();
-        if (ElasticsearchDatabase.checkAlive(nodeHost) == false) {
+        if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
             // ok create embedded since it is not already running for test
             EmbeddedElasticsearchServer.setup();
         }

@@ -16,9 +16,8 @@ class ElasticsearchDatabaseConnection {
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     /**
+     * Check nodes are not empty and isAlive
      *
-     * @param client
-     * @return
      */
     public static boolean isAlive(TransportClient client) {
         List<DiscoveryNode> nodes = client.connectedNodes();
@@ -26,7 +25,7 @@ class ElasticsearchDatabaseConnection {
     }
 
     /**
-     *
+     * Force a close
      */
     public static synchronized void closeClient() {
         if (client != null) {
@@ -35,10 +34,11 @@ class ElasticsearchDatabaseConnection {
     }
 
     /**
+     * getClient synchronized and calls PreBuiltTransportClient
      *
-     * @param nodeSettings
-     * @param nodes
-     * @return
+     * @param nodeSettings can be null and will set nodeSettings
+     * @param nodes list of nodes
+     * @return {code null} is error
      */
     public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes) {
         if (nodeSettings == null) {
@@ -58,7 +58,7 @@ class ElasticsearchDatabaseConnection {
                 }
                 return client;
             } catch (Exception error) {
-                LOGGER.info(
+                LOGGER.warn(
                         String.format("ELK openConnection Cannot open ES Exception [%s: %s]",
                                 error.getClass().getName(),
                                 error.getMessage()),
@@ -75,7 +75,7 @@ class ElasticsearchDatabaseConnection {
                     }
                 }
             } catch (Exception error) {
-                LOGGER.info(
+                LOGGER.warn(
                         String.format("ELK openConnection Cannot open ES Exception [%s: %s]",
                                 error.getClass().getName(),
                                 error.getMessage()),
