@@ -16,7 +16,7 @@ env:
 
 install: true
 
-script: mvn -Plibrary verify
+script: travis_wait mvn -Plibrary verify
 
 cache:
   directories:

@@ -2,6 +2,69 @@
 <differences>
 
     <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7005</differenceType>
+        <method>public void closeConnection(org.elasticsearch.client.Client)</method>
+        <to>public void closeConnection(org.elasticsearch.client.transport.TransportClient)</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7005</differenceType>
+        <method>protected void doWrites(org.elasticsearch.client.Client, boolean, java.util.List, java.util.List, java.util.List)</method>
+        <to>protected void doWrites(org.elasticsearch.client.transport.TransportClient, boolean, java.util.List, java.util.List, java.util.List)</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7002</differenceType>
+        <method>public java.lang.String getTypeName()</method>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7002</differenceType>
+        <method>public void setTypeName(java.lang.String)</method>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7006</differenceType>
+        <method>public org.elasticsearch.client.Client openConnection()</method>
+        <to>org.elasticsearch.client.transport.TransportClient</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>6011</differenceType>
+        <field>TYPE_NAME_SUB_SETTING</field>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>6011</differenceType>
+        <field>TYPE_NAME_SUB_SETTING*</field>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7005</differenceType>
+        <method>*</method>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7002</differenceType>
+        <method>*</method>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7006</differenceType>
+        <method>*</method>
+    </difference>
+
+    <difference>
         <className>com/psddev/dari/util/AbstractImageEditor</className>
         <differenceType>8001</differenceType>
     </difference>

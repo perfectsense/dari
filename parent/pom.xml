@@ -9,12 +9,13 @@
     <parent>
         <groupId>com.psddev</groupId>
         <artifactId>dari-grandparent</artifactId>
-        <version>3.2-SNAPSHOT</version>
+        <version>3.3-SNAPSHOT</version>
         <relativePath>../grandparent/pom.xml</relativePath>
     </parent>
 
+    <groupId>com.psddev</groupId>
     <artifactId>dari-parent</artifactId>
-    <version>3.2-SNAPSHOT</version>
+    <version>3.3-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Dari: Parent POM</name>
@@ -37,7 +38,7 @@
                     <dependency>
                         <groupId>com.psddev</groupId>
                         <artifactId>dari-reflections</artifactId>
-                        <version>3.2-SNAPSHOT</version>
+                        <version>3.3-SNAPSHOT</version>
                     </dependency>
 
                     <dependency>
@@ -85,7 +86,7 @@
                     <dependency>
                         <groupId>com.psddev</groupId>
                         <artifactId>dari-util</artifactId>
-                        <version>3.2-SNAPSHOT</version>
+                        <version>3.3-SNAPSHOT</version>
                     </dependency>
                 </dependencies>
 

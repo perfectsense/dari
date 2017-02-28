@@ -75,6 +75,7 @@ public class State implements Map<String, Object> {
     private static final int RESOLVE_WITHOUT_CACHE = 1 << 2;
     private static final int RESOLVE_USING_MASTER = 1 << 3;
     private static final int RESOLVE_INVISIBLE = 1 << 4;
+    private static final int EMBEDDED_FLAG = 1 << 5;
 
     private static final ThreadLocal<List<Listener>> LISTENERS_LOCAL = new ThreadLocal<>();
 
@@ -1160,6 +1161,18 @@ public class State implements Map<String, Object> {
         }
     }
 
+    public boolean isEmbedded() {
+        return (flags & EMBEDDED_FLAG) != 0;
+    }
+
+    public void setEmbedded(boolean embedded) {
+        if (embedded) {
+            flags |= EMBEDDED_FLAG;
+        } else {
+            flags &= ~EMBEDDED_FLAG;
+        }
+    }
+
     /**
      * Returns a descriptive label for this state.
      */
@@ -1501,12 +1514,14 @@ public class State implements Map<String, Object> {
             }
 
             if (embedded) {
+                valueState.setEmbedded(true);
                 valueState.fireTrigger(trigger);
 
             } else {
                 ObjectType valueType = valueState.getType();
 
                 if (valueType != null && valueType.isEmbedded()) {
+                    valueState.setEmbedded(true);
                     valueState.fireTrigger(trigger);
                 }
             }
@@ -1729,15 +1744,25 @@ public class State implements Map<String, Object> {
      */
     public boolean validate() {
         ObjectType type = getType();
+
         if (type != null) {
             for (ObjectField field : type.getFields()) {
+                if (isEmbedded() && field.isIgnoredIfEmbedded()) {
+                    continue;
+                }
+
                 field.validate(this);
                 validateValue(get(field.getInternalName()), field.isEmbedded());
             }
         }
 
         DatabaseEnvironment environment = getDatabase().getEnvironment();
+
         for (ObjectField field : environment.getFields()) {
+            if (isEmbedded() && field.isIgnoredIfEmbedded()) {
+                continue;
+            }
+
             field.validate(this);
         }
 
@@ -1760,11 +1785,13 @@ public class State implements Map<String, Object> {
             State valueState = ((Recordable) value).getState();
 
             if (embedded) {
+                valueState.setEmbedded(true);
                 valueState.validate();
 
             } else {
                 ObjectType valueType = valueState.getType();
                 if (valueType != null && valueType.isEmbedded()) {
+                    valueState.setEmbedded(true);
                     valueState.validate();
                 }
             }
