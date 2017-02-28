@@ -595,7 +595,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (source.get("properties") instanceof Map) {
                 Map<String, Object> properties = (Map<String, Object>) source.get("properties");
                 List<String> items = Arrays.asList(field.split("\\."));
-                if (findElasticMap(properties, items, 0) == false) {
+                if (!findElasticMap(properties, items, 0)) {
                     return false;
                 }
             }
@@ -1112,7 +1112,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private GeoShapeQueryBuilder geoCircle(String key, double x, double y, double r) {
         try {
             return QueryBuilders
-                    .geoShapeQuery(key, ShapeBuilders.newCircleBuilder().center(x,y).radius(r, DistanceUnit.KILOMETERS)).relation(ShapeRelation.CONTAINS);
+                    .geoShapeQuery(key, ShapeBuilders.newCircleBuilder().center(x, y).radius(r, DistanceUnit.KILOMETERS)).relation(ShapeRelation.CONTAINS);
         } catch (Exception error) {
             LOGGER.warn(
                     String.format("geoCircle threw Exception [%s: %s]",
