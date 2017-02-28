@@ -1,20 +1,7 @@
 package com.psddev.dari.elasticsearch;
 
 import com.google.common.base.Preconditions;
-import com.psddev.dari.db.AbstractDatabase;
-import com.psddev.dari.db.ComparisonPredicate;
-import com.psddev.dari.db.CompoundPredicate;
-import com.psddev.dari.db.Location;
-import com.psddev.dari.db.Predicate;
-import com.psddev.dari.db.PredicateParser;
-import com.psddev.dari.db.Query;
-import com.psddev.dari.db.Record;
-import com.psddev.dari.db.Region;
-import com.psddev.dari.db.Sorter;
-import com.psddev.dari.db.State;
-import com.psddev.dari.db.StateSerializer;
-import com.psddev.dari.db.UnsupportedIndexException;
-import com.psddev.dari.db.UnsupportedPredicateException;
+import com.psddev.dari.db.*;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import org.apache.commons.lang3.time.DateUtils;
@@ -52,6 +39,11 @@ import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.range.Range;
+import org.elasticsearch.search.aggregations.bucket.range.RangeAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
@@ -74,6 +66,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.regex.Matcher;
 
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
@@ -423,6 +416,141 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      *
+     */
+    @Override
+    public <T> PaginatedResult<Grouping<T>> readPartialGrouped(Query<T> query, long offset, int limit, String... fields) {
+        if (fields == null || fields.length != 1) {
+            return super.readPartialGrouped(query, offset, limit, fields);
+        }
+
+        List<Grouping<T>> groupings = new ArrayList<Grouping<T>>();
+
+        TransportClient client = openConnection();
+        if (client == null || !isAlive(client)) {
+            return null;
+        }
+
+        Set<UUID> typeIds = query.getConcreteTypeIds(this);
+
+        if (query.getGroup() != null && typeIds.size() == 0) {
+            // should limit by the type
+            LOGGER.info("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+        }
+        String[] typeIdStrings = typeIds.size() == 0
+                ? new String[]{ "_all" }
+                : typeIds.stream().map(UUID::toString).toArray(String[]::new);
+
+        SearchResponse response;
+        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
+        SearchRequestBuilder srb;
+
+        Matcher groupingMatcher = Query.RANGE_PATTERN.matcher(fields[0]);
+        if (groupingMatcher.find()) {
+            String field = groupingMatcher.group(1);
+            Double start = ObjectUtils.to(Double.class, groupingMatcher.group(2).trim());
+            Double end   = ObjectUtils.to(Double.class, groupingMatcher.group(3).trim());
+            Double gap   = ObjectUtils.to(Double.class, groupingMatcher.group(4).trim());
+
+            srb = client.prepareSearch(getIndexName())
+                    .setFetchSource(!query.isReferenceOnly())
+                    .setTimeout(new TimeValue(this.searchTimeout));
+            if (typeIds.size() > 0) {
+                srb.setTypes(typeIdStrings);
+            }
+            srb.setQuery(qb)
+                    .setFrom(0)
+                    .setSize(0);
+
+            RangeAggregationBuilder ab = AggregationBuilders.range("agg").field(field);
+            for (double i=start; i < end; i = i + gap) {
+                ab.addRange(i, i + gap);
+            }
+            srb.addAggregation(ab);
+            LOGGER.debug("ELK readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+            response = srb.execute().actionGet();
+            SearchHits hits = response.getHits();
+
+            Range agg = response.getAggregations().get("agg");
+
+            for (Range.Bucket entry : agg.getBuckets()) {
+                String key = entry.getKeyAsString();             // Range as key
+                Number from = (Number) entry.getFrom();          // Bucket from
+                Number to = (Number) entry.getTo();              // Bucket to
+                long docCount = entry.getDocCount();    // Doc count
+
+                LOGGER.debug("key [{}], from [{}], to [{}], doc_count [{}]", key, from, to, docCount);
+                groupings.add(new ElasticGrouping<T>(Arrays.asList(key), query, fields, docCount));
+            }
+        } else {
+            srb = client.prepareSearch(getIndexName())
+                    .setFetchSource(!query.isReferenceOnly())
+                    .setTimeout(new TimeValue(this.searchTimeout));
+            if (typeIds.size() > 0) {
+                srb.setTypes(typeIdStrings);
+            }
+            srb.setQuery(qb)
+                    .setFrom(0)
+                    .setSize(0);
+
+            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, fields[0]);
+            String elkField = specialFields.get(mappedKey);
+            if (elkField == null) {
+                String internalType = mappedKey.getInternalType();
+                if (internalType != null) {
+                    if ("text".equals(internalType)) {
+                        elkField = fields[0] + ".raw";
+                    }
+                }
+                if (elkField == null) {
+                    elkField = fields[0];
+                }
+            }
+
+            if (query.getGroup() != null) {
+                TermsAggregationBuilder ab = AggregationBuilders.terms("agg").field(elkField).size(1000).order(Terms.Order.count(true));
+                srb.addAggregation(ab);
+            }
+            LOGGER.debug("ELK readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+            response = srb.execute().actionGet();
+            SearchHits hits = response.getHits();
+
+            Terms agg = response.getAggregations().get("agg");
+
+            for (Terms.Bucket entry : agg.getBuckets()) {
+                String key = entry.getKeyAsString();    // Term
+                long docCount = entry.getDocCount();    // Doc count
+                LOGGER.debug("key [{}], doc_count [{}]", key, docCount);
+                groupings.add(new ElasticGrouping<T>(Arrays.asList(key), query, fields, docCount));
+            }
+        }
+
+        return new PaginatedResult<Grouping<T>>(offset, limit, groupings);
+    }
+
+    private static class ElasticGrouping<T> extends AbstractGrouping<T> {
+
+        private final long count;
+
+        public ElasticGrouping(List<Object> keys, Query<T> query, String[] fields, long count) {
+            super(keys, query, fields);
+            this.count = count;
+        }
+
+        // --- AbstractGrouping support ---
+
+        @Override
+        protected Aggregate createAggregate(String field) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getCount() {
+            return count;
+        }
+    }
+
+    /**
+     *
      * Read partial results from Elastic - convert Query to SearchRequestBuilder
      *
      * @see #getSearchMaxRows()
@@ -459,7 +587,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setFrom((int) offset)
                     .setSize(limit);
             //if (query.getGroup() != null) {
-            //    srb.addAggregation(AggregationBuilders.terms(query.getGroup() + "_aggs").field(query.getGroup() + ".raw").size(100));
+            //    srb.addAggregation(AggregationBuilders.terms(query.getGroup() + "_aggs").field(query.getGroup() + ".raw").size(limit));
             //}
             for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, null)) {
                 srb = srb.addSort(sb);
@@ -473,14 +601,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setFrom((int) offset)
                     .setSize(limit);
             //if (query.getGroup() != null) {
-            //    srb.addAggregation(AggregationBuilders.terms(query.getGroup() + "_aggs").field(query.getGroup() + ".raw").size(100));
+            //    srb.addAggregation(AggregationBuilders.terms(query.getGroup() + "_aggs").field(query.getGroup() + ".raw").size(limit));
             //}
             for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, typeIdStrings)) {
                 srb.addSort(sb);
             }
 
         }
-        LOGGER.debug("ELK srb typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.info("ELK srb typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
 

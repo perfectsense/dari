@@ -1,5 +1,6 @@
 package com.psddev.dari.elasticsearch;
 
+import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.util.Settings;
@@ -10,6 +11,7 @@ import org.junit.Test;
 import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -381,6 +383,44 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check size", fooResult, hasSize(6));
         assertThat("check 0 and 1 order", fooResult.get(0).f, lessThan(fooResult.get(1).f));
         assertThat("check 1 and 2 order", fooResult.get(1).f, lessThan(fooResult.get(2).f));
+    }
+
+    @Test
+    public void testFloatGroupBy() throws Exception {
+        Stream.of(1.0f,2.0f,3.0f,2.0f,3.0f,3.0f).forEach((Float f) -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.f = f;
+            model.num = f.intValue();
+            model.save();
+        });
+
+        database.commitTransaction(database.openConnection(), true);
+
+        List<Grouping<SearchElasticModel>> groupings = Query.from(SearchElasticModel.class).groupBy("f");
+
+        assertThat("check size", groupings, hasSize(3));
+
+        groupings.forEach(g -> {
+            String keyLetter = (String) g.getKeys().get(0);
+
+            assertThat(
+                    keyLetter + " check",
+                    (long) g.getCount(),
+                    is((long) Math.round(Float.parseFloat(keyLetter))));
+        });
+
+        List<Grouping<SearchElasticModel>> ranges = Query.from(SearchElasticModel.class).groupBy("num(1,4,1)");
+        assertThat("check size", ranges, hasSize(3));
+        assertThat("1st check " + ranges.get(0).getKeys().get(0),
+                (long) ranges.get(0).getCount(),
+                is((long) 1));
+        assertThat("2nd check " + ranges.get(1).getKeys().get(0),
+                (long) ranges.get(1).getCount(),
+                is((long) 2));
+        assertThat("3rd check " + ranges.get(2).getKeys().get(0),
+                (long) ranges.get(2).getCount(),
+                is((long) 3));
+
     }
 
     @Test

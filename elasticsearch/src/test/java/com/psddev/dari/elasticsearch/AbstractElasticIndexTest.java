@@ -4,7 +4,6 @@ import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.util.TypeDefinition;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
