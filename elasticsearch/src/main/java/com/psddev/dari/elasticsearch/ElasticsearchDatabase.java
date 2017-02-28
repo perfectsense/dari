@@ -210,7 +210,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, this.clusterNodes);
             return this.client;
         } catch (Exception error) {
-            LOGGER.info(
+            LOGGER.warn(
                     String.format("ELK openConnection Cannot open ES Exception [%s: %s]",
                             error.getClass().getName(),
                             error.getMessage()),
