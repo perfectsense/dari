@@ -430,7 +430,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     @Override
     @SuppressWarnings("unchecked")
     public <T> PaginatedResult<T> readPartial(Query<T> query, long offset, int limit) {
-        LOGGER.info("ELK PaginatedResult readPartial query.getPredicate() [{}]", query.getPredicate());
+        LOGGER.debug("ELK PaginatedResult readPartial query.getPredicate() [{}]", query.getPredicate());
 
         TransportClient client = openConnection();
         if (client == null || !isAlive(client)) {
@@ -488,10 +488,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             items.add(createSavedObjectWithHit(hit, query));
         }
 
-        LOGGER.info("ELK PaginatedResult readPartial hits [{} of {}]", items.size(), hits.getTotalHits());
+        LOGGER.debug("ELK PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
-        PaginatedResult<T> p = new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
-        return p;
+        return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
     }
 
     /**
@@ -1509,7 +1508,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setSource(json));
             BulkResponse bulkResponse = bulk.get();
             if (bulkResponse.hasFailures()) {
-                LOGGER.info("ELK saveJson Save Json hasFailures()");
+                LOGGER.warn("ELK saveJson Save Json hasFailures()");
             }
 
         } finally {
@@ -1797,8 +1796,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             // Elastic requires us to remove the 2
                             t.remove("_id");
                             t.remove("_type");
-                            LOGGER.info("ELK doWrites saving _type [{}] and _id [{}]",
-                                    documentType, documentId);
 
                             convertLocationToName(t, LOCATION_FIELD);
                             convertRegionToName(t, REGION_FIELD);
@@ -1807,7 +1804,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(indexName, documentType, documentId).setSource(t));
                         } catch (Exception error) {
-                            LOGGER.info(
+                            LOGGER.warn(
                                     String.format("ELK doWrites saves Exception [%s: %s]",
                                             error.getClass().getName(),
                                             error.getMessage()),
@@ -1818,13 +1815,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (deletes != null) {
                 for (State state : deletes) {
-                    LOGGER.info("ELK doWrites deleting _type [{}] and _id [{}]",
+                    LOGGER.debug("ELK doWrites deleting _type [{}] and _id [{}]",
                             state.getId().toString(), state.getTypeId().toString());
                     try {
                         bulk.add(client
                                 .prepareDelete(indexName, state.getTypeId().toString(), state.getId().toString()));
                     } catch (Exception error) {
-                        LOGGER.info(
+                        LOGGER.warn(
                                 String.format("ELK doWrites saves Exception [%s: %s]",
                                         error.getClass().getName(),
                                         error.getMessage()),
@@ -1836,7 +1833,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             LOGGER.debug("ELK Writing [{}]", bulk.request().requests().toString());
             bulk.execute().actionGet();
         } catch (Exception error) {
-            LOGGER.info(
+            LOGGER.warn(
                     String.format("ELK doWrites Exception [%s: %s]",
                             error.getClass().getName(),
                             error.getMessage()),
