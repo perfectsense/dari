@@ -434,7 +434,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (query.getGroup() != null && typeIds.size() == 0) {
             // should limit by the type
-            LOGGER.info("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+            LOGGER.debug("ELK PaginatedResult readPartialGrouped the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
         }
         String[] typeIdStrings = typeIds.size() == 0
                 ? new String[]{ "_all" }
@@ -570,7 +570,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (query.getGroup() != null && typeIds.size() == 0) {
             // should limit by the type
-            LOGGER.info("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+            LOGGER.debug("ELK PaginatedResult readPartial the call is to limit by from() but did not load typeIds! [{}]", query.getGroup());
         }
         String[] typeIdStrings = typeIds.size() == 0
                 ? new String[]{ "_all" }
@@ -608,7 +608,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
 
         }
-        LOGGER.info("ELK srb typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.debug("ELK srb typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
 
