@@ -102,6 +102,7 @@ public class LazyWriter extends Writer {
                 inTag = true;
                 tagName.setLength(0);
                 tagNameFound = false;
+                inScriptOrStyle = false;
 
             } else if (inTag) {
                 boolean endTag = letter == '>';
@@ -136,9 +137,7 @@ public class LazyWriter extends Writer {
                         }
                     }
 
-                    if (!inScriptOrStyle) {
-                        writePending();
-                    }
+                    writePending();
 
                     if (isInBody() && lazy.length() > 0) {
                         delegate.append(lazy);

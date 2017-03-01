@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<differences>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7005</differenceType>
+        <method>**</method>
+        <to>**</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7002</differenceType>
+        <method>**</method>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>7006</differenceType>
+        <method>**</method>
+        <to>**</to>
+    </difference>
+
+    <difference>
+        <className>com/psddev/dari/elasticsearch/ElasticsearchDatabase</className>
+        <differenceType>6011</differenceType>
+        <field>**</field>
+    </difference>
+
+</differences>
