@@ -13,14 +13,14 @@ import javax.servlet.Filter;
  * <ul>
  * <li>{@link Utf8Filter}</li>
  * <li>{@link SourceFilter}</li>
+ * <li>{@link NoSessionFilter}</li>
+ * <li>{@link HeaderResponseFilter}</li>
  * <li>{@link LogCaptureFilter}</li>
  * <li>{@link DebugFilter}</li>
  * <li>{@link ProfilerFilter}</li>
  * <li>{@link StatsFilter}</li>
- * <li>{@link HeaderResponseFilter}</li>
  * <li>{@link MultipartRequestFilter}</li>
  * <li>{@link PageContextFilter}</li>
- * <li>{@link NoSessionFilter}</li>
  * <li>{@link JspBufferFilter}</li>
  * <li>{@link HtmlApiFilter}</li>
  * <li>{@link PingFilter}</li>
@@ -36,6 +36,7 @@ public class StandardFilter extends AbstractFilter {
 
         dependencies.add(Utf8Filter.class);
         dependencies.add(SourceFilter.class);
+        dependencies.add(NoSessionFilter.class);
         dependencies.add(HeaderResponseFilter.class);
         dependencies.add(LogCaptureFilter.class);
         dependencies.add(DebugFilter.class);
@@ -45,7 +46,6 @@ public class StandardFilter extends AbstractFilter {
 
         dependencies.add(MultipartRequestFilter.class);
         dependencies.add(PageContextFilter.class);
-        dependencies.add(NoSessionFilter.class);
         dependencies.add(JspBufferFilter.class);
         dependencies.add(HtmlApiFilter.class);
 
