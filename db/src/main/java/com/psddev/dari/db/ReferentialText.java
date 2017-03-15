@@ -29,7 +29,7 @@ public class ReferentialText extends AbstractList<Object> {
     private static final Tag DIV_TAG = Tag.valueOf("div");
     private static final Tag P_TAG = Tag.valueOf("p");
 
-    private final List<Object> list = new ArrayList<Object>();
+    protected final List<Object> list = new ArrayList<Object>();
     private boolean resolveInvisible;
 
     /**
@@ -496,7 +496,7 @@ public class ReferentialText extends AbstractList<Object> {
 
     // --- AbstractList support ---
 
-    private Object checkItem(Object item) {
+    protected Object checkItem(Object item) {
         Preconditions.checkNotNull(item);
 
         if (item instanceof Reference) {
@@ -569,5 +569,35 @@ public class ReferentialText extends AbstractList<Object> {
         public void before(Element body);
 
         public void after(Element body);
+    }
+
+    /**
+     * A lazy-loaded implementation of ReferentialText that checks items when they are accessed instead of when they
+     * are inserted. This defers reference resolution.
+     */
+    public static class Lazy extends ReferentialText {
+
+        @Override
+        public void add(int index, Object item) {
+            list.add(index, item);
+        }
+
+        @Override
+        public Object get(int index) {
+            Object item = checkItem(list.get(index));
+            list.set(index, item);
+            return item;
+        }
+
+        @Override
+        public Object remove(int index) {
+            return checkItem(list.remove(index));
+        }
+
+        @Override
+        public Object set(int index, Object item) {
+            return list.set(index, item);
+        }
+
     }
 }

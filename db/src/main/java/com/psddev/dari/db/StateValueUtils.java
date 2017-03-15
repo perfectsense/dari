@@ -507,7 +507,8 @@ abstract class StateValueUtils {
                     return value;
 
                 } else {
-                    ReferentialText text = new ReferentialText();
+                    //Use a lazy ReferentialText to defer resolution
+                    ReferentialText text = new ReferentialText.Lazy();
 
                     text.setResolveInvisible(State.getInstance(object).isResolveInvisible());
 
