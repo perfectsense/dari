@@ -9,12 +9,12 @@
     <parent>
         <groupId>com.psddev</groupId>
         <artifactId>dari</artifactId>
-        <version>3.2-SNAPSHOT</version>
+        <version>3.3-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>dari-h2</artifactId>
-    <version>3.2-SNAPSHOT</version>
+    <version>3.3-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Dari: H2</name>
@@ -85,7 +85,7 @@
                     <dependency>
                         <groupId>com.psddev</groupId>
                         <artifactId>dari-util</artifactId>
-                        <version>3.2-SNAPSHOT</version>
+                        <version>3.3-SNAPSHOT</version>
                     </dependency>
                 </dependencies>
 
