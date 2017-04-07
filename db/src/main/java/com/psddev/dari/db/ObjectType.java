@@ -10,6 +10,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,6 +20,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1080,10 +1082,11 @@ public class ObjectType extends Record implements ObjectStruct {
         if (Bridge.class.isAssignableFrom(objectClass)) {
             try {
                 Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
-                        .forEach(type -> ObjectType.getInstance(type.getTypeName()).getBridgeClassNames().add(objectClassName));
+                        .forEach(type -> Optional.ofNullable(getInstance(type.getTypeName()))
+                                .ifPresent(t -> t.getBridgeClassNames().add(objectClassName)));
 
             } catch (ClassCastException error) {
-                //
+                // No generic, skip.
             }
         }
     }

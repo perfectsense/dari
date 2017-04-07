@@ -1,8 +1,8 @@
 package com.psddev.dari.db;
 
 /**
- * A Bridge allows additional interface implementation on type {@code <T>}. For
- * example:
+ * Similar to {@link Modification}, Bridge is used to implement and make use of
+ * additional interfaces on type {@code <T>}. For example:
  *
  * <p><blockquote><pre><code data-type="java">
  *     class DownloadableImage extends Bridge&lt;Image&gt; implements ImageDownloadable {
