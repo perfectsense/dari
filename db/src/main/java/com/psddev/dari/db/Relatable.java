@@ -2,7 +2,7 @@ package com.psddev.dari.db;
 
 /**
  * Interface that defines a relationship between this class and the type
- * {@code <T>}.
+ * {@code T}.
  */
 interface Relatable<T> extends Recordable {
 

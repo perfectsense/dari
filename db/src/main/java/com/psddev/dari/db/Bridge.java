@@ -2,7 +2,7 @@ package com.psddev.dari.db;
 
 /**
  * Similar to {@link Modification}, Bridge is used to implement and make use of
- * additional interfaces on type {@code <T>}. For example:
+ * additional interfaces on type {@code T}. For example:
  *
  * <p><blockquote><pre><code data-type="java">
  *     class DownloadableImage extends Bridge&lt;Image&gt; implements ImageDownloadable {
@@ -16,8 +16,11 @@ package com.psddev.dari.db;
  *
  * <p>The above snippet suggests that the Image type is now downloadable, in
  * that the interface method can be called by utilizing the API
- * {@link State#bridge(Class)} as such:
- * {@code image.bridge(ImageDownloadable.class).downloadFiles(options, root);}</p>
+ * {@link State#bridge(Class)} as such:</p>
+ *
+ *  <p><blockquote><pre><code data-type="java">
+ *      image.bridge(ImageDownloadable.class).downloadFiles(options, root);
+ *  </pre></blockquote></p>
  */
 @SuppressWarnings("WeakerAccess")
 public abstract class Bridge<T> extends Record implements Relatable<T> {
