@@ -43,6 +43,12 @@
     </difference>
 
     <difference>
+        <className>com/psddev/dari/db/Recordable</className>
+        <differenceType>7012</differenceType>
+        <method>java.lang.Object bridge(java.lang.Class)</method>
+    </difference>
+
+    <difference>
          <className>com/psddev/dari/db/Recordable$Regex</className>
          <differenceType>7012</differenceType>
          <method>java.lang.String validationMessage()</method>

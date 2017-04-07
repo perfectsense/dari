@@ -9,6 +9,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -94,6 +95,8 @@ public class ObjectType extends Record implements ObjectStruct {
     @DisplayName("Java Assignable Classes")
     @InternalName("java.assignableClasses")
     private Set<String> assignableClassNames;
+
+    private Set<String> bridgeClassNames;
 
     private transient Boolean isLazyLoaded;
 
@@ -892,6 +895,17 @@ public class ObjectType extends Record implements ObjectStruct {
         this.assignableClassNames = assignableClassNames;
     }
 
+    public Set<String> getBridgeClassNames() {
+        if (bridgeClassNames == null) {
+            bridgeClassNames = new LinkedHashSet<>();
+        }
+        return bridgeClassNames;
+    }
+
+    public void setBridgeClassNames(Set<String> bridgeClassNames) {
+        this.bridgeClassNames = bridgeClassNames;
+    }
+
     public boolean isLazyLoaded() {
         if (isLazyLoaded == null) {
             isLazyLoaded = getObjectClass() == null
@@ -1061,6 +1075,17 @@ public class ObjectType extends Record implements ObjectStruct {
                     break;
                 }
             }
+        }
+
+        if (Bridge.class.isAssignableFrom(objectClass)) {
+            try {
+                Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
+                        .forEach(type -> ObjectType.getInstance(type.getTypeName()).getBridgeClassNames().add(objectClassName));
+
+            } catch (ClassCastException error) {
+                //
+            }
+
         }
     }
 

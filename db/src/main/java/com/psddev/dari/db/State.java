@@ -3,11 +3,14 @@ package com.psddev.dari.db;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -17,12 +20,15 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.psddev.dari.util.TypeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.cache.CacheBuilder;
@@ -1358,6 +1364,87 @@ public class State implements Map<String, Object> {
     }
 
     /**
+     * Returns an instance of the given {@code objectClass} bridged to this
+     * object.
+     *
+     * @return Nullable.
+     */
+    @SuppressWarnings({ "unchecked", "WeakerAccess" })
+    public <T> T bridge(Class<T> objectClass) {
+        T object = (T) linkedObjects.get(objectClass);
+
+        if (object != null) {
+            return object;
+        }
+
+        Object originalObject = getOriginalObjectOrNull();
+
+        if (originalObject == null) {
+            return null;
+        }
+
+        Class<?> originalObjectClass = originalObject.getClass();
+        String objectClassName = objectClass.getName();
+
+        if (Modifier.isAbstract(objectClass.getModifiers())) {
+            Set<Class<?>> bridgeClasses = getBridgeClassesAssignableFrom(objectClass);
+            int numBridges = bridgeClasses.size();
+
+            String originalObjectClassName = originalObjectClass.getName();
+
+            if (objectClass.isAssignableFrom(originalObjectClass)) {
+
+                // Ambiguity as to which instance should return.
+                if (numBridges != 0) {
+                    LOGGER.error(
+                            "Interface [{}] is implemented on class [{}] as well as bridge(s) of that class!",
+                            objectClassName,
+                            originalObjectClassName);
+                    return null;
+                }
+
+                return (T) originalObject;
+            }
+
+            if (numBridges == 0) {
+                LOGGER.error(
+                        "There is no bridge of class [{}] that class [{}] is assignable from!",
+                        originalObjectClassName,
+                        objectClassName);
+                return null;
+            }
+
+            if (numBridges > 1) {
+                LOGGER.error(
+                        "There is more than one bridge of class [{}] that class [{}] is assignable from!",
+                        originalObjectClassName,
+                        objectClassName);
+                return null;
+            }
+
+            object = (T) TypeDefinition.getInstance(bridgeClasses.iterator().next()).newInstance();
+        }
+
+        if (Bridge.class.isAssignableFrom(objectClass)
+                && Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
+                        .anyMatch(type -> type.equals(originalObjectClass))) {
+
+
+
+            object = TypeDefinition.getInstance(objectClass).newInstance();
+        }
+
+        if (object != null) {
+            ((Recordable) object).setState(this);
+            copyRawValuesToJavaFields(object);
+            return object;
+        }
+
+        LOGGER.error("Class [{}] cannot be bridged from this state!", objectClassName);
+        return null;
+    }
+
+    /**
      * Fires the given {@code trigger} on all objects (the original, the
      * modifications, and the embedded) associated with this state.
      *
@@ -2347,6 +2434,33 @@ public class State implements Map<String, Object> {
         } finally {
             database.endWrites();
         }
+    }
+
+    /**
+     * @return {@code true} if the {@code objectClass} is assignable from the
+     * original object's class OR any of the object's bridge classes,
+     * {@code false} otherwise.
+     */
+    public boolean instanceOf(Class<?> objectClass) {
+        return objectClass.isAssignableFrom(getOriginalObject().getClass())
+                || !getBridgeClassesAssignableFrom(objectClass).isEmpty();
+    }
+
+    // Returns the bridge classes that the objectClass is assignable from.
+    private Set<Class<?>> getBridgeClassesAssignableFrom(Class<?> objectClass) {
+        return getType().getBridgeClassNames().stream()
+                .map(name -> {
+                    try {
+                        return Class.forName(name);
+
+                    } catch (ClassNotFoundException error) {
+                        LOGGER.error("No class found for name [{}]!", name, error);
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .filter(objectClass::isAssignableFrom)
+                .collect(Collectors.toSet());
     }
 
     public abstract static class Listener {
