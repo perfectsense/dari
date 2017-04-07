@@ -6,6 +6,7 @@ package com.psddev.dari.db;
  *
  * <p><blockquote><pre><code data-type="java">
  *     class DownloadableImage extends Bridge&lt;Image&gt; implements ImageDownloadable {
+ *
  *         {@literal @}Override
  *         public void downloadFiles(ImageDownloadOptions options, Path root) {
  *             Image image = getOriginalObject();

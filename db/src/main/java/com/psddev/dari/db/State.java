@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.psddev.dari.util.ClassFinder;
 import com.psddev.dari.util.TypeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1410,21 +1411,28 @@ public class State implements Map<String, Object> {
             if (numBridges == 1) {
                 object = (T) TypeDefinition.getInstance(bridgeClasses.iterator().next()).newInstance();
 
-            // Prioritize.
+            // Disambiguate.
             } else {
-                bridgeClasses = bridgeClasses.stream()
-                        .filter(PriorityBridge.class::isAssignableFrom)
-                        .collect(Collectors.toSet());
+                List<Class<? extends Bridge>> preferredBridgeClasses = ClassFinder.findConcreteClasses(BridgeDisambiguation.class).stream()
+                        .map(clazz -> TypeDefinition.getInstance(clazz).newInstance())
+                        .filter(disambiguation -> disambiguation.getOriginalClass().equals(originalObjectClass))
+                        .filter(disambiguation -> {
+                            Class<?> classToBridge = disambiguation.getTargetClass();
+                            return objectClass.equals(classToBridge) || objectClass.isAssignableFrom(classToBridge);
+                        })
+                        .map(BridgeDisambiguation::getPreferredBridgeClass)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
 
-                if (bridgeClasses.size() != 1) {
+                if (preferredBridgeClasses.size() != 1) {
                     LOGGER.error(
-                            "There must be exactly one PriorityBridge of class [{}] that class [{}] is assignable from!",
+                            "There must be exactly one BridgeDisambiguation class for type [{}] and class [{}]!",
                             originalObjectClassName,
                             objectClassName);
                     return null;
                 }
 
-                object = (T) TypeDefinition.getInstance(bridgeClasses.iterator().next()).newInstance();
+                object = (T) TypeDefinition.getInstance(preferredBridgeClasses.get(0)).newInstance();
             }
 
         } else if (Bridge.class.isAssignableFrom(objectClass)
