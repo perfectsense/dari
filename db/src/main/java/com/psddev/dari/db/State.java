@@ -1369,7 +1369,7 @@ public class State implements Map<String, Object> {
      *
      * @return Nullable.
      */
-    @SuppressWarnings({ "unchecked", "WeakerAccess" })
+    @SuppressWarnings("unchecked")
     public <T> T bridge(Class<T> objectClass) {
         T object = (T) linkedObjects.get(objectClass);
 

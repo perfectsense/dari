@@ -8,6 +8,5 @@ package com.psddev.dari.db;
  * <p>Note that in order for this concept to behave properly, it should be
  * reserved for the lowest (project) level.</p>
  */
-@SuppressWarnings("WeakerAccess")
 public interface PriorityBridge {
 }

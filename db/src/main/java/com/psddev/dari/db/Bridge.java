@@ -22,7 +22,6 @@ package com.psddev.dari.db;
  *      image.bridge(ImageDownloadable.class).downloadFiles(options, root);
  *  </pre></blockquote></p>
  */
-@SuppressWarnings("WeakerAccess")
 public abstract class Bridge<T> extends Record {
 
     /** Returns the original object. */
