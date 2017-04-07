@@ -17,7 +17,8 @@ package com.psddev.dari.db;
  * <p>The above snippet suggests that the Image type is now downloadable, in
  * that the interface method can be called by utilizing the API
  * {@link State#bridge(Class)} as such:
- * {@code image.bridge(DownloadableImage.class).downloadFiles(options, root);}</p>
+ * {@code image.bridge(ImageDownloadable.class).downloadFiles(options, root);}</p>
  */
+@SuppressWarnings("WeakerAccess")
 public abstract class Bridge<T> extends Record implements Relatable<T> {
 }

@@ -1085,7 +1085,6 @@ public class ObjectType extends Record implements ObjectStruct {
             } catch (ClassCastException error) {
                 //
             }
-
         }
     }
 

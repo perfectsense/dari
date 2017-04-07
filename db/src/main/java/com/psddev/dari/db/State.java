@@ -1392,21 +1392,14 @@ public class State implements Map<String, Object> {
 
             String originalObjectClassName = originalObjectClass.getName();
 
-            if (objectClass.isAssignableFrom(originalObjectClass)) {
+            if (numBridges == 0) {
 
-                // Ambiguity as to which instance should return.
-                if (numBridges != 0) {
-                    LOGGER.error(
-                            "Interface [{}] is implemented on class [{}] as well as bridge(s) of that class!",
-                            objectClassName,
-                            originalObjectClassName);
-                    return null;
+                // Only use the original object if it's applicable AND there is
+                // no applicable bridge.
+                if (objectClass.isAssignableFrom(originalObjectClass)) {
+                    return (T) originalObject;
                 }
 
-                return (T) originalObject;
-            }
-
-            if (numBridges == 0) {
                 LOGGER.error(
                         "There is no bridge of class [{}] that class [{}] is assignable from!",
                         originalObjectClassName,
@@ -1414,22 +1407,29 @@ public class State implements Map<String, Object> {
                 return null;
             }
 
-            if (numBridges > 1) {
-                LOGGER.error(
-                        "There is more than one bridge of class [{}] that class [{}] is assignable from!",
-                        originalObjectClassName,
-                        objectClassName);
-                return null;
+            if (numBridges == 1) {
+                object = (T) TypeDefinition.getInstance(bridgeClasses.iterator().next()).newInstance();
+
+            // Prioritize.
+            } else {
+                bridgeClasses = bridgeClasses.stream()
+                        .filter(PriorityBridge.class::isAssignableFrom)
+                        .collect(Collectors.toSet());
+
+                if (bridgeClasses.size() != 1) {
+                    LOGGER.error(
+                            "There must be exactly one PriorityBridge of class [{}] that class [{}] is assignable from!",
+                            originalObjectClassName,
+                            objectClassName);
+                    return null;
+                }
+
+                object = (T) TypeDefinition.getInstance(bridgeClasses.iterator().next()).newInstance();
             }
 
-            object = (T) TypeDefinition.getInstance(bridgeClasses.iterator().next()).newInstance();
-        }
-
-        if (Bridge.class.isAssignableFrom(objectClass)
+        } else if (Bridge.class.isAssignableFrom(objectClass)
                 && Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
                         .anyMatch(type -> type.equals(originalObjectClass))) {
-
-
 
             object = TypeDefinition.getInstance(objectClass).newInstance();
         }
