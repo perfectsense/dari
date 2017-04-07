@@ -23,5 +23,11 @@ package com.psddev.dari.db;
  *  </pre></blockquote></p>
  */
 @SuppressWarnings("WeakerAccess")
-public abstract class Bridge<T> extends Record implements Relatable<T> {
+public abstract class Bridge<T> extends Record {
+
+    /** Returns the original object. */
+    @SuppressWarnings("unchecked")
+    public final T getOriginalObject() {
+        return (T) getState().getOriginalObject();
+    }
 }

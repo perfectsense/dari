@@ -55,7 +55,13 @@ class Rating extends Modification&lt;Article&gt; { ... }
 {@literal @}Modification.classes({ Gallery.class, Video.class })
 class Rating extends Modification&lt;Object&gt; { ... }</pre></blockquote>
  */
-public abstract class Modification<T> extends Record implements Relatable<T> {
+public abstract class Modification<T> extends Record {
+
+    /** Returns the original object. */
+    @SuppressWarnings("unchecked")
+    public final T getOriginalObject() {
+        return (T) getState().getOriginalObject();
+    }
 
     /**
      * Specifies an array of classes that the target type should modify.
