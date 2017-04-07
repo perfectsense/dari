@@ -2436,16 +2436,6 @@ public class State implements Map<String, Object> {
         }
     }
 
-    /**
-     * @return {@code true} if the {@code objectClass} is assignable from the
-     * original object's class OR any of the object's bridge classes,
-     * {@code false} otherwise.
-     */
-    public boolean instanceOf(Class<?> objectClass) {
-        return objectClass.isAssignableFrom(getOriginalObject().getClass())
-                || !getBridgeClassesAssignableFrom(objectClass).isEmpty();
-    }
-
     // Returns the bridge classes that the objectClass is assignable from.
     private Set<Class<?>> getBridgeClassesAssignableFrom(Class<?> objectClass) {
         return getType().getBridgeClassNames().stream()
