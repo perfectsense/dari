@@ -6,14 +6,15 @@ package com.psddev.dari.db;
  * the following class definitions:
  *
  * <p><blockquote><pre><code data-type="java">
- *     class DownloadableImage extends Bridge&lt;Image&gt; implements ImageDownloadable { ... }
- *     class DownloadablePhoto extends Bridge&lt;Image&gt; implements ImageDownloadable { ... }
+ *     class DownloadableImage extends Bridge&lt;Image&gt; implements Downloadable { ... }
+ *     class DownloadablePhoto extends Bridge&lt;Image&gt; implements Downloadable { ... }
  * </pre></blockquote></p>
  *
- * <p>The result of calling the API would yield {@code null}:</p>
+ * <p>The result of calling the API would yield {@code null}, because there are
+ * to compatible candidates with no disambiguation logic:</p>
  *
  * <p><blockquote><pre><code data-type="java">
- *      image.bridge(ImageDownloadable.class);
+ *      image.bridge(Downloadable.class);
  * </pre></blockquote></p>
  *
  * <p>However, an instance of this class can be defined such that the result of
@@ -29,7 +30,7 @@ package com.psddev.dari.db;
  *
  *         {@literal @}Override
  *         public Class&lt;?&lt; getTargetClass() {
- *             return ImageDownloadable.class;
+ *             return Downloadable.class;
  *         }
  *
  *         {@literal @}Override
