@@ -1368,6 +1368,22 @@ public class State implements Map<String, Object> {
      * Returns an instance of the given {@code objectClass} bridged to this
      * object.
      *
+     * <p>If the Bridge class is assignable from the {@code objectClass} AND
+     * the original object's type matches, a Bridge instance for that class
+     * will be returned. Otherwise, this API will examine the Bridge class
+     * definitions for the original object's type, and will either return:</p>
+     *
+     * <ol>
+     *     <li>The original object if the {@code objectClass} is assignable
+     *         from it's class AND there are no bridges</li>
+     *     <li>A bridge instance for the single Bridge class that the
+     *         {@code objectClass} is assignable from, if it exists</li>
+     *     <li>A bridge instance for the preferred Bridge class in the case
+     *         where there are multiple Bridge class definitions for the
+     *         original object's type, if it exists</li>
+     *     <li>{@code null}</li>
+     * </ol>
+     *
      * @return Nullable.
      */
     @SuppressWarnings("unchecked")
@@ -1387,7 +1403,13 @@ public class State implements Map<String, Object> {
         Class<?> originalObjectClass = originalObject.getClass();
         String objectClassName = objectClass.getName();
 
-        if (Modifier.isAbstract(objectClass.getModifiers())) {
+        if (Bridge.class.isAssignableFrom(objectClass)
+                && Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
+                        .anyMatch(type -> type.equals(originalObjectClass))) {
+
+            object = TypeDefinition.getInstance(objectClass).newInstance();
+
+        } else if (Modifier.isAbstract(objectClass.getModifiers())) {
             Set<Class<?>> bridgeClasses = getBridgeClassesAssignableFrom(objectClass);
             int numBridges = bridgeClasses.size();
 
@@ -1434,12 +1456,6 @@ public class State implements Map<String, Object> {
 
                 object = (T) TypeDefinition.getInstance(preferredBridgeClasses.get(0)).newInstance();
             }
-
-        } else if (Bridge.class.isAssignableFrom(objectClass)
-                && Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
-                        .anyMatch(type -> type.equals(originalObjectClass))) {
-
-            object = TypeDefinition.getInstance(objectClass).newInstance();
         }
 
         if (object != null) {
