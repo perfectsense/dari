@@ -1744,8 +1744,12 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
 
         Object truncatedValue = value;
         if (value instanceof String) {
-            if (((String) value).length() > MAX_BINARY_FIELD_LENGTH) {
-                truncatedValue = ((String) value).substring(0, MAX_BINARY_FIELD_LENGTH);
+            byte[] valueBytes = ((String) value).getBytes();
+
+            if (valueBytes.length > MAX_BINARY_FIELD_LENGTH) {
+                // Please note that the last character could be wrong if it is multi byte character.
+                // Subtract 6 more bytes as one character can be up to 6 bytes in UTF-8.
+                truncatedValue = new String(Arrays.copyOfRange(valueBytes, 0, MAX_BINARY_FIELD_LENGTH - 6));
             }
         }
 
