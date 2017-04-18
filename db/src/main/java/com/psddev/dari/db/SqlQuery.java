@@ -314,7 +314,8 @@ class SqlQuery {
                 fromBuilder.append(" /*! IGNORE INDEX (PRIMARY) */");
             }
 
-            if ((join.sqlIndex == SqlIndex.LOCATION && join.sqlIndexTable.getVersion() < 3)
+            if (Boolean.TRUE.equals(query.getOptions().get(SqlDatabase.MYSQL_IGNORE_INDEX_PRIMARY_DISABLED_OPTION))
+                    || (join.sqlIndex == SqlIndex.LOCATION && join.sqlIndexTable.getVersion() < 3)
                     || (join.sqlIndex == SqlIndex.NUMBER && join.sqlIndexTable.getVersion() < 3)
                     || (join.sqlIndex == SqlIndex.STRING && join.sqlIndexTable.getVersion() < 4)
                     || (join.sqlIndex == SqlIndex.UUID && join.sqlIndexTable.getVersion() < 3)) {

@@ -126,6 +126,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> implements MetricA
     public static final String EXTRA_WHERE_QUERY_OPTION = "sql.extraWhere";
     public static final String EXTRA_HAVING_QUERY_OPTION = "sql.extraHaving";
     public static final String MYSQL_INDEX_HINT_QUERY_OPTION = "sql.mysqlIndexHint";
+    public static final String MYSQL_IGNORE_INDEX_PRIMARY_DISABLED_OPTION = "sql.mysqlIgnoreIndexPrimaryDisabled";
     public static final String RETURN_ORIGINAL_DATA_QUERY_OPTION = "sql.returnOriginalData";
     public static final String USE_JDBC_FETCH_SIZE_QUERY_OPTION = "sql.useJdbcFetchSize";
     public static final String USE_READ_DATA_SOURCE_QUERY_OPTION = "sql.useReadDataSource";
