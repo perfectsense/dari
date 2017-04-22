@@ -635,10 +635,7 @@ public enum SqlIndex {
             StringBuilder nameBuilder = new StringBuilder();
 
             if (prefixes == null) {
-                if (index.getParent() instanceof ObjectType) {
-                    nameBuilder.append(index.getJavaDeclaringClassName());
-                    nameBuilder.append('/');
-                }
+                nameBuilder.append(index.getPrefix());
 
             } else {
                 nameBuilder.append(prefixes[0].getUniqueName());

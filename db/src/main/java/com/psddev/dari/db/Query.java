@@ -1076,10 +1076,7 @@ public class Query<E> extends Record {
 
             } else {
                 if (fields.size() == 1) {
-                    if (index.getParent() instanceof ObjectType) {
-                        indexKeyBuilder.append(index.getJavaDeclaringClassName());
-                        indexKeyBuilder.append('/');
-                    }
+                    indexKeyBuilder.append(index.getPrefix());
 
                 } else {
                     indexKeyBuilder.append(fields.get(0).getUniqueName());

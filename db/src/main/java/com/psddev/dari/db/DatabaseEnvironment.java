@@ -105,6 +105,7 @@ public class DatabaseEnvironment implements ObjectStruct {
         public void add(ObjectType type) {
             String className = type.getObjectClassName();
             if (!ObjectUtils.isBlank(className)) {
+                byName.put(className.toLowerCase(Locale.ENGLISH), type);
                 byClassName.put(className.toLowerCase(Locale.ENGLISH), type);
             }
 
@@ -328,7 +329,17 @@ public class DatabaseEnvironment implements ObjectStruct {
                     // system as soon as possible, so that references can be
                     // resolved properly later.
                     for (Class<?> objectClass : objectClasses) {
-                        ObjectType type = getTypeByClass(objectClass);
+
+                        String internalName;
+                        Recordable.InternalName internalNameAnnotation = objectClass.getAnnotation(Recordable.InternalName.class);
+
+                        if (internalNameAnnotation != null) {
+                            internalName = internalNameAnnotation.value();
+                        } else {
+                            internalName = objectClass.getName();
+                        }
+
+                        ObjectType type = getTypeByName(internalName);
 
                         if (type == null) {
                             type = new ObjectType();
@@ -347,6 +358,7 @@ public class DatabaseEnvironment implements ObjectStruct {
                             type.getState().clear();
                         }
 
+                        type.setInternalName(internalName);
                         type.setObjectClassName(objectClass.getName());
                         typeModifications.put(type, new ArrayList<Class<?>>());
                         temporaryTypes.add(type);

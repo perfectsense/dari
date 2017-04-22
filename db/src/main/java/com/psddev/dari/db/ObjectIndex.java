@@ -202,10 +202,16 @@ public class ObjectIndex {
 
             if (ObjectUtils.isBlank(prefix)) {
                 ObjectType type = (ObjectType) parent;
-                prefix = type.getObjectClassName();
+                prefix = type.getInternalName();
 
                 if (ObjectUtils.isBlank(prefix)) {
                     prefix = type.getId().toString();
+                }
+            } else {
+                ObjectType declaringType = parent.getEnvironment().getTypeByName(prefix);
+
+                if (declaringType != null) {
+                    prefix = declaringType.getInternalName();
                 }
             }
 

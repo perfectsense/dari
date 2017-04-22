@@ -218,7 +218,6 @@ public interface Recordable {
 
     /** Specifies the target's internal name. */
     @Documented
-    @ObjectType.AnnotationProcessorClass(InternalNameProcessor.class)
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ ElementType.FIELD, ElementType.TYPE, ElementType.METHOD })
     public @interface InternalName {
@@ -776,13 +775,6 @@ class IgnoredIfEmbeddedProcessor implements ObjectField.AnnotationProcessor<Reco
     @Override
     public void process(ObjectType type, ObjectField field, Recordable.IgnoredIfEmbedded annotation) {
         field.setIgnoredIfEmbedded(annotation.value());
-    }
-}
-
-class InternalNameProcessor implements ObjectType.AnnotationProcessor<Recordable.InternalName> {
-    @Override
-    public void process(ObjectType type, Recordable.InternalName annotation) {
-        type.setInternalName(annotation.value());
     }
 }
 
