@@ -36,6 +36,14 @@ public interface Recordable {
      */
     public <T> T as(Class<T> modificationClass);
 
+    /**
+     * Returns an instance of the given {@code objectClass} bridged to this
+     * object.
+     *
+     * @return Nullable.
+     */
+    <T> T bridge(Class<T> objectClass);
+
     // --- Annotations ---
 
     /**

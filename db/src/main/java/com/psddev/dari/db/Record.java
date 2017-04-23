@@ -381,6 +381,11 @@ public class Record implements BeanInfo, Cloneable, Comparable<Record>, HtmlObje
         return getState().as(modificationClass);
     }
 
+    @Override
+    public <T> T bridge(Class<T> objectClass) {
+        return getState().bridge(objectClass);
+    }
+
     // --- Object support ---
 
     @Override

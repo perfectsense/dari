@@ -9,6 +9,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,6 +19,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -94,6 +96,8 @@ public class ObjectType extends Record implements ObjectStruct {
     @DisplayName("Java Assignable Classes")
     @InternalName("java.assignableClasses")
     private Set<String> assignableClassNames;
+
+    private Set<String> bridgeClassNames;
 
     private transient Boolean isLazyLoaded;
 
@@ -892,6 +896,17 @@ public class ObjectType extends Record implements ObjectStruct {
         this.assignableClassNames = assignableClassNames;
     }
 
+    public Set<String> getBridgeClassNames() {
+        if (bridgeClassNames == null) {
+            bridgeClassNames = new LinkedHashSet<>();
+        }
+        return bridgeClassNames;
+    }
+
+    public void setBridgeClassNames(Set<String> bridgeClassNames) {
+        this.bridgeClassNames = bridgeClassNames;
+    }
+
     public boolean isLazyLoaded() {
         if (isLazyLoaded == null) {
             isLazyLoaded = getObjectClass() == null
@@ -1060,6 +1075,17 @@ public class ObjectType extends Record implements ObjectStruct {
                     setPreviewField(field.getInternalName());
                     break;
                 }
+            }
+        }
+
+        if (Bridge.class.isAssignableFrom(objectClass)) {
+            try {
+                Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
+                        .forEach(type -> Optional.ofNullable(getInstance(type.getTypeName()))
+                                .ifPresent(t -> t.getBridgeClassNames().add(objectClassName)));
+
+            } catch (ClassCastException error) {
+                // No generic, skip.
             }
         }
     }

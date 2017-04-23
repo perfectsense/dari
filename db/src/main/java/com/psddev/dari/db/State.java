@@ -3,11 +3,14 @@ package com.psddev.dari.db;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -17,12 +20,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.psddev.dari.util.ClassFinder;
+import com.psddev.dari.util.TypeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.cache.CacheBuilder;
@@ -1358,6 +1365,110 @@ public class State implements Map<String, Object> {
     }
 
     /**
+     * Returns an instance of the given {@code objectClass} bridged to this
+     * object.
+     *
+     * <p>If the Bridge class is assignable from the {@code objectClass} AND
+     * the original object's type matches, a Bridge instance for that class
+     * will be returned. Otherwise, this API will examine the Bridge class
+     * definitions for the original object's type, and will either return:</p>
+     *
+     * <ol>
+     *     <li>The original object if the {@code objectClass} is assignable
+     *         from it's class AND there are no bridges</li>
+     *     <li>A bridge instance for the single Bridge class that the
+     *         {@code objectClass} is assignable from, if it exists</li>
+     *     <li>A bridge instance for the preferred Bridge class in the case
+     *         where there are multiple Bridge class definitions for the
+     *         original object's type, if it exists</li>
+     *     <li>{@code null}</li>
+     * </ol>
+     *
+     * @return Nullable.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T bridge(Class<T> objectClass) {
+        T object = (T) linkedObjects.get(objectClass);
+
+        if (object != null) {
+            return object;
+        }
+
+        Object originalObject = getOriginalObjectOrNull();
+
+        if (originalObject == null) {
+            return null;
+        }
+
+        Class<?> originalObjectClass = originalObject.getClass();
+        String objectClassName = objectClass.getName();
+
+        if (Bridge.class.isAssignableFrom(objectClass)
+                && Arrays.stream(((ParameterizedType) objectClass.getGenericSuperclass()).getActualTypeArguments())
+                        .anyMatch(type -> type.equals(originalObjectClass))) {
+
+            object = TypeDefinition.getInstance(objectClass).newInstance();
+
+        } else if (Modifier.isAbstract(objectClass.getModifiers())) {
+            Set<Class<?>> bridgeClasses = getBridgeClassesAssignableFrom(objectClass);
+            int numBridges = bridgeClasses.size();
+
+            String originalObjectClassName = originalObjectClass.getName();
+
+            if (numBridges == 0) {
+
+                // Only use the original object if it's applicable AND there is
+                // no applicable bridge.
+                if (objectClass.isAssignableFrom(originalObjectClass)) {
+                    return (T) originalObject;
+                }
+
+                LOGGER.error(
+                        "There is no bridge of class [{}] that class [{}] is assignable from!",
+                        originalObjectClassName,
+                        objectClassName);
+                return null;
+            }
+
+            if (numBridges == 1) {
+                object = (T) TypeDefinition.getInstance(bridgeClasses.iterator().next()).newInstance();
+
+            // Disambiguate.
+            } else {
+                List<Class<? extends Bridge>> preferredBridgeClasses = ClassFinder.findConcreteClasses(BridgeDisambiguation.class).stream()
+                        .map(clazz -> TypeDefinition.getInstance(clazz).newInstance())
+                        .filter(disambiguation -> disambiguation.getOriginalClass().equals(originalObjectClass))
+                        .filter(disambiguation -> {
+                            Class<?> classToBridge = disambiguation.getTargetClass();
+                            return objectClass.equals(classToBridge) || objectClass.isAssignableFrom(classToBridge);
+                        })
+                        .map(BridgeDisambiguation::getPreferredBridgeClass)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+
+                if (preferredBridgeClasses.size() != 1) {
+                    LOGGER.error(
+                            "There must be exactly one BridgeDisambiguation class for type [{}] and class [{}]!",
+                            originalObjectClassName,
+                            objectClassName);
+                    return null;
+                }
+
+                object = (T) TypeDefinition.getInstance(preferredBridgeClasses.get(0)).newInstance();
+            }
+        }
+
+        if (object != null) {
+            ((Recordable) object).setState(this);
+            copyRawValuesToJavaFields(object);
+            return object;
+        }
+
+        LOGGER.error("Class [{}] cannot be bridged from this state!", objectClassName);
+        return null;
+    }
+
+    /**
      * Fires the given {@code trigger} on all objects (the original, the
      * modifications, and the embedded) associated with this state.
      *
@@ -2347,6 +2458,23 @@ public class State implements Map<String, Object> {
         } finally {
             database.endWrites();
         }
+    }
+
+    // Returns the bridge classes that the objectClass is assignable from.
+    private Set<Class<?>> getBridgeClassesAssignableFrom(Class<?> objectClass) {
+        return getType().getBridgeClassNames().stream()
+                .map(name -> {
+                    try {
+                        return Class.forName(name);
+
+                    } catch (ClassNotFoundException error) {
+                        LOGGER.error("No class found for name [{}]!", name, error);
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .filter(objectClass::isAssignableFrom)
+                .collect(Collectors.toSet());
     }
 
     public abstract static class Listener {
