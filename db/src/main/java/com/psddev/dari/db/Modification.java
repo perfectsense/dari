@@ -5,10 +5,10 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.LinkedHashSet;
 import java.util.Set;
+
+import com.psddev.dari.util.TypeDefinition;
 
 /**
  * Modifies the {@linkplain ObjectType object type} definitions that are
@@ -103,24 +103,10 @@ class Bar extends Modification&lt;Object&gt; { ... }</pre></blockquote>
                 }
             }
 
-            Type superClass = modificationClass.getGenericSuperclass();
+            Class<?> genericTypeClass = TypeDefinition.getInstance(modificationClass).getInferredGenericTypeArgumentClass(Modification.class, 0);
 
-            if (superClass instanceof ParameterizedType) {
-                Type[] typeArguments = ((ParameterizedType) superClass).getActualTypeArguments();
-
-                if (typeArguments != null && typeArguments.length > 0) {
-                    Type type = typeArguments[0];
-
-                    while (true) {
-                        if (type instanceof Class) {
-                            modified.add((Class<?>) type);
-                        } else if (type instanceof ParameterizedType) {
-                            type = ((ParameterizedType) type).getRawType();
-                            continue;
-                        }
-                        break;
-                    }
-                }
+            if (genericTypeClass != null) {
+                modified.add(genericTypeClass);
             }
 
             if (modified.isEmpty()) {

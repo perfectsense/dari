@@ -431,6 +431,11 @@ public class TypeDefinitionTest {
         assertEquals(Bravo.class, gigtac(Echo.class, Foxtrot.class, 0));
     }
 
+    @Test
+    public void test_getInferredGenericTypeArgumentClass_parameterizedArgument() {
+        assertEquals(List.class, gigtac(Seven.class, Alpha.class, 0));
+    }
+
     // Helper method for test_getInferredGenericTypeArgumentClass* tests
     private Class<?> gigtac(Class<?> sourceClass, Class<?> superClass, int argIndex) {
         return TypeDefinition.getInstance(sourceClass).getInferredGenericTypeArgumentClass(superClass, argIndex);
@@ -471,6 +476,8 @@ public class TypeDefinitionTest {
     private static class Five<A, B, C, D, E, F, G, H, I, J> extends Six<J, I, H, G, F, E, D, C, B, A, Blue> implements Epsilon<E>, Eta<I> {
     }
     private static class Six<A, B, C, D, E, F, G, H, I, J, K> implements Theta<E> {
+    }
+    private static class Seven implements Alpha<List<String>> {
     }
 
     private static class Red<R> extends Orange {

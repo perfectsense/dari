@@ -544,6 +544,13 @@ public class TypeDefinition<T> {
                     if (superClassTypeVar instanceof Class) {
                         return (Class<?>) superClassTypeVar;
 
+                    } else if (superClassTypeVar instanceof ParameterizedType) {
+                        Type rawType = ((ParameterizedType) superClassTypeVar).getRawType();
+
+                        if (rawType instanceof Class) {
+                            return (Class<?>) rawType;
+                        }
+
                     } else if (superClassTypeVar instanceof TypeVariable) {
 
                         Class<?> hierarchyClass = entry.getKey();
