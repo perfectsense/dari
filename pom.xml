@@ -55,7 +55,13 @@
             <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk</artifactId>
-                <version>1.10.15</version>
+                <version>1.10.71</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.amazonaws</groupId>
+                        <artifactId>aws-java-sdk-codegen-maven-plugin</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
