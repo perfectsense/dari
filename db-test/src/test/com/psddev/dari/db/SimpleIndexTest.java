@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import com.psddev.dari.test.DatabaseTestUtils;
+import com.psddev.dari.test.TestDatabase;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;

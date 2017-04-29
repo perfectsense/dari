@@ -1,4 +1,6 @@
-package com.psddev.dari.db;
+package com.psddev.dari.test;
+
+import com.psddev.dari.db.Database;
 
 public interface TestDatabase {
 

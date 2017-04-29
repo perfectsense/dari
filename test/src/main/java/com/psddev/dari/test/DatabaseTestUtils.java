@@ -1,5 +1,8 @@
-package com.psddev.dari.db;
+package com.psddev.dari.test;
 
+import com.psddev.dari.db.Database;
+import com.psddev.dari.db.SolrDatabase;
+import com.psddev.dari.db.SqlDatabase;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Settings;
 import com.psddev.dari.util.UuidUtils;
@@ -59,9 +62,9 @@ public class DatabaseTestUtils {
         Map<String, Object> settings = new HashMap<String, Object>();
         settings.put(SqlDatabase.JDBC_URL_SETTING, "jdbc:h2:mem:" + dbName + ";DB_CLOSE_DELAY=-1");
 
-        final SqlDatabase sqlDb = new SqlDatabase();
+        final SqlDatabase sqlDb = new TestSqlDatabase();
         sqlDb.setName("JUnit Test SQL DB " + dbName);
-        sqlDb.doInitialize(null, settings);
+        ((TestSqlDatabase) sqlDb).doInitialize(settings);
 
         return new TestDatabase() {
             @Override
@@ -89,10 +92,10 @@ public class DatabaseTestUtils {
         }
 
         CoreContainer coreContainer = new CoreContainer();
-        Map<String,Exception> coreInitFailures = coreContainer.getCoreInitFailures();
-        if(coreInitFailures != null) {
+        Map<String, Exception> coreInitFailures = coreContainer.getCoreInitFailures();
+        if (coreInitFailures != null) {
             Set<String> keys = coreInitFailures.keySet();
-            for (String key: keys) {
+            for (String key : keys) {
                 Exception e = coreInitFailures.get(key);
                 e.printStackTrace();
             }
@@ -134,16 +137,18 @@ public class DatabaseTestUtils {
                 LOGGER.info("Removing directory: " + directory.getAbsolutePath());
 
                 String[] list = directory.list();
-                if (list != null) for (int i = 0; i < list.length; i++) {
-                    File entry = new File(directory, list[i]);
+                if (list != null) {
+                    for (int i = 0; i < list.length; i++) {
+                        File entry = new File(directory, list[i]);
 
-                    if (entry.isDirectory()) {
-                        if (!removeDirectory(entry)) {
-                            return false;
-                        }
-                    } else {
-                        if (!entry.delete()) {
-                            return false;
+                        if (entry.isDirectory()) {
+                            if (!removeDirectory(entry)) {
+                                return false;
+                            }
+                        } else {
+                            if (!entry.delete()) {
+                                return false;
+                            }
                         }
                     }
                 }
@@ -151,5 +156,12 @@ public class DatabaseTestUtils {
                 return directory.delete();
             }
         };
+    }
+
+    public static class TestSqlDatabase extends SqlDatabase {
+
+        public void doInitialize(Map<String, Object> settings) {
+            super.doInitialize(null, settings);
+        }
     }
 }

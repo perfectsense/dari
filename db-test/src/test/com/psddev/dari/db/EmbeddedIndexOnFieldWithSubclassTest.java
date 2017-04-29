@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.psddev.dari.test.DatabaseTestUtils;
+import com.psddev.dari.test.TestDatabase;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;

@@ -33,6 +33,7 @@
         <module>asm</module>
         <module>aws</module>
         <module>db</module>
+        <module>db-test</module>
         <module>elasticsearch</module>
         <module>grandparent</module>
         <module>h2</module>
@@ -48,6 +49,7 @@
         <module>storage</module>
         <module>twilio</module>
         <module>util</module>
+        <module>test</module>
     </modules>
 
     <dependencyManagement>
@@ -236,6 +238,12 @@
                 <groupId>com.psddev</groupId>
                 <artifactId>dari-util</artifactId>
                 <version>3.3-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.psddev</groupId>
+                <artifactId>dari-test</artifactId>
+                <version>3.1-SNAPSHOT</version>
             </dependency>
 
             <dependency>

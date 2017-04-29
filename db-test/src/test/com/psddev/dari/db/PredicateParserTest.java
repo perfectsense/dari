@@ -10,11 +10,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.Queue;
 
+import com.psddev.dari.test.DatabaseTestUtils;
+import com.psddev.dari.test.TestDatabase;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,14 +37,14 @@ public class PredicateParserTest {
     private static List<Database> DATABASES;
 
 	PredicateParser parser = new PredicateParser();
-	static final Queue<Object> EMPTY_OBJECT_QUEUE = new ArrayDeque<Object>();
-	static final Queue<String> EMPTY_STRING_QUEUE = new ArrayDeque<String>();
+	static final Queue<Object> EMPTY_OBJECT_QUEUE = new ArrayDeque<>();
+	static final Queue<String> EMPTY_STRING_QUEUE = new ArrayDeque<>();
 
     @BeforeClass
     public static void beforeClass() {
 
         TEST_DATABASES = DatabaseTestUtils.getNewDefaultTestDatabaseInstances();
-        DATABASES = new ArrayList<Database>();
+        DATABASES = new ArrayList<>();
 
         for (TestDatabase testDb : TEST_DATABASES) {
             Database db = testDb.get();
