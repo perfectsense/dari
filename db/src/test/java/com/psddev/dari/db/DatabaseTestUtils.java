@@ -1,5 +1,6 @@
 package com.psddev.dari.db;
 
+import com.mysql.management.driverlaunched.ServerLauncherSocketFactory;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Settings;
 import com.psddev.dari.util.UuidUtils;
@@ -10,6 +11,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -74,6 +80,75 @@ public class DatabaseTestUtils {
                 sqlDb.close();
             }
         };
+    }
+
+    public static TestDatabase getMySQLTestDatabase() {
+
+        String dbName = UuidUtils.createSequentialUuid().toString().replaceAll("-", "");
+
+        Map<String, Object> settings = new HashMap<>();
+
+        try {
+            final Path tempDirectory = Files.createTempDirectory("dari.mysql_" + dbName + "_");
+            final String baseDirectory = tempDirectory.toString();
+
+            settings.put(SqlDatabase.JDBC_URL_SETTING,
+                    "jdbc:mysql:mxj://localhost:" + 4706 + "/projectName"
+                            + "?server.basedir=" + baseDirectory
+                            + "&server.initialize-user=true"
+                            + "&createDatabaseIfNotExist=true"
+                            + "&useConfigs=maxPerformance"
+                            + "&enableQueryTimeouts=true"
+                            + "&clobberStreamingResults=true");
+
+            settings.put(SqlDatabase.JDBC_USER_SETTING, "root");
+            settings.put(SqlDatabase.JDBC_PASSWORD_SETTING, "");
+
+            final SqlDatabase sqlDb = new SqlDatabase();
+            sqlDb.setName("JUnit Test MySQL DB " + dbName);
+            sqlDb.doInitialize(null, settings);
+
+            return new TestDatabase() {
+                @Override
+                public Database get() {
+                    return sqlDb;
+                }
+
+                @Override
+                public void close() {
+
+                    sqlDb.close();
+                    ServerLauncherSocketFactory.shutdown(new File(baseDirectory), null);
+
+                    try {
+
+                        Files.walkFileTree(tempDirectory, new SimpleFileVisitor<Path>() {
+                            @Override
+                            public FileVisitResult visitFile(Path file,
+                                    @SuppressWarnings("unused") BasicFileAttributes attrs) {
+                                file.toFile().delete();
+                                return FileVisitResult.CONTINUE;
+                            }
+
+                            @Override
+                            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                                dir.toFile().delete();
+                                return FileVisitResult.CONTINUE;
+                            }
+                        });
+
+                    } catch (IOException e) {
+
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+        } catch (IOException e) {
+
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public static TestDatabase getSolrTestDatabase() {

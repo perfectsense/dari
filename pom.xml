@@ -381,6 +381,18 @@
                 <artifactId>slf4j-jdk14</artifactId>
                 <version>1.7.6</version>
             </dependency>
+
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-mxj</artifactId>
+                <version>5.0.12</version>
+            </dependency>
+
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-mxj-db-files</artifactId>
+                <version>5.0.12</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
