@@ -19,14 +19,12 @@ import java.util.TreeSet;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 
-@DebugFilter.Path("code")
-public class CodeDebugServlet extends HttpServlet {
+public class CodeDebugServlet extends DebugServlet {
 
     private static final long serialVersionUID = 1L;
 
@@ -36,6 +34,16 @@ public class CodeDebugServlet extends HttpServlet {
 
     private static final String WEB_INF_CLASSES_PATH = "/WEB-INF/classes/";
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<Map<String, Object>>() { };
+
+    @Override
+    public String getName() {
+        return "Code Playground";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("code");
+    }
 
     @Override
     protected void service(
@@ -308,6 +316,12 @@ public class CodeDebugServlet extends HttpServlet {
                                         "name", "isSave",
                                         "type", "submit",
                                         "value", "Save");
+                                writeElement("input",
+                                        "class", "btn pull-right",
+                                        "style", "margin-right: 10px;",
+                                        "name", "clearCode",
+                                        "type", "submit",
+                                        "value", "Clear");
                             writeEnd();
                         writeEnd();
 
@@ -342,13 +356,51 @@ public class CodeDebugServlet extends HttpServlet {
                                 write("'lineNumbers': true,");
                                 write("'lineWrapping': true,");
                                 write("'matchBrackets': true,");
-                                write("'mode': 'text/x-java',");
-                                write("'onChange': $.throttle(1000, function() {");
-                                    write("if ($codeForm.find(':checkbox[name=isLiveResult]').is(':checked')) {");
-                                        write("$codeForm.submit();");
-                                    write("}");
-                                write("})");
+                                write("'mode': 'text/x-java'");
                             write("});");
+
+                            //Save code to local storage when the user stops typing for 1 second
+                            write("if (window.localStorage !== undefined) {");
+                                write("var baseCode = $('textarea[name=code]').text();");
+
+                                write("var windowStorageCodeKey = 'bsp.codeDebugServlet.code';");
+
+                                //Don't load code from localStorage when parameters are passed
+                                if (ObjectUtils.isBlank(page.getRequest().getParameterMap())) {
+                                    write("if (window.localStorage.getItem(windowStorageCodeKey) !== null && window.localStorage.getItem(windowStorageCodeKey).trim()) {");
+                                    write("codeMirror.getDoc().setValue(window.localStorage.getItem(windowStorageCodeKey))");
+                                    write("}");
+                                }
+
+                                write("var typingTimer;");
+                                write("codeMirror.on('keydown', function() {");
+                                    write("clearTimeout(typingTimer);");
+                                write("});");
+                                write("codeMirror.on('keyup', function() {");
+                                    write("clearTimeout(typingTimer);");
+                                    write("typingTimer = setTimeout(function(){");
+                                        write("window.localStorage.setItem(windowStorageCodeKey, codeMirror.getDoc().getValue());},");
+                                    write("1000);");
+                                write("});");
+                            write("}");
+
+                            //Reset code to original page load value and clear window storage
+                            write("$('.form-actions input[name=clearCode]').on('click', function(e) {");
+                                write("e.preventDefault();");
+                                write("if (baseCode !== undefined && baseCode.trim()) {");
+                                    write("codeMirror.getDoc().setValue(baseCode);");
+                                    write("if (window.localStorage !== undefined) {");
+                                        write("window.localStorage.removeItem(windowStorageCodeKey);");
+                                    write("}");
+                                write("}");
+                            write("});");
+
+                            write("codeMirror.on('change', $.throttle(1000, function() {");
+                                write("if ($codeForm.find(':checkbox[name=isLiveResult]').is(':checked')) {");
+                                   write("$codeForm.submit();");
+                                write("}");
+                            write("}));");
+
                             write("$('input[name=_vim]').change(function() {");
                                 write("codeMirror.setOption('vimMode', $(this).is(':checked'));");
                             write("});");

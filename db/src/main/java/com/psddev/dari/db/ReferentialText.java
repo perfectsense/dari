@@ -22,7 +22,7 @@ import com.psddev.dari.util.StringUtils;
 /** Contains strings and references to other objects. */
 public class ReferentialText extends AbstractList<Object> {
 
-    private static final Pattern ENHANCEMENT_PATTERN = Pattern.compile("(?i)<(\\S+)[^>]*class\\s*=[^>]*enhancement[^>]*>.*?</\\1>");
+    private static final Pattern ENHANCEMENT_PATTERN = Pattern.compile("(?is)<(\\S+)[^>]*class\\s*=[^>]*enhancement[^>]*>.*?</\\1>");
     private static final Pattern DUPLICATE_PROTOCOL_PATTERN = Pattern.compile("^(?:(?:https?:/?/?)*(https?://))?");
 
     private static final Tag BR_TAG = Tag.valueOf("br");

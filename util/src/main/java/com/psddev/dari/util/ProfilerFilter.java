@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -64,7 +65,7 @@ public class ProfilerFilter extends AbstractFilter {
 
         try {
             profiler.setResponse(newResponse);
-            Profiler.Static.startThreadEvent("JSP Include", new JspInclude(path));
+            Profiler.Static.startThreadEvent("JSP Include", new JspInclude(request, path));
 
             writer.writeLazily("<span class=\"_profile-jspStart\" data-jsp=\"");
             writer.writeLazily(StringUtils.escapeHtml(path));
@@ -129,7 +130,7 @@ public class ProfilerFilter extends AbstractFilter {
                 Profiler.Static.setThreadProfiler(null);
                 profiler.setResponse(oldResponse);
                 newResponse.getLazyWriter().writePending();
-                writeResult(Static.getResultWriter(request, newResponse), profiler);
+                writeResult(request, Static.getResultWriter(request, newResponse), profiler);
             }
 
         } finally {
@@ -137,7 +138,7 @@ public class ProfilerFilter extends AbstractFilter {
         }
     }
 
-    private void writeResult(HtmlWriter writer, MarkingProfiler profiler) throws IOException {
+    private void writeResult(HttpServletRequest request, HtmlWriter writer, MarkingProfiler profiler) throws IOException {
         Map<String, String> nameColors = new HashMap<String, String>();
         Map<String, String> nameClasses = new HashMap<String, String>();
         double goldenRatio = 0.618033988749895;
@@ -248,12 +249,18 @@ public class ProfilerFilter extends AbstractFilter {
         writer.writeStart("script", "type", "text/javascript");
             writer.write("(function() {");
                 writer.write("var profileScript = document.createElement('script');");
-                writer.write("profileScript.src = '/_resource/dari/profiler.js';");
+                writer.write("profileScript.setAttribute('data-java-context-path', '");
+                writer.write(request.getContextPath());
+                writer.write("');");
+                writer.write("profileScript.src = '");
+                writer.write(JspUtils.getAbsolutePath(request, "/_resource/dari/profiler.js"));
+                writer.write("';");
                 writer.write("document.body.appendChild(profileScript);");
             writer.write("})();");
         writer.writeEnd();
     }
 
+    @SuppressWarnings("unchecked")
     private void writeEvent(
             HtmlWriter writer,
             MarkingProfiler profiler,
@@ -286,6 +293,10 @@ public class ProfilerFilter extends AbstractFilter {
                 writer.writeEnd();
 
                 for (Object item : event.getObjects()) {
+                    if (item instanceof Supplier) {
+                        item = ((Supplier<Object>) item).get();
+                    }
+
                     writer.writeHtml(" \u2192 ");
                     writer.writeObject(item);
                 }
@@ -388,9 +399,11 @@ public class ProfilerFilter extends AbstractFilter {
 
     private static class JspInclude implements HtmlObject {
 
+        private final HttpServletRequest request;
         private final String path;
 
-        public JspInclude(String path) {
+        public JspInclude(HttpServletRequest request, String path) {
+            this.request = request;
             this.path = path;
         }
 
@@ -398,8 +411,8 @@ public class ProfilerFilter extends AbstractFilter {
         public void format(HtmlWriter writer) throws IOException {
             writer.writeStart("a",
                     "target", "_blank",
-                    "href", StringUtils.addQueryParameters(
-                            "/_debug/code",
+                    "href", JspUtils.getAbsolutePath(
+                            request, "/_debug/code",
                             "action", "edit",
                             "type", "JSP",
                             "servletPath", path));

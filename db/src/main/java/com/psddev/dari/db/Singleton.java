@@ -11,7 +11,7 @@ public interface Singleton extends Recordable {
 
         @Override
         protected void beforeSave() {
-            key = getOriginalObject().getClass().getName();
+            key = getState().getType().getInternalName();
         }
     }
 }

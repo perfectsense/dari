@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Settings;
 
 public interface Recordable {
@@ -188,6 +189,18 @@ public interface Recordable {
         boolean value() default true;
     }
 
+    /**
+     * Specifies whether the target field should be ignored when the object
+     * is embedded in another.
+     */
+    @Documented
+    @ObjectField.AnnotationProcessorClass(IgnoredIfEmbeddedProcessor.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ ElementType.FIELD, ElementType.METHOD })
+    @interface IgnoredIfEmbedded {
+        boolean value() default true;
+    }
+
     /** Specifies whether the target field value is indexed. */
     @Documented
     @Retention(RetentionPolicy.RUNTIME)
@@ -296,6 +309,18 @@ public interface Recordable {
         String value();
     }
 
+    /**
+     * Specifies that the values in the target collection field should
+     * remain raw (not reference resolved).
+     */
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ ElementType.FIELD, ElementType.METHOD })
+    @ObjectField.AnnotationProcessorClass(RawProcessor.class)
+    @interface Raw {
+        boolean value() default true;
+    }
+
     /** Specifies how the method index should be updated. */
     @Documented
     @Retention(RetentionPolicy.RUNTIME)
@@ -317,6 +342,7 @@ public interface Recordable {
     @Target(ElementType.FIELD)
     public @interface Regex {
         String value();
+        String validationMessage() default "";
     }
 
     /** Specifies whether the target field value is required. */
@@ -361,6 +387,17 @@ public interface Recordable {
     }
 
     /**
+     * Specifies the type ID of the target type during initial bootstrap. It
+     * has no effect if one has already been assigned.
+     */
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
+    public @interface TypeId {
+        String value();
+    }
+
+    /**
      * Specifies the processor class(es) to run after the type is initialized.
      */
     @Documented
@@ -394,6 +431,26 @@ public interface Recordable {
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.FIELD)
     public @interface Where {
+        String value();
+        String validationMessage() default "";
+    }
+
+    /**
+     * Specifies the valid mime types for the target
+     * {@link com.psddev.dari.util.StorageItem} field using the provided
+     * {@link com.psddev.dari.util.SparseSet} representation. For example, to
+     * specify a file be a pdf or image:</p>
+     *
+     * <p><blockquote><pre><code data-type="java">
+     *     {@literal @}MimeTypes("+application/pdf +image/")
+     *     private StorageItem file;
+     * </pre></blockquote></p>
+     */
+    @Documented
+    @ObjectField.AnnotationProcessorClass(MimeTypesProcessor.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.FIELD)
+    @interface MimeTypes {
         String value();
     }
 
@@ -665,11 +722,18 @@ class DisplayNameProcessor implements
     @Override
     public void process(ObjectType type, Recordable.DisplayName annotation) {
         Class<?> objectClass = type.getObjectClass();
+
         if (objectClass != null) {
-            Recordable.DisplayName displayName = objectClass.getAnnotation(Recordable.DisplayName.class);
-            // Only sets the display name if the annotation came from the type being modified.
-            if (displayName != null && displayName.value() != null && displayName.value().equals(annotation.value())) {
-                type.setDisplayName(annotation.value());
+            Recordable.DisplayName typeAnnotation = objectClass.getAnnotation(Recordable.DisplayName.class);
+
+            // Only set the display name if the annotation came from the type
+            // being modified.
+            if (typeAnnotation != null) {
+                String displayName = annotation.value();
+
+                if (!ObjectUtils.isBlank(displayName) && annotation.equals(typeAnnotation)) {
+                    type.setDisplayName(displayName);
+                }
             }
         }
     }
@@ -708,10 +772,25 @@ class GroupsProcessor implements
     }
 }
 
+class IgnoredIfEmbeddedProcessor implements ObjectField.AnnotationProcessor<Recordable.IgnoredIfEmbedded> {
+    @Override
+    public void process(ObjectType type, ObjectField field, Recordable.IgnoredIfEmbedded annotation) {
+        field.setIgnoredIfEmbedded(annotation.value());
+    }
+}
+
 class InternalNameProcessor implements ObjectType.AnnotationProcessor<Recordable.InternalName> {
     @Override
     public void process(ObjectType type, Recordable.InternalName annotation) {
         type.setInternalName(annotation.value());
+    }
+}
+
+class RawProcessor implements ObjectField.AnnotationProcessor<Recordable.Raw> {
+
+    @Override
+    public void process(ObjectType type, ObjectField field, Recordable.Raw annotation) {
+        field.setRaw(annotation.value());
     }
 }
 
@@ -821,6 +900,10 @@ class RegexProcessor implements ObjectField.AnnotationProcessor<Annotation> {
         field.setPattern(annotation instanceof Recordable.FieldPattern
                 ? ((Recordable.FieldPattern) annotation).value()
                 : ((Recordable.Regex) annotation).value());
+
+        if (annotation instanceof Recordable.Regex) {
+            field.setPredicateValidationMessage(((Recordable.Regex) annotation).validationMessage());
+        }
     }
 }
 
@@ -893,6 +976,15 @@ class WhereProcessor implements ObjectField.AnnotationProcessor<Recordable.Where
     @Override
     public void process(ObjectType type, ObjectField field, Recordable.Where annotation) {
         field.setPredicate(annotation.value());
+        field.setPredicateValidationMessage(annotation.validationMessage());
+    }
+}
+
+class MimeTypesProcessor implements ObjectField.AnnotationProcessor<Recordable.MimeTypes> {
+
+    @Override
+    public void process(ObjectType type, ObjectField field, Recordable.MimeTypes annotation) {
+        field.setMimeTypes(annotation.value());
     }
 }
 

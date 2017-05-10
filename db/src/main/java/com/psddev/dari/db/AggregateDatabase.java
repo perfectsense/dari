@@ -425,13 +425,10 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         }
     }
 
-    private void writeOne(ObjectType type, Consumer<Database> consumer) {
+    private void write(Collection<ObjectType> types, Consumer<Database> consumer) {
         consumer.accept(getDefaultDelegate());
 
-        for (Database delegate : findDelegatesByTypes(
-                getDelegates().values(),
-                Collections.singletonList(type))) {
-
+        for (Database delegate : findDelegatesByTypes(getDelegates().values(), types)) {
             try {
                 consumer.accept(delegate);
 
@@ -441,81 +438,77 @@ public class AggregateDatabase implements Database, Iterable<Database> {
         }
     }
 
+    private void writeOne(State state, Consumer<Database> consumer) {
+        write(Collections.singleton(state.getType()), consumer);
+    }
+
     @Override
     public void saveUnsafely(State state) {
-        writeOne(state.getType(), delegate -> delegate.saveUnsafely(state));
+        writeOne(state, delegate -> delegate.saveUnsafely(state));
     }
 
     @Override
     public void index(State state) {
-        writeOne(state.getType(), delegate -> delegate.index(state));
+        writeOne(state, delegate -> delegate.index(state));
     }
 
     @Override
     public void recalculate(State state, ObjectIndex... indexes) {
-        writeOne(state.getType(), delegate -> delegate.recalculate(state, indexes));
+        writeOne(state, delegate -> delegate.recalculate(state, indexes));
     }
 
     @Override
     public void delete(State state) {
-        writeOne(state.getType(), delegate -> delegate.delete(state));
-    }
-
-    private void writeAll(Consumer<Database> consumer) {
-        Database defaultDelegate = getDefaultDelegate();
-
-        consumer.accept(defaultDelegate);
-
-        getDelegates().values().stream()
-                .filter(delegate -> !delegate.equals(defaultDelegate))
-                .forEach(delegate -> {
-                    try {
-                        consumer.accept(delegate);
-
-                    } catch (Exception error) {
-                        LOGGER.warn(String.format("Can't write to [%s]", delegate), error);
-                    }
-                });
+        writeOne(state, delegate -> delegate.delete(state));
     }
 
     @Override
     public void indexAll(ObjectIndex index) {
-        writeAll(delegate -> delegate.indexAll(index));
+        ObjectStruct parent = index.getParent();
+        write(
+                parent instanceof ObjectType ? Collections.singleton((ObjectType) parent) : null,
+                delegate -> delegate.indexAll(index));
     }
 
     @Override
     public void deleteByQuery(Query<?> query) {
-        writeAll(delegate -> delegate.deleteByQuery(query));
+        String group = query.getGroup();
+        write(
+                group != null ? getEnvironment().getTypesByGroup(query.getGroup()) : null,
+                delegate -> delegate.deleteByQuery(query));
     }
 
     /**
      * Finds all non-default delegates that should be used for the given
      * {@code types} based on their groups.
      *
-     * @param delegates
-     *        Can't be {@code null}.
+     * <p>If the given {@code types} is {@code null}, returns all non-default
+     * delegates.</p>
      *
-     * @param types
-     *        Can't be {@code null}.
-     *
-     * @return Never {@code null}.
+     * @param delegates Nonnull.
+     * @param types Nullable.
+     * @return Nonnull.
      */
-    public List<Database> findDelegatesByTypes(
-            Collection<Database> delegates,
-            Collection<ObjectType> types) {
-
+    public List<Database> findDelegatesByTypes(Collection<Database> delegates, Collection<ObjectType> types) {
         Database defaultDelegate = getDefaultDelegate();
-        List<Database> found = new ArrayList<>();
-        for (Database delegate : delegates) {
 
+        if (types == null) {
+            return delegates.stream()
+                    .filter(d -> !d.equals(defaultDelegate))
+                    .collect(Collectors.toList());
+        }
+
+        List<Database> found = new ArrayList<>();
+
+        for (Database delegate : delegates) {
             if (delegate.equals(defaultDelegate)) {
                 continue;
             }
 
             boolean isAllMatch = true;
             Set<String> delegateGroups = delegateGroupsMap.get(delegate);
-            for (ObjectType type : types) {
 
+            for (ObjectType type : types) {
                 if (type != null && !type.isConcrete()) {
                     continue;
                 }
@@ -523,8 +516,10 @@ public class AggregateDatabase implements Database, Iterable<Database> {
                 // If the database groups allows any of the type groups,
                 // the delegate database can be used.
                 boolean isMatch = false;
+
                 if (type != null) {
                     Set<String> typeGroups = type.getGroups();
+
                     for (String typeGroup : typeGroups) {
                         if (delegateGroups.contains(typeGroup)) {
                             isMatch = true;

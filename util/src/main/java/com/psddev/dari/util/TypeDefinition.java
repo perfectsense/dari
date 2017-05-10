@@ -33,6 +33,10 @@ public class TypeDefinition<T> {
 
     private final Type type;
 
+    static {
+        CodeUtils.addRedefineClassesListener(classes -> Static.invalidateAll());
+    }
+
     /** Returns an instance based on the given {@code type}. */
     public static TypeDefinition<?> getInstance(Type type) {
         return INSTANCES.getUnchecked(type);

@@ -39,9 +39,12 @@ class StateValueList extends AbstractList<Object> {
 
         } else if (items instanceof List) {
             list = (List<Object>) items;
+            hasConvertedAll = field != null && field.isRaw();
 
         } else {
             list = new ArrayList<Object>();
+            hasConvertedAll = field != null && field.isRaw();
+
             for (Object item : items) {
                 list.add(item);
             }

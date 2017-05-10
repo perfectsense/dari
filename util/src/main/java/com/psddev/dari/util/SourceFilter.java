@@ -30,7 +30,6 @@ import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -101,7 +100,7 @@ public class SourceFilter extends AbstractFilter {
     public static final String DEFAULT_INTERCEPT_PATH = "/_sourceFilter";
     public static final String INTERCEPT_PATH_SETTING = "dari/sourceFilterInterceptPath";
 
-    public static final String DEFAULT_RELOADER_PATH = "/reloader/";
+    public static final String DEFAULT_RELOADER_PATH = "/_reloader/";
     public static final String RELOADER_PATH_SETTING = "dari/sourceFilterReloaderPath";
     public static final String RELOADER_ACTION_PARAMETER = "action";
     public static final String RELOADER_PING_ACTION = "ping";
@@ -111,6 +110,8 @@ public class SourceFilter extends AbstractFilter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SourceFilter.class);
 
+    private static final Pattern TEXT_HTML_PATTERN = Pattern.compile("(?i)(^|,)text/html([,;]|$)");
+
     private static final String CLASSES_PATH = "/WEB-INF/classes/";
     private static final String BUILD_PROPERTIES_PATH = "build.properties";
     private static final String ISOLATING_RESPONSE_ATTRIBUTE = SourceFilter.class.getName() + ".isolatingResponse";
@@ -118,8 +119,8 @@ public class SourceFilter extends AbstractFilter {
     private static final String COPIED_ATTRIBUTE = SourceFilter.class.getName() + ".copied";
 
     private static final String CATALINA_BASE_PROPERTY = "catalina.base";
-    private static final String RELOADER_MAVEN_ARTIFACT_ID = "dari-reloader-tomcat6";
-    private static final String RELOADER_MAVEN_VERSION = "2.0-SNAPSHOT";
+    private static final String RELOADER_MAVEN_ARTIFACT_ID = "dari-reloader-tomcat";
+    private static final String RELOADER_MAVEN_VERSION = "3.2-SNAPSHOT";
     private static final String RELOADER_MAVEN_URL = "https://artifactory.psdops.com/public/com/psddev/" + RELOADER_MAVEN_ARTIFACT_ID + "/" + RELOADER_MAVEN_VERSION + "/";
     private static final Pattern BUILD_NUMBER_PATTERN = Pattern.compile("<buildNumber>([^<]*)</buildNumber>");
     private static final Pattern TIMESTAMP_PATTERN = Pattern.compile("<timestamp>([^<]*)</timestamp>");
@@ -128,7 +129,6 @@ public class SourceFilter extends AbstractFilter {
     private final Set<File> javaSourcesSet = new HashSet<File>();
     private Map<JavaFileObject, Long> javaSourceFileModifieds;
     private final Map<String, File> webappSourcesMap = new HashMap<String, File>();
-    private final Map<File, Long> webappSourceFileModifieds = new ConcurrentHashMap<File, Long>();
     private final Map<String, Date> changedClassTimes = new TreeMap<String, Date>();
 
     private final Map<Class<?>, List<AnalysisResult>> analysisResultsByClass = new TreeMap<Class<?>, List<AnalysisResult>>(new Comparator<Class<?>>() {
@@ -224,7 +224,6 @@ public class SourceFilter extends AbstractFilter {
         javaSourcesSet.clear();
         javaSourceFileModifieds = null;
         webappSourcesMap.clear();
-        webappSourceFileModifieds.clear();
         changedClassTimes.clear();
     }
 
@@ -290,7 +289,11 @@ public class SourceFilter extends AbstractFilter {
             response.sendRedirect(StringUtils.addQueryParameters(
                     getReloaderPath(),
                     RELOADER_CONTEXT_PATH_PARAMETER, request.getContextPath(),
-                    RELOADER_REQUEST_PATH_PARAMETER, JspUtils.getAbsolutePath(request, "", "_reload", null),
+                    RELOADER_REQUEST_PATH_PARAMETER, new UrlBuilder(request)
+                            .currentPath()
+                            .currentParameters()
+                            .parameter("_reload", null)
+                            .toString(),
                     RELOADER_ACTION_PARAMETER, RELOADER_RELOAD_ACTION));
             return;
         }
@@ -324,11 +327,15 @@ public class SourceFilter extends AbstractFilter {
             return;
         }
 
-        String contentType = ObjectUtils.getContentType(servletPath);
-        if (contentType.startsWith("image/")
-                || contentType.startsWith("video/")
-                || contentType.equals("text/css")
-                || contentType.equals("text/javascript")) {
+        // Try to detect if this request was initiated by an actual person.
+        // There's no reliable way of doing this, but all modern browsers
+        // seem to send text/html in the Accept header only for the main
+        // request.
+        String accept = request.getHeader("Accept");
+
+        if (accept == null
+                || !TEXT_HTML_PATTERN.matcher(accept).find()) {
+
             chain.doFilter(request, response);
             return;
         }
@@ -351,7 +358,10 @@ public class SourceFilter extends AbstractFilter {
                 response.sendRedirect(StringUtils.addQueryParameters(
                         getReloaderPath(),
                         RELOADER_CONTEXT_PATH_PARAMETER, request.getContextPath(),
-                        RELOADER_REQUEST_PATH_PARAMETER, JspUtils.getAbsolutePath(request, ""),
+                        RELOADER_REQUEST_PATH_PARAMETER, new UrlBuilder(request)
+                                .currentPath()
+                                .currentParameters()
+                                .toString(),
                         RELOADER_ACTION_PARAMETER, RELOADER_RELOAD_ACTION));
                 return;
 
@@ -475,6 +485,7 @@ public class SourceFilter extends AbstractFilter {
                     JavaFileObject source = diagnostic.getSource();
 
                     writeDiagnostic(
+                            request,
                             noteWriter,
                             diagnostic.getKind(),
                             source != null ? source.getName() : "Unknown Source",
@@ -493,6 +504,7 @@ public class SourceFilter extends AbstractFilter {
 
                     for (AnalysisResult ar : entry.getValue()) {
                         writeDiagnostic(
+                                request,
                                 noteWriter,
                                 ar.getKind(),
                                 sourceFileName,
@@ -507,6 +519,7 @@ public class SourceFilter extends AbstractFilter {
     }
 
     private void writeDiagnostic(
+            HttpServletRequest request,
             HtmlWriter writer,
             Diagnostic.Kind kind,
             String fileName,
@@ -546,8 +559,8 @@ public class SourceFilter extends AbstractFilter {
                     "style", writer.cssString(
                             "color", color,
                             "text-decoration", "underline"),
-                    "href", StringUtils.addQueryParameters(
-                            "/_debug/code",
+                    "href", JspUtils.getAbsolutePath(
+                            request, "/_debug/code",
                             "action", "edit",
                             "file", fileName,
                             "line", lineNumber));
@@ -953,26 +966,23 @@ public class SourceFilter extends AbstractFilter {
         }
 
         if (sourceFile.exists()) {
+            long sourceModified = sourceFile.lastModified();
+            long sourceLength = sourceFile.length();
+
             if (!outputFile.exists()) {
                 IoUtils.createParentDirectories(outputFile);
 
-            } else {
-                Long oldModified = webappSourceFileModifieds.get(sourceFile);
-                long newModified = sourceFile.lastModified();
-
-                if (oldModified == null) {
-                    webappSourceFileModifieds.put(sourceFile, newModified);
-                    return;
-
-                } else if (oldModified != newModified) {
-                    webappSourceFileModifieds.put(sourceFile, newModified);
-
-                } else if (newModified <= outputFile.lastModified()) {
-                    return;
-                }
+            } else if (sourceModified == outputFile.lastModified()
+                    && sourceLength == outputFile.length()) {
+                return;
             }
 
             IoUtils.copy(sourceFile, outputFile);
+
+            if (!outputFile.setLastModified(sourceModified)) {
+                LOGGER.debug("Can't set last modified on [{}] to [{}]!", outputFile, sourceModified);
+            }
+
             LOGGER.info("Copied [{}]", sourceFile);
 
         } else if (outputFile.exists()

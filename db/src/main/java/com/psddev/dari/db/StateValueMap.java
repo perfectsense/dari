@@ -39,6 +39,7 @@ class StateValueMap extends AbstractMap<String, Object> {
 
         } else {
             this.map = map;
+            hasConvertedAll = field != null && field.isRaw();
         }
     }
 

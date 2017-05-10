@@ -20,7 +20,7 @@ import javax.servlet.Filter;
  * <li>{@link HeaderResponseFilter}</li>
  * <li>{@link MultipartRequestFilter}</li>
  * <li>{@link PageContextFilter}</li>
- * <li>{@link SessionIdFilter}</li>
+ * <li>{@link NoSessionFilter}</li>
  * <li>{@link JspBufferFilter}</li>
  * <li>{@link HtmlApiFilter}</li>
  * <li>{@link PingFilter}</li>
@@ -45,7 +45,7 @@ public class StandardFilter extends AbstractFilter {
 
         dependencies.add(MultipartRequestFilter.class);
         dependencies.add(PageContextFilter.class);
-        dependencies.add(SessionIdFilter.class);
+        dependencies.add(NoSessionFilter.class);
         dependencies.add(JspBufferFilter.class);
         dependencies.add(HtmlApiFilter.class);
 

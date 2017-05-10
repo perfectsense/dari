@@ -517,8 +517,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> simpleValues = (Map<String, Object>) predicateObject;
 
-                    ObjectType type = ObjectType.getInstance(ObjectUtils.to(UUID.class, simpleValues.get(StateValueUtils.TYPE_KEY)));
-                    Object object = type.createObject(ObjectUtils.to(UUID.class, simpleValues.get(StateValueUtils.ID_KEY)));
+                    ObjectType type = ObjectType.getInstance(ObjectUtils.to(UUID.class, simpleValues.get(StateSerializer.TYPE_KEY)));
+                    Object object = type.createObject(ObjectUtils.to(UUID.class, simpleValues.get(StateSerializer.ID_KEY)));
                     State state = State.getInstance(object);
                     state.putAll(simpleValues);
 
@@ -849,11 +849,12 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         }
 
         protected String escapeValue(Object value) {
-            String escaped = Static.escapeValue(value);
-            if (escaped != null && schema.get().version >= 8) {
-                escaped = escaped.trim().toLowerCase(Locale.ENGLISH);
+            if (value != null && schema.get().version > 8) {
+                return Static.escapeValue(value.toString().trim().toLowerCase(Locale.ENGLISH));
+
+            } else {
+                return Static.escapeValue(value);
             }
-            return escaped;
         }
     }
 
@@ -1699,7 +1700,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                 }
 
             } else {
-                UUID valueTypeId = ObjectUtils.to(UUID.class, valueMap.get(StateValueUtils.TYPE_KEY));
+                UUID valueTypeId = ObjectUtils.to(UUID.class, valueMap.get(StateSerializer.TYPE_KEY));
 
                 if (valueTypeId == null) {
                     if (field != null && ObjectField.RECORD_TYPE.equals(field.getInternalItemType())) {
@@ -1717,7 +1718,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                     return;
 
                 } else {
-                    UUID valueId = ObjectUtils.to(UUID.class, valueMap.get(StateValueUtils.REFERENCE_KEY));
+                    UUID valueId = ObjectUtils.to(UUID.class, valueMap.get(StateSerializer.REFERENCE_KEY));
 
                     if (valueId == null) {
                         if (includeInAny) {
@@ -1731,7 +1732,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                             if (!valueType.getMethods().isEmpty()) {
                                 valueState = new State();
                                 valueState.setType(valueType);
-                                valueState.setId(ObjectUtils.to(UUID.class, valueMap.get(StateValueUtils.ID_KEY)));
+                                valueState.setId(ObjectUtils.to(UUID.class, valueMap.get(StateSerializer.ID_KEY)));
                             }
                             for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
                                 String subName = entry.getKey().toString();
@@ -1874,7 +1875,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     /** {@link SolrDatabase} utility methods. */
     public static final class Static {
 
-        private static final Pattern ESCAPE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\\\s])");
+        private static final Pattern ESCAPE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\\\s/])");
 
         /**
          * Escapes the given {@code value} so that it's safe to use

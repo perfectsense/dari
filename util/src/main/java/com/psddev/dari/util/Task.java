@@ -9,6 +9,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -477,6 +479,12 @@ public abstract class Task implements Comparable<Task>, Runnable {
         long previousProgressTotal = progressTotal;
         Throwable previousLastException = lastException;
 
+        List<TaskListener> listeners = ClassFinder
+                .findConcreteClasses(TaskListener.class)
+                .stream()
+                .map(c -> TypeDefinition.getInstance(c).newInstance())
+                .collect(Collectors.toList());
+
         try {
             LOGGER.debug("Begin running [{}]", getName());
 
@@ -490,12 +498,15 @@ public abstract class Task implements Comparable<Task>, Runnable {
             lastException = null;
 
             if (shouldContinue()) {
+                trigger(listeners, l -> l.before(this));
                 doTask();
+                trigger(listeners, l -> l.after(this, null));
             }
 
         } catch (Throwable ex) {
             LOGGER.warn(String.format("Error running [%s]!", getName()), ex);
             lastException = ex;
+            trigger(listeners, l -> l.after(this, ex));
 
         } finally {
             LOGGER.debug("End running [{}]", getName());
@@ -517,6 +528,19 @@ public abstract class Task implements Comparable<Task>, Runnable {
                 lastException = previousLastException;
             }
         }
+    }
+
+    private void trigger(List<TaskListener> listeners, Consumer<TaskListener> consumer) {
+        listeners.forEach(l -> {
+            try {
+                consumer.accept(l);
+
+            } catch (Throwable error) {
+                LOGGER.warn(
+                        String.format("Can't call [%s] listener on [%s] task!", l, this),
+                        error);
+            }
+        });
     }
 
     // --- Deprecated ---

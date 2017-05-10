@@ -7,24 +7,31 @@ import java.util.List;
 import java.util.UUID;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.psddev.dari.util.AsyncQueue;
 import com.psddev.dari.util.DebugFilter;
+import com.psddev.dari.util.DebugServlet;
 import com.psddev.dari.util.StorageItem;
 import com.psddev.dari.util.TaskExecutor;
 import com.psddev.dari.util.WebPageContext;
 
 /** Debug servlet for running bulk storage item operations. */
-@DebugFilter.Path("db-storage")
 @SuppressWarnings("serial")
-public class StorageDebugServlet extends HttpServlet {
+public class StorageDebugServlet extends DebugServlet {
 
     public static final String COPIER_PREFIX = "Database: Storage Item Copier: ";
 
-    // --- HttpServlet support ---
+    @Override
+    public String getName() {
+        return "Database: StorageItem Operations";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-storage");
+    }
 
     @Override
     protected void service(

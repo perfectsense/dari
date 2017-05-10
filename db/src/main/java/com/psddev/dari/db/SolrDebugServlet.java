@@ -1,14 +1,15 @@
 package com.psddev.dari.db;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.psddev.dari.util.DebugServlet;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServer;
@@ -21,9 +22,20 @@ import com.psddev.dari.util.DebugFilter;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.StringUtils;
 
-@DebugFilter.Path("db-solr")
 @SuppressWarnings("serial")
-public class SolrDebugServlet extends HttpServlet {
+public class SolrDebugServlet extends DebugServlet {
+
+    @Override
+    public String getName() {
+        return Database.Static.getFirst(SolrDatabase.class) != null
+                ? "Database: Solr Query"
+                : null;
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-solr");
+    }
 
     @Override
     protected void service(

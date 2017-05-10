@@ -8,6 +8,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -15,6 +16,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
@@ -28,6 +30,9 @@ import javax.tools.JavaFileObject;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.ExecutionError;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.psddev.dari.util.reflections.Reflections;
 import com.psddev.dari.util.reflections.serializers.JsonSerializer;
 import com.psddev.dari.util.reflections.util.ConfigurationBuilder;
@@ -125,8 +130,73 @@ public class ClassFinder {
                 }
             });
 
+    private static final LoadingCache<ClassLoader, LoadingCache<String, Class<?>>> CLASSES_BY_LOADER = CacheBuilder.newBuilder()
+            .weakKeys()
+            .build(new CacheLoader<ClassLoader, LoadingCache<String, Class<?>>>() {
+
+                @Override
+                public LoadingCache<String, Class<?>> load(ClassLoader loader) {
+                    return CacheBuilder.newBuilder()
+                            .build(new CacheLoader<String, Class<?>>() {
+
+                                @Override
+                                public Class<?> load(String className) throws ClassNotFoundException {
+                                    return Class.forName(className, false, loader);
+                                }
+                            });
+                }
+            });
+
+    private static final LoadingCache<String, Set<String>> JAR_CLASS_NAMES = CacheBuilder.newBuilder()
+            .build(new CacheLoader<String, Set<String>>() {
+
+                @Override
+                public Set<String> load(String url) throws IOException {
+                    try (InputStream urlInput = new URL(url).openStream()) {
+                        Set<String> classNames = new TreeSet<>();
+                        JarInputStream jarInput = new JarInputStream(urlInput);
+                        Manifest manifest = jarInput.getManifest();
+
+                        if (manifest != null) {
+                            Attributes attributes = manifest.getMainAttributes();
+
+                            if (attributes != null
+                                    && Boolean.parseBoolean(attributes.getValue(INCLUDE_ATTRIBUTE))) {
+
+                                for (JarEntry entry; (entry = jarInput.getNextJarEntry()) != null;) {
+                                    String name = entry.getName();
+
+                                    if (name.endsWith(CLASS_FILE_SUFFIX)) {
+                                        String className = name.substring(0, name.length() - CLASS_FILE_SUFFIX.length());
+                                        className = className.replace('/', '.');
+
+                                        classNames.add(className);
+                                    }
+                                }
+                            }
+                        }
+
+                        return classNames;
+                    }
+                }
+            });
+
+    private static final LoadingCache<File, Set<String>> FILE_CLASS_NAMES = CacheBuilder.newBuilder()
+            .build(new CacheLoader<File, Set<String>>() {
+
+                @Override
+                public Set<String> load(File file) {
+                    Set<String> classNames = new LinkedHashSet<>();
+                    processFile(classNames, file, "");
+                    return classNames;
+                }
+            });
+
     static {
-        CodeUtils.addRedefineClassesListener(classes -> CLASSES_BY_BASE_CLASS_BY_LOADER_BY_FINDER.invalidateAll());
+        CodeUtils.addRedefineClassesListener(classes -> {
+            CLASSES_BY_BASE_CLASS_BY_LOADER_BY_FINDER.invalidateAll();
+            FILE_CLASS_NAMES.invalidateAll();
+        });
     }
 
     private Set<String> classLoaderExclusions = new HashSet<>(Arrays.asList(
@@ -273,6 +343,17 @@ public class ClassFinder {
 
         if (!ObjectUtils.isBlank(classPath)) {
             for (String path : StringUtils.split(classPath, Pattern.quote(File.pathSeparator))) {
+
+                // Skip current working directories.
+                try {
+                    if (Paths.get(path).toRealPath().equals(Paths.get("").toRealPath())) {
+                        continue;
+                    }
+
+                } catch (IOException error) {
+                    continue;
+                }
+
                 try {
                     processUrl(classNames, new File(path).toURI().toURL());
 
@@ -299,7 +380,7 @@ public class ClassFinder {
 
         for (String className : classNames) {
             try {
-                Class<?> c = Class.forName(className, false, loader);
+                Class<?> c = CLASSES_BY_LOADER.getUnchecked(loader).get(className);
 
                 if (!baseClass.equals(c) && baseClass.isAssignableFrom(c)) {
                     @SuppressWarnings("unchecked")
@@ -308,10 +389,18 @@ public class ClassFinder {
                     classes.add(tc);
                 }
 
-            } catch (ClassNotFoundException
-                    | NoClassDefFoundError error) {
+            } catch (ExecutionError
+                    | ExecutionException
+                    | UncheckedExecutionException error) {
 
                 // Ignore classes that can't be somehow resolved at runtime.
+                Throwable cause = error.getCause();
+
+                if (!(cause instanceof ClassNotFoundException
+                        || cause instanceof NoClassDefFoundError)) {
+
+                    throw Throwables.propagate(cause);
+                }
             }
         }
 
@@ -322,47 +411,34 @@ public class ClassFinder {
     // given classNames.
     private void processUrl(Set<String> classNames, URL url) {
         if (url.getPath().endsWith(".jar")) {
-            try (InputStream urlInput = url.openStream()) {
-                JarInputStream jarInput = new JarInputStream(urlInput);
-                Manifest manifest = jarInput.getManifest();
+            try {
+                classNames.addAll(JAR_CLASS_NAMES.get(url.toString()));
 
-                if (manifest != null) {
-                    Attributes attributes = manifest.getMainAttributes();
+            } catch (ExecutionException error) {
+                Throwable cause = error.getCause();
 
-                    if (attributes != null
-                            && Boolean.parseBoolean(attributes.getValue(INCLUDE_ATTRIBUTE))) {
+                if (cause instanceof IOException) {
+                    LOGGER.debug(String.format(
+                            "Can't read [%s] to scan its classes!", url),
+                            error);
 
-                        for (JarEntry entry; (entry = jarInput.getNextJarEntry()) != null;) {
-                            String name = entry.getName();
-
-                            if (name.endsWith(CLASS_FILE_SUFFIX)) {
-                                String className = name.substring(0, name.length() - CLASS_FILE_SUFFIX.length());
-                                className = className.replace('/', '.');
-
-                                classNames.add(className);
-                            }
-                        }
-                    }
+                } else {
+                    throw Throwables.propagate(cause);
                 }
-
-            } catch (IOException error) {
-                LOGGER.debug(String.format(
-                        "Can't read [%s] to scan its classes!", url),
-                        error);
             }
 
         } else {
             File file = IoUtils.toFile(url, StandardCharsets.UTF_8);
 
             if (file != null && file.isDirectory()) {
-                processFile(classNames, file, "");
+                classNames.addAll(FILE_CLASS_NAMES.getUnchecked(file));
             }
         }
     }
 
     // Processes the given path under the given root and adds all associated
     // class files to the given classNames.
-    private void processFile(Set<String> classNames, File root, String path) {
+    private static void processFile(Set<String> classNames, File root, String path) {
         File file = new File(root, path);
 
         if (file.isDirectory()) {

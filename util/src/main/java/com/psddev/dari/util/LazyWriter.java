@@ -41,6 +41,12 @@ public class LazyWriter extends Writer {
         this.delegate = delegate;
     }
 
+    public LazyWriter(Writer delegate, boolean inBody) {
+        this.request = null;
+        this.delegate = delegate;
+        this.inBody = inBody;
+    }
+
     private boolean isInBody() {
         return inBody
                 || (request != null
@@ -96,7 +102,6 @@ public class LazyWriter extends Writer {
                 inTag = true;
                 tagName.setLength(0);
                 tagNameFound = false;
-                inScriptOrStyle = false;
 
             } else if (inTag) {
                 boolean endTag = letter == '>';
@@ -131,7 +136,9 @@ public class LazyWriter extends Writer {
                         }
                     }
 
-                    writePending();
+                    if (!inScriptOrStyle) {
+                        writePending();
+                    }
 
                     if (isInBody() && lazy.length() > 0) {
                         delegate.append(lazy);

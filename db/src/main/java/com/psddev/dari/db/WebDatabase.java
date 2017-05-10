@@ -155,7 +155,7 @@ public class WebDatabase extends AbstractDatabase<Void> {
             Object key = entry.getKey();
             Object value = entry.getValue();
 
-            if (StateValueUtils.TYPE_KEY.equals(key)) {
+            if (StateSerializer.TYPE_KEY.equals(key)) {
                 UUID typeId = ObjectUtils.to(UUID.class, value);
                 if (typeId != null) {
                     entry.setValue(ObjectType.getInstance(typeId).getInternalName());
@@ -236,8 +236,8 @@ public class WebDatabase extends AbstractDatabase<Void> {
         @SuppressWarnings("unchecked")
         Map<String, ?> map = (Map<String, ?>) mapObject;
         T object = createSavedObject(
-                map.get(StateValueUtils.TYPE_KEY),
-                map.get(StateValueUtils.ID_KEY),
+                map.get(StateSerializer.TYPE_KEY),
+                map.get(StateSerializer.ID_KEY),
                 query);
         State.getInstance(object).putAll(map);
         State.getInstance(object).put("dari.webDatabase.rawValues", map);

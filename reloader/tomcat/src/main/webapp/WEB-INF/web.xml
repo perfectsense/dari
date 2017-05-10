@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+        http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
+
+    <display-name>Web Application Reloader for Tomcat</display-name>
+
+    <filter>
+        <filter-name>DebugFilter</filter-name>
+        <filter-class>com.psddev.dari.util.DebugFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>DebugFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <filter>
+        <filter-name>TaskFilter</filter-name>
+        <filter-class>com.psddev.dari.util.TaskFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>TaskFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <servlet>
+        <servlet-name>TomcatReloaderServlet</servlet-name>
+        <servlet-class>com.psddev.dari.util.TomcatReloaderServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>TomcatReloaderServlet</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+
+</web-app>

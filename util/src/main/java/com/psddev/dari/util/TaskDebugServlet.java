@@ -2,24 +2,31 @@ package com.psddev.dari.util;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.joda.time.DateTime;
 
 /** Debug servlet for inspecting all active {@linkplain Task tasks}. */
-@DebugFilter.Path("task")
 @SuppressWarnings("serial")
-public class TaskDebugServlet extends HttpServlet {
+public class TaskDebugServlet extends DebugServlet {
 
-    // --- HttpServlet support ---
+    @Override
+    public String getName() {
+        return "Background Tasks";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("task");
+    }
 
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {

@@ -2,6 +2,7 @@ package com.psddev.dari.db;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -16,19 +17,29 @@ import java.util.regex.Pattern;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.psddev.dari.util.DebugFilter;
+import com.psddev.dari.util.DebugServlet;
+import com.psddev.dari.util.JspUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.StringUtils;
 import com.psddev.dari.util.UuidUtils;
 
-@DebugFilter.Path("query")
 @SuppressWarnings("serial")
-public class QueryDebugServlet extends HttpServlet {
+public class QueryDebugServlet extends DebugServlet {
+
+    @Override
+    public String getName() {
+        return "Database: Query";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Arrays.asList("db-query", "query");
+    }
 
     @Override
     protected void service(
@@ -615,7 +626,7 @@ public class QueryDebugServlet extends HttpServlet {
                             newJson.append(json.substring(end));
 
                             Matcher idMatcher = ID_PATTERN.matcher(page.h(newJson.toString()));
-                            write(idMatcher.replaceAll("<a href=\"/_debug/query?where=id+%3D+$1\" target=\"_blank\">$1</a>"));
+                            write(idMatcher.replaceAll("<a href=\"" + JspUtils.getAbsolutePath(page.getRequest(), "/_debug/query") + "?where=id+%3D+$1\" target=\"_blank\">$1</a>"));
                         writeEnd();
                     writeEnd();
                 }

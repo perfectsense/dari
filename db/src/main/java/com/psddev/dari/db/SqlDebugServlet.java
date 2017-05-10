@@ -7,19 +7,31 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.List;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.psddev.dari.util.DebugFilter;
+import com.psddev.dari.util.DebugServlet;
 import com.psddev.dari.util.ObjectUtils;
 
-@DebugFilter.Path("db-sql")
 @SuppressWarnings("serial")
-public class SqlDebugServlet extends HttpServlet {
+public class SqlDebugServlet extends DebugServlet {
+
+    @Override
+    public String getName() {
+        return Database.Static.getFirst(SqlDatabase.class) != null
+                ? "Database: SQL Query"
+                : null;
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-sql");
+    }
 
     @Override
     protected void service(

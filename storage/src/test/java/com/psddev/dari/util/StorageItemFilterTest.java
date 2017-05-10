@@ -5,16 +5,20 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.FilterChain;
+import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -28,6 +32,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @RunWith(Enclosed.class)
 public class StorageItemFilterTest {
@@ -65,6 +70,37 @@ public class StorageItemFilterTest {
     @RunWith(MockitoJUnitRunner.class)
     public static class RequestTest {
 
+        private StorageItemFilter filter;
+
+        private HttpServletRequest request;
+
+        @Mock
+        private MultipartRequest mpRequest;
+
+        @Mock
+        private HttpServletResponse response;
+
+        @Mock
+        private FilterChain chain;
+
+        @Mock
+        private ServletContext servletContext;
+
+        @Before
+        public void before() {
+            filter = new StorageItemFilter();
+            request = mock(HttpServletRequest.class);
+            doReturn("/_dari/upload").when(request).getServletPath();
+            doReturn("file").when(request).getParameter("fileParameter");
+            doReturn(Collections.emptyList()).when(request).getAttribute(AbstractFilter.class.getName() + ".dependencies." + StorageItemFilter.class.getName());
+        }
+
+        @After
+        public void after() {
+            filter = null;
+            request = null;
+        }
+
         private static final String STORAGE_KEY = "storage";
         private static final String PATH_KEY = "path";
         private static final String CONTENT_TYPE_KEY = "contentType";
@@ -72,11 +108,6 @@ public class StorageItemFilterTest {
 
         @Test
         public void doNothing() throws Exception {
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            FilterChain chain = mock(FilterChain.class);
-
-            StorageItemFilter filter = new StorageItemFilter();
 
             when(request.getServletPath()).thenReturn("/url");
             filter.doFilter(request, response, chain);
@@ -85,9 +116,6 @@ public class StorageItemFilterTest {
 
         @Test
         public void jsonRequest() throws Exception {
-            HttpServletRequest request = getUploadRequest();
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            FilterChain chain = mock(FilterChain.class);
 
             String storageValue = "testStorage";
             String pathValue = "5d/ca/f0b343b34d2783e91bc74c42e422/test.jpg";
@@ -109,11 +137,6 @@ public class StorageItemFilterTest {
 
         @Test
         public void fileRequest() throws Exception {
-
-            HttpServletRequest request = getUploadRequest();
-            MultipartRequest mpRequest = mock(MultipartRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            FilterChain chain = mock(FilterChain.class);
 
             String storageValue = "testStorage";
             String contentType = "image/png";
@@ -148,7 +171,6 @@ public class StorageItemFilterTest {
         }
 
         private Map<String, Object> getJsonResponse(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws Exception {
-            StorageItemFilter filter = new StorageItemFilter();
             StringWriter writer = new StringWriter();
             when(response.getWriter()).thenReturn(new PrintWriter(writer));
             filter.doFilter(request, response, chain);
@@ -157,13 +179,6 @@ public class StorageItemFilterTest {
                     new TypeReference<Map<String, Object>>() {
                     },
                     ObjectUtils.fromJson(writer.toString()));
-        }
-
-        private HttpServletRequest getUploadRequest() {
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            when(request.getServletPath()).thenReturn("/_dari/upload");
-            when(request.getParameter("fileParameter")).thenReturn("file");
-            return request;
         }
 
         public static final class TestStorageItem extends LocalStorageItem {

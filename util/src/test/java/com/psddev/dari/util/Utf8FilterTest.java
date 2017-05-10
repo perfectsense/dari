@@ -41,6 +41,7 @@ public class Utf8FilterTest {
     @Before
     public void before() {
         filter = new Utf8Filter();
+        doReturn(Collections.emptyList()).when(request).getAttribute(AbstractFilter.class.getName() + ".dependencies." + Utf8Filter.class.getName());
     }
 
     @After

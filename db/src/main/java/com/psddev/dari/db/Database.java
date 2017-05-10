@@ -23,7 +23,7 @@ import com.psddev.dari.util.SettingsBackedObject;
 import com.psddev.dari.util.SettingsException;
 
 /** Database of objects. */
-public interface Database extends SettingsBackedObject {
+public interface Database extends AutoCloseable, SettingsBackedObject {
 
     public static final String CREATOR_EXTRA = "dari.creatorDatabase";
     public static final String DEFAULT_DATABASE_SETTING = "dari/defaultDatabase";
@@ -237,6 +237,45 @@ public interface Database extends SettingsBackedObject {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Closes the database.
+     *
+     * <p>The default implementation does nothing.</p>
+     */
+    default void close() throws Exception {
+    }
+
+    /**
+     * Resets all thread locals related to database operations.
+     */
+    @SuppressWarnings("deprecated")
+    static void resetThreadLocals() {
+
+        // Clear all default database overrides
+        try {
+            while (true) {
+                Database.Static.restoreDefault();
+            }
+        } catch (NoSuchElementException error) {
+            // No more defaults to restore.
+        }
+
+        // Make sure the databases aren't stuck in read-only mode.
+        Database.Static.setIgnoreReadConnection(false);
+
+        // Clear all batch writes.
+        for (Database database : Database.Static.getAll()) {
+            try {
+                while (true) {
+                    database.endWrites();
+                }
+
+            } catch (IllegalStateException error) {
+                continue;
+            }
+        }
+    }
+
     /** {@link Database} utility methods. */
     public static final class Static {
 
@@ -422,7 +461,9 @@ public interface Database extends SettingsBackedObject {
                 // Nothing to add.
 
             } else if (databaseClass.isInstance(database)) {
-                result.add((T) database);
+                if (!result.contains(database)) {
+                    result.add((T) database);
+                }
 
             } else if (database instanceof Iterable) {
                 for (Object subDatabase : (Iterable<?>) database) {

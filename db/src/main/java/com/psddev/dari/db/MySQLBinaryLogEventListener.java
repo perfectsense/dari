@@ -73,15 +73,15 @@ class MySQLBinaryLogEventListener implements EventListener {
             value[1] = data;
             Map<String, Object> jsonData = SqlDatabase.unserializeData(data);
             value[2] = jsonData;
-            value[0] = UuidUtils.toBytes(ObjectUtils.to(UUID.class, jsonData.get(StateValueUtils.TYPE_KEY)));
+            value[0] = UuidUtils.toBytes(ObjectUtils.to(UUID.class, jsonData.get(StateSerializer.TYPE_KEY)));
 
             database.notifyUpdate(database.createSavedObjectFromReplicationCache((byte[]) value[0], bid, (byte[]) value[1], jsonData, null));
 
             // populate cache
             if (cache.getIfPresent(bid) != null) {
                 cache.put(bid, value);
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.debug("[BINLOG] UPDATING CACHE: ID [{}]", StringUtils.hex(id));
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("Cache update: typeId=[{}], id=[{}]", StringUtils.hex(typeId), StringUtils.hex(id));
                 }
             }
         }
@@ -91,8 +91,8 @@ class MySQLBinaryLogEventListener implements EventListener {
         id = confirm16Bytes(id);
         if (id != null) {
             UUID bid = ObjectUtils.to(UUID.class, id);
-            if (LOGGER.isInfoEnabled() && cache.getIfPresent(bid) != null) {
-                LOGGER.debug("[BINLOG] DELETING CACHE: ID [{}]", StringUtils.hex(id));
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Cache invalidate: id=[{}]", StringUtils.hex(id));
             }
             cache.invalidate(bid);
         }
@@ -104,7 +104,20 @@ class MySQLBinaryLogEventListener implements EventListener {
             EventHeader eventHeader = event.getHeader();
             EventType eventType = eventHeader.getEventType();
             EventData eventData = event.getData();
-            LOGGER.debug("BIN LOG TEST [{}] [{}]", event.getHeader().getEventType().toString(), event.getData().toString());
+
+            if (LOGGER.isDebugEnabled()) {
+                long timestamp = eventHeader.getTimestamp();
+                long lag = System.currentTimeMillis() - timestamp;
+
+                LOGGER.debug(
+                        "Event: timestamp=[{}], lag=[{}], type=[{}], dataLength=[{}]",
+                        new Object[] {
+                                timestamp,
+                                lag,
+                                eventHeader.getEventType(),
+                                eventHeader.getDataLength() });
+            }
+
             if (eventType == EventType.WRITE_ROWS || eventType == EventType.EXT_WRITE_ROWS) {
                 for (Serializable[] row : ((WriteRowsEventData) eventData).getRows()) {
                     byte[] data = row[2] instanceof byte[] ? (byte[]) row[2]
@@ -112,7 +125,6 @@ class MySQLBinaryLogEventListener implements EventListener {
                             : null;
 
                     updateCache((byte[]) row[0], (byte[]) row[1], data);
-                    LOGGER.debug("InsertRow HEX [{}][{}]", StringUtils.hex((byte[]) row[0]), ((byte[]) row[0]).length);
                 }
 
             } else if (eventType == EventType.UPDATE_ROWS || eventType == EventType.EXT_UPDATE_ROWS) {
@@ -123,12 +135,10 @@ class MySQLBinaryLogEventListener implements EventListener {
                             : null;
 
                     updateCache((byte[]) newValue[0], (byte[]) newValue[1], data);
-                    LOGGER.debug("UpdateRow HEX [{}][{}]", StringUtils.hex((byte[]) newValue[0]), ((byte[]) newValue[0]).length);
                 }
             } else if (eventType == EventType.DELETE_ROWS || eventType == EventType.EXT_DELETE_ROWS) {
                 for (Serializable[] row : ((DeleteRowsEventData) eventData).getRows()) {
                     invalidateCache((byte[]) row[0]);
-                    LOGGER.debug("DeleteRow HEX [{}][{}]", StringUtils.hex((byte[]) row[0]), ((byte[]) row[0]).length);
                 }
             } else if (eventType == EventType.QUERY) {
                 DariQueryEventData queryEventData = (DariQueryEventData) eventData;
@@ -139,7 +149,7 @@ class MySQLBinaryLogEventListener implements EventListener {
                 }
 
             } else {
-                LOGGER.error("NOT RECOGNIZED TYPE: {}", eventType);
+                LOGGER.info("[{}] event type isn't valid!", eventType);
             }
         }
     }
@@ -248,10 +258,8 @@ class MySQLBinaryLogEventListener implements EventListener {
                         queryEventData.setTypeId(getByteData(byteStatement, matcher.group(2), matcher.start(2), matcher.end(2)));
                         queryEventData.setData(getByteData(byteStatement, matcher.group(3), matcher.start(3), matcher.end(3)));
                         processed = true;
-                        LOGGER.debug("[DEBUG] QUERY EVENT UPDATE [{}]", queryEventData);
                     } else {
                         isFlushCache = true;
-                        LOGGER.debug("Bin log cache flushed due to [{}]", sql);
                     }
                 } else if (statementParts[0].equalsIgnoreCase("DELETE")) {
                     queryEventData.setActionl(DariQueryEventData.Action.DELETE);
@@ -259,16 +267,13 @@ class MySQLBinaryLogEventListener implements EventListener {
                     if (matcher.matches()) {
                         queryEventData.setId(getByteData(byteStatement, matcher.group(2), matcher.start(2), matcher.end(2)));
                         processed = true;
-                        LOGGER.debug("[DEBUG] QUERY EVENT DELETE [{}]", queryEventData);
                     } else {
                         isFlushCache = true;
-                        LOGGER.debug("Bin log cache flushed due to [{}]", sql);
                     }
                 } else if (statementParts[0].equalsIgnoreCase("INSERT")) {
                     // Do nothing
                 } else {
                     isFlushCache = true;
-                    LOGGER.debug("Bin log cache flushed due to [{}]", sql);
                 }
             }
         }
@@ -283,12 +288,9 @@ class MySQLBinaryLogEventListener implements EventListener {
         EventData eventData = event.getData();
         long tableId = 0;
 
-        LOGGER.debug("TYPE: {}", eventType);
-
         if (transactionBegin) {
             if ((eventType == EventType.QUERY && ((DariQueryEventData) eventData).getSql().equalsIgnoreCase("COMMIT"))
                     || (eventType == EventType.XID)) {
-                LOGGER.debug("[DEBUG] QUERY EVENT TRANSACTION COMMIT: [{}]", events.size());
                 try {
                     if (isFlushCache) {
                         flushCache();
@@ -311,7 +313,7 @@ class MySQLBinaryLogEventListener implements EventListener {
                         } else if (EventType.isDelete(eventType)) {
                             tableId = ((DeleteRowsEventData) eventData).getTableId();
                         } else {
-                            LOGGER.error("NOT RECOGNIZED TYPE: {}", eventType);
+                            LOGGER.info("[{}] event type isn't valid!", eventType);
                         }
                         if (tableMapEventData.getTableId() == tableId) {
                             events.add(event);
@@ -331,7 +333,6 @@ class MySQLBinaryLogEventListener implements EventListener {
             }
         } else if (eventType == EventType.QUERY && ((DariQueryEventData) eventData).getSql().equalsIgnoreCase("BEGIN")) {
             transactionBegin = true;
-            LOGGER.debug("[DEBUG] QUERY EVENT TRANSACTION BEGIN");
         }
     }
 }

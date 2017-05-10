@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+        http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.psddev</groupId>
+        <artifactId>dari</artifactId>
+        <version>3.3-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dari-h2</artifactId>
+    <version>3.3-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Dari: H2</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-sql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.orbisgis</groupId>
+            <artifactId>h2gis-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.orbisgis</groupId>
+            <artifactId>h2gis-ext</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.orbisgis</groupId>
+            <artifactId>h2gis-functions</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.orbisgis</groupId>
+            <artifactId>h2gis-network</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.orbisgis</groupId>
+            <artifactId>h2gis-utilities</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest-all</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.2.1</version>
+
+                <dependencies>
+                    <dependency>
+                        <groupId>com.psddev</groupId>
+                        <artifactId>dari-util</artifactId>
+                        <version>3.3-SNAPSHOT</version>
+                    </dependency>
+                </dependencies>
+
+                <executions>
+                    <execution>
+                        <id>enhance-test-classes</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <classpathScope>test</classpathScope>
+                            <includePluginDependencies>true</includePluginDependencies>
+                            <mainClass>com.psddev.dari.util.ClassEnhancer$Static</mainClass>
+                            <arguments>
+                                <argument>${project.build.testOutputDirectory}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

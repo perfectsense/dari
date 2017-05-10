@@ -61,7 +61,8 @@ public class LazyLoadEnhancer extends ClassEnhancer {
     public boolean canEnhance(ClassReader reader) {
         enhancedClassName = reader.getClassName();
 
-        return !enhancedClassName.startsWith("com/psddev/dari/")
+        return (!enhancedClassName.startsWith("com/psddev/dari/")
+                || enhancedClassName.startsWith("com/psddev/dari/h2/"))
                 && findRecordableClass(enhancedClassName) != null;
     }
 

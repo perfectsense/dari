@@ -62,6 +62,15 @@ public class Location {
         return degree * Math.PI / 180.0;
     }
 
+    /**
+     * Returns the well-known text representation of this location.
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/Well-known_text">WKT</a>
+     */
+    public String toWkt() {
+        return "POINT(" + getX() + " " + getY() + ")";
+    }
+
     // --- Object support ---
 
     @Override

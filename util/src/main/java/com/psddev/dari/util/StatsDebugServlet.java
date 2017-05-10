@@ -2,22 +2,32 @@ package com.psddev.dari.util;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /** Debug servlet that reports application {@link Stats}. */
-@DebugFilter.Path("stats")
 @SuppressWarnings("serial")
-public class StatsDebugServlet extends HttpServlet {
+public class StatsDebugServlet extends DebugServlet {
 
     private enum Type {
         COUNT,
         DURATION
+    }
+
+    @Override
+    public String getName() {
+        return "Stats";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("stats");
     }
 
     @Override
@@ -149,8 +159,8 @@ public class StatsDebugServlet extends HttpServlet {
                     write("}");
                 writeEnd();
 
-                writeStart("script", "type", "text/javascript", "src", "/_resource/d3/d3.v2.min.js").writeEnd();
-                writeStart("script", "type", "text/javascript", "src", "/_resource/d3/cubism.v1.min.js").writeEnd();
+                writeStart("script", "type", "text/javascript", "src", JspUtils.getAbsolutePath(page.getRequest(), "/_resource/d3/d3.v2.min.js")).writeEnd();
+                writeStart("script", "type", "text/javascript", "src", JspUtils.getAbsolutePath(page.getRequest(), "/_resource/d3/cubism.v1.min.js")).writeEnd();
                 writeStart("script", "type", "text/javascript");
                     write("var maxDataSize = 400;");
                     write("var context = cubism.context().serverDelay(0).clientDelay(0).step(5e3).size(maxDataSize);");
@@ -184,7 +194,7 @@ public class StatsDebugServlet extends HttpServlet {
                                         write("var first = isNaN(last);");
                                         write("if (first) last = begin;");
 
-                                        write("$.getJSON('/_debug/stats', {");
+                                        write("$.getJSON('"); write(page.js(JspUtils.getAbsolutePath(page.getRequest(), "/_debug/stats"))); write("', {");
                                             write("'stats': '"); write(page.js(statsName)); write("',");
                                             write("'operation': '"); write(page.js(operation)); write("',");
                                             write("'interval': '"); write(page.js(intervalIndex)); write("',");
@@ -286,7 +296,7 @@ public class StatsDebugServlet extends HttpServlet {
                     if (Double.isNaN(duration)) {
                         writeStart("span", "class", "label").writeHtml("N/A").writeEnd();
                     } else {
-                        writeObject(duration * 5e3).writeHtml("ms");
+                        writeObject(duration * 1e3).writeHtml("ms");
                     }
                     if (link) {
                         writeEnd();

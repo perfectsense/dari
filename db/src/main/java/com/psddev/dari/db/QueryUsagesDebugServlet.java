@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -19,6 +18,7 @@ import com.psddev.dari.util.ClassFinder;
 import com.psddev.dari.util.CodeUtils;
 import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.DebugFilter;
+import com.psddev.dari.util.DebugServlet;
 import com.psddev.dari.util.HtmlObject;
 import com.psddev.dari.util.HtmlWriter;
 import com.psddev.dari.util.ObjectUtils;
@@ -29,10 +29,19 @@ import com.psddev.dari.util.sa.JvmMethodListener;
 import com.psddev.dari.util.sa.JvmObject;
 import com.psddev.dari.util.sa.JvmObjectListener;
 
-@DebugFilter.Path("db-query-usages")
-public class QueryUsagesDebugServlet extends HttpServlet {
+public class QueryUsagesDebugServlet extends DebugServlet {
 
     private static final long serialVersionUID = 1L;
+
+    @Override
+    public String getName() {
+        return "Database: Query Usages";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-query-usages");
+    }
 
     @Override
     protected void service(

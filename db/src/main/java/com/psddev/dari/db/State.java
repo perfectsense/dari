@@ -37,7 +37,6 @@ import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Profiler;
 import com.psddev.dari.util.StorageItem;
 import com.psddev.dari.util.StringUtils;
-import com.psddev.dari.util.TypeDefinition;
 import com.psddev.dari.util.UuidUtils;
 
 import javax.annotation.Nonnull;
@@ -76,6 +75,7 @@ public class State implements Map<String, Object> {
     private static final int RESOLVE_WITHOUT_CACHE = 1 << 2;
     private static final int RESOLVE_USING_MASTER = 1 << 3;
     private static final int RESOLVE_INVISIBLE = 1 << 4;
+    private static final int EMBEDDED_FLAG = 1 << 5;
 
     private static final ThreadLocal<List<Listener>> LISTENERS_LOCAL = new ThreadLocal<>();
 
@@ -118,7 +118,7 @@ public class State implements Map<String, Object> {
      */
     public void linkObject(Object object) {
         if (object != null) {
-            linkedObjects.put(object.getClass(), object);
+            linkedObjects.put(SubstitutionUtils.getOriginalClass(object.getClass()), object);
         }
     }
 
@@ -128,7 +128,7 @@ public class State implements Map<String, Object> {
      */
     public void unlinkObject(Object object) {
         if (object != null) {
-            linkedObjects.remove(object.getClass());
+            linkedObjects.remove(SubstitutionUtils.getOriginalClass(object.getClass()));
         }
     }
 
@@ -460,11 +460,11 @@ public class State implements Map<String, Object> {
             }
         }
 
-        values.put(StateValueUtils.ID_KEY, getId().toString());
+        values.put(StateSerializer.ID_KEY, getId().toString());
         if (withTypeNames && getType() != null) {
-            values.put(StateValueUtils.TYPE_KEY, getType().getInternalName());
+            values.put(StateSerializer.TYPE_KEY, getType().getInternalName());
         } else {
-            values.put(StateValueUtils.TYPE_KEY, getTypeId().toString());
+            values.put(StateSerializer.TYPE_KEY, getTypeId().toString());
         }
         return values;
     }
@@ -485,8 +485,8 @@ public class State implements Map<String, Object> {
                 values.put(name, toSimpleValue(e.getValue(), field.isEmbedded(), false));
             }
         }
-        values.put(StateValueUtils.ID_KEY, getId().toString());
-        values.put(StateValueUtils.TYPE_KEY, getTypeId().toString());
+        values.put(StateSerializer.ID_KEY, getId().toString());
+        values.put(StateSerializer.TYPE_KEY, getTypeId().toString());
         return values;
     }
 
@@ -536,11 +536,11 @@ public class State implements Map<String, Object> {
             }
 
             Map<String, Object> map = new CompactMap<>();
-            map.put(StateValueUtils.REFERENCE_KEY, valueState.getId().toString());
+            map.put(StateSerializer.REFERENCE_KEY, valueState.getId().toString());
             if (withTypeNames && valueState.getType() != null) {
-                map.put(StateValueUtils.TYPE_KEY, valueState.getType().getInternalName());
+                map.put(StateSerializer.TYPE_KEY, valueState.getType().getInternalName());
             } else {
-                map.put(StateValueUtils.TYPE_KEY, valueState.getTypeId().toString());
+                map.put(StateSerializer.TYPE_KEY, valueState.getTypeId().toString());
             }
             return map;
 
@@ -1097,17 +1097,20 @@ public class State implements Map<String, Object> {
     }
 
     public void addError(ObjectField field, String message) {
-
         if (errors == null) {
             errors = new CompactMap<>();
         }
 
         List<String> messages = errors.get(field);
+
         if (messages == null) {
             messages = new ArrayList<>();
             errors.put(field, messages);
         }
-        messages.add(message);
+
+        if (!messages.contains(message)) {
+            messages.add(message);
+        }
     }
 
     public boolean isResolveToReferenceOnly() {
@@ -1155,6 +1158,18 @@ public class State implements Map<String, Object> {
             flags |= RESOLVE_INVISIBLE;
         } else {
             flags &= ~RESOLVE_INVISIBLE;
+        }
+    }
+
+    public boolean isEmbedded() {
+        return (flags & EMBEDDED_FLAG) != 0;
+    }
+
+    public void setEmbedded(boolean embedded) {
+        if (embedded) {
+            flags |= EMBEDDED_FLAG;
+        } else {
+            flags &= ~EMBEDDED_FLAG;
         }
     }
 
@@ -1335,7 +1350,7 @@ public class State implements Map<String, Object> {
         @SuppressWarnings("unchecked")
         T object = (T) linkedObjects.get(objectClass);
         if (object == null) {
-            object = TypeDefinition.getInstance(objectClass).newInstance();
+            object = SubstitutionUtils.newInstance(objectClass);
             ((Recordable) object).setState(this);
             copyRawValuesToJavaFields(object);
         }
@@ -1472,9 +1487,10 @@ public class State implements Map<String, Object> {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(
                     "Firing trigger [{}] from [{}] on [{}]",
-                    trigger,
-                    modClass.getName(),
-                    State.getInstance(modObject));
+                    new Object[] {
+                            trigger,
+                            modClass.getName(),
+                            State.getInstance(modObject) });
         }
         trigger.execute(modObject);
     }
@@ -1498,12 +1514,14 @@ public class State implements Map<String, Object> {
             }
 
             if (embedded) {
+                valueState.setEmbedded(true);
                 valueState.fireTrigger(trigger);
 
             } else {
                 ObjectType valueType = valueState.getType();
 
                 if (valueType != null && valueType.isEmbedded()) {
+                    valueState.setEmbedded(true);
                     valueState.fireTrigger(trigger);
                 }
             }
@@ -1526,9 +1544,9 @@ public class State implements Map<String, Object> {
                 objectClass = Record.class;
             }
 
-            for (Object object : linkedObjects.values()) {
-                if (objectClass.equals(object.getClass())) {
-                    return object;
+            for (Map.Entry<Class<?>, Object> entry : linkedObjects.entrySet()) {
+                if (objectClass.equals(entry.getKey())) {
+                    return entry.getValue();
                 }
             }
 
@@ -1634,9 +1652,8 @@ public class State implements Map<String, Object> {
                 return;
             }
 
-            flags |= ALL_RESOLVED_FLAG;
-
             if (linkedObjects.isEmpty()) {
+                flags |= ALL_RESOLVED_FLAG;
                 return;
             }
 
@@ -1645,13 +1662,14 @@ public class State implements Map<String, Object> {
 
             for (Object rawValue : rawValuesValues) {
                 if (rawValue instanceof Map
-                        && ((Map<?, ?>) rawValue).containsKey(StateValueUtils.REFERENCE_KEY)) {
+                        && ((Map<?, ?>) rawValue).containsKey(StateSerializer.REFERENCE_KEY)) {
                     hasPotentialRefs = true;
                     break;
                 }
             }
 
             if (!hasPotentialRefs) {
+                flags |= ALL_RESOLVED_FLAG;
                 return;
             }
 
@@ -1673,6 +1691,8 @@ public class State implements Map<String, Object> {
                 for (Map.Entry<String, Object> e : resolved.entrySet()) {
                     put(e.getKey(), e.getValue());
                 }
+
+                flags |= ALL_RESOLVED_FLAG;
 
             } finally {
                 Profiler.Static.stopThreadEvent();
@@ -1724,15 +1744,25 @@ public class State implements Map<String, Object> {
      */
     public boolean validate() {
         ObjectType type = getType();
+
         if (type != null) {
             for (ObjectField field : type.getFields()) {
+                if (isEmbedded() && field.isIgnoredIfEmbedded()) {
+                    continue;
+                }
+
                 field.validate(this);
                 validateValue(get(field.getInternalName()), field.isEmbedded());
             }
         }
 
         DatabaseEnvironment environment = getDatabase().getEnvironment();
+
         for (ObjectField field : environment.getFields()) {
+            if (isEmbedded() && field.isIgnoredIfEmbedded()) {
+                continue;
+            }
+
             field.validate(this);
         }
 
@@ -1755,11 +1785,13 @@ public class State implements Map<String, Object> {
             State valueState = ((Recordable) value).getState();
 
             if (embedded) {
+                valueState.setEmbedded(true);
                 valueState.validate();
 
             } else {
                 ObjectType valueType = valueState.getType();
                 if (valueType != null && valueType.isEmbedded()) {
+                    valueState.setEmbedded(true);
                     valueState.validate();
                 }
             }
@@ -1769,8 +1801,9 @@ public class State implements Map<String, Object> {
     private void copyJavaFieldsToRawValues() {
         DatabaseEnvironment environment = getDatabase().getEnvironment();
 
-        for (Object object : linkedObjects.values()) {
-            Class<?> objectClass = object.getClass();
+        for (Map.Entry<Class<?>, Object> entry : linkedObjects.entrySet()) {
+            Class<?> objectClass = entry.getKey();
+            Object object = entry.getValue();
             ObjectType type = environment.getTypeByClass(objectClass);
             if (type == null) {
                 continue;
@@ -1900,8 +1933,9 @@ public class State implements Map<String, Object> {
 
         DatabaseEnvironment environment = getDatabase().getEnvironment();
 
-        for (Object object : linkedObjects.values()) {
-            Class<?> objectClass = object.getClass();
+        for (Map.Entry<Class<?>, Object> entry : linkedObjects.entrySet()) {
+            Class<?> objectClass = entry.getKey();
+            Object object = entry.getValue();
             ObjectType type = environment.getTypeByClass(objectClass);
             if (type == null) {
                 continue;
@@ -1950,8 +1984,9 @@ public class State implements Map<String, Object> {
 
         Object originalObject = getOriginalObjectOrNull();
 
-        for (Object object : linkedObjects.values()) {
-            Class<?> objectClass = object.getClass();
+        for (Map.Entry<Class<?>, Object> entry : linkedObjects.entrySet()) {
+            Class<?> objectClass = entry.getKey();
+            Object object = entry.getValue();
 
             ObjectType type = getDatabase().getEnvironment().getTypeByClass(objectClass);
             if (type == null) {
@@ -2006,9 +2041,9 @@ public class State implements Map<String, Object> {
         }
 
         if (key.startsWith("_")) {
-            if (key.equals(StateValueUtils.ID_KEY)) {
+            if (key.equals(StateSerializer.ID_KEY)) {
                 setId(ObjectUtils.to(UUID.class, value));
-            } else if (key.equals(StateValueUtils.TYPE_KEY)) {
+            } else if (key.equals(StateSerializer.TYPE_KEY)) {
                 UUID valueTypeId = ObjectUtils.to(UUID.class, value);
 
                 if (valueTypeId != null) {
@@ -2027,7 +2062,9 @@ public class State implements Map<String, Object> {
         }
 
         boolean first =  true;
-        for (Object object : linkedObjects.values()) {
+        for (Map.Entry<Class<?>, Object> entry : linkedObjects.entrySet()) {
+            Class<?> objectClass = entry.getKey();
+            Object object = entry.getValue();
             ObjectField field = State.getInstance(object).getField(key);
             if (first) {
                 value = StateValueUtils.toJavaValue(getDatabase(), object, field, field != null ? field.getInternalType() : null, value);
@@ -2035,7 +2072,7 @@ public class State implements Map<String, Object> {
             }
 
             if (field != null) {
-                Field javaField = field.getJavaField(object.getClass());
+                Field javaField = field.getJavaField(objectClass);
                 if (javaField != null) {
                     setJavaField(field, javaField, object, key, value);
                 }

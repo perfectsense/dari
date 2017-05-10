@@ -13,7 +13,12 @@ import javax.servlet.http.HttpServletResponseWrapper;
 import javax.servlet.http.HttpSession;
 import javax.servlet.jsp.PageContext;
 
-/** Suppresses session IDs in URLs for security and disables sessions. */
+/**
+ * Suppresses session IDs in URLs for security and disables sessions.
+ *
+ * @deprecated Use {@link NoSessionFilter} instead.
+ */
+@Deprecated
 public class SessionIdFilter extends AbstractFilter {
 
     // --- AbstractFilter support ---

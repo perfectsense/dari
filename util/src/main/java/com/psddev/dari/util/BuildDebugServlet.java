@@ -24,7 +24,6 @@ import java.util.regex.Pattern;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -32,9 +31,8 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 /** Debug servlet for inspecting application build information. */
-@DebugFilter.Path("build")
 @SuppressWarnings("serial")
-public class BuildDebugServlet extends HttpServlet {
+public class BuildDebugServlet extends DebugServlet {
 
     public static final String PROPERTIES_FILE_NAME = "build.properties";
     public static final String PROPERTIES_FILE = "/WEB-INF/classes/" + PROPERTIES_FILE_NAME;
@@ -143,6 +141,16 @@ public class BuildDebugServlet extends HttpServlet {
             title += " build " + buildNumber;
         }
         return title;
+    }
+
+    @Override
+    public String getName() {
+        return "Build Information";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("build");
     }
 
     @Override

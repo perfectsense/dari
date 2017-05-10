@@ -26,7 +26,7 @@ public abstract class AbstractUrlImageEditor extends AbstractImageEditor impleme
 
     /** Returns the base URL. */
     public String getBaseUrl() {
-        if (baseUrl == null && !ObjectUtils.isBlank(getBaseUrls())) {
+        if (StringUtils.isBlank(baseUrl) && !ObjectUtils.isBlank(getBaseUrls())) {
             return getBaseUrls().get(0);
         }
 

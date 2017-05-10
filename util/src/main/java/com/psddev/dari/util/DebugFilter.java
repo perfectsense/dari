@@ -1,157 +1,340 @@
 package com.psddev.dari.util;
 
+import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.naming.ldap.LdapContext;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.Servlet;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashSet;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.naming.ldap.LdapContext;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.Servlet;
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.stream.Collectors;
 
 /**
- * Provides debugging tools for troubleshooting the application.
+ * Filter that provides various debugging capabilities, such as a debugging
+ * interface that serve {@link DebugServlet}s.
  *
- * <p>This filter loads:</p>
+ * <p>This filter depends on:</p>
  *
  * <ul>
  * <li>{@link SourceFilter}</li>
- * <li>{@link LogCaptureFilter}</li>
  * <li>{@link ResourceFilter}</li>
  * </ul>
  */
 public class DebugFilter extends AbstractFilter {
 
+    /**
+     * Default intercept path where all {@link DebugServlet}s will be made
+     * accessible.
+     *
+     * @see #getPath(HttpServletRequest, Class, Object...)
+     */
     public static final String DEFAULT_INTERCEPT_PATH = "/_debug/";
+
+    /**
+     * Setting name for specifying the intercept path where all
+     * {@link DebugServlet}s will be made accessible.
+     *
+     * @see #getPath(HttpServletRequest, Class, Object...)
+     */
     public static final String INTERCEPT_PATH_SETTING = "dari/debugFilterInterceptPath";
 
+    /**
+     * Setting name for specifying the username that will be granted access
+     * to the debugging interface.
+     *
+     * @see #authenticate(HttpServletRequest, HttpServletResponse)
+     */
+    public static final String USERNAME_SETTING = "dari/debugUsername";
+
+    /**
+     * Setting name for specifying the password that will grant access to the
+     * debugging interface.
+     *
+     * @see #authenticate(HttpServletRequest, HttpServletResponse)
+     */
+    public static final String PASSWORD_SETTING = "dari/debugPassword";
+
+    /**
+     * Setting name for specifying the realm to display during debugging
+     * interface authentication prompt.
+     *
+     * @see #authenticate(HttpServletRequest, HttpServletResponse)
+     */
+    public static final String REALM_SETTING = "dari/debugRealm";
+
+    /**
+     * HTTP request parameter name for putting the application into debugging
+     * mode.
+     *
+     * @see Settings#isDebug()
+     */
     public static final String DEBUG_PARAMETER = "_debug";
+
+    /**
+     * HTTP request parameter name for putting the application into production
+     * mode.
+     *
+     * @see Settings#isProduction()
+     */
     public static final String PRODUCTION_PARAMETER = "_prod";
+
+    /**
+     * Path within the web application where all debugging JSPs reside.
+     */
+    public static final String WEB_INF_DEBUG = "/WEB-INF/_debug/";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DebugFilter.class);
     private static final Pattern NO_FILE_PATTERN = Pattern.compile("File &quot;(.*)&quot; not found");
 
-    public static final String WEB_INF_DEBUG = "/WEB-INF/_debug/";
+    /**
+     * Returns the path to the debugging servlet of the given {@code type}
+     * with the given query {@code parameters}.
+     *
+     * @param request Nonnull.
+     * @param type Nonnull.
+     * @param parameters Nullable.
+     * @return Nonnull.
+     * @see #DEFAULT_INTERCEPT_PATH
+     * @see #INTERCEPT_PATH_SETTING
+     */
+    public static String getPath(
+            HttpServletRequest request,
+            Class<? extends Servlet> type,
+            Object... parameters) {
 
-    private final transient Lazy<Map<String, ServletWrapper>> debugServletWrappers = new Lazy<Map<String, ServletWrapper>>() {
+        Preconditions.checkNotNull(request);
+        Preconditions.checkNotNull(type);
 
-        {
-            CodeUtils.addRedefineClassesListener(new CodeUtils.RedefineClassesListener() {
-                @Override
-                public void redefined(Set<Class<?>> classes) {
-                    for (Class<?> c : classes) {
-                        if (Servlet.class.isAssignableFrom(c)) {
-                            reset();
-                            break;
+        DebugServletWrapper wrapper = DebugServletWrapper.INSTANCES
+                .getUnchecked(request.getServletContext())
+                .get(type);
+
+        if (wrapper == null) {
+            throw new IllegalStateException(String.format(
+                    "[%s] debug servlet not available!",
+                    type.getName()));
+        }
+
+        return request.getContextPath()
+                + getInterceptPath()
+                + StringUtils.addQueryParameters(
+                        StringUtils.removeEnd(wrapper.getPaths().get(0), "/"),
+                        parameters);
+    }
+
+    private static String getInterceptPath() {
+        return StringUtils.ensureSurrounding(
+                Settings.getOrDefault(String.class, INTERCEPT_PATH_SETTING, DEFAULT_INTERCEPT_PATH),
+                "/");
+    }
+
+    /**
+     * Writes a pretty message about the given {@code error}.
+     *
+     * @param request Nonnull.
+     * @param response Nonnull.
+     * @param error Nonnull.
+     */
+    public static void writeError(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Throwable error)
+            throws IOException {
+
+        Preconditions.checkNotNull(request);
+        Preconditions.checkNotNull(response);
+        Preconditions.checkNotNull(error);
+
+        @SuppressWarnings("resource")
+        WebPageContext page = new WebPageContext((ServletContext) null, request, response);
+        String id = page.createId();
+        String servletPath = JspUtils.getCurrentServletPath(request);
+
+        response.setContentType("text/html");
+        page.putAllStandardDefaults();
+
+        page.writeStart("div", "id", id);
+            page.writeStart("pre", "class", "alert alert-error");
+                String noFile = null;
+
+                if (error instanceof ServletException) {
+                    String message = error.getMessage();
+
+                    if (message != null) {
+                        Matcher noFileMatcher = NO_FILE_PATTERN.matcher(message);
+
+                        if (noFileMatcher.matches()) {
+                            noFile = noFileMatcher.group(1);
                         }
                     }
                 }
-            });
-        }
 
-        @Override
-        protected Map<String, ServletWrapper> create() {
-            Map<String, ServletWrapper> wrappers = new TreeMap<String, ServletWrapper>();
+                if (noFile != null) {
+                    page.writeStart("strong");
+                        page.writeHtml(servletPath);
+                    page.writeEnd();
+                    page.writeHtml(" doesn't exist!");
 
-            Set<Class<? extends Servlet>> servletClasses = new HashSet<>();
-            ServletContext context = getServletContext();
+                } else {
+                    page.writeHtml("Can't render ");
+                    page.writeStart("a",
+                            "target", "_blank",
+                            "href", getPath(
+                                    request,
+                                    CodeDebugServlet.class,
+                                    "action", "edit",
+                                    "type", "JSP",
+                                    "servletPath", servletPath));
+                        page.writeHtml(servletPath);
+                    page.writeEnd();
+                    page.writeHtml("!");
+                }
 
-            if (context != null) {
-                ClassFinder.getThreadDefaultServletContext().with(context, () -> {
-                    servletClasses.addAll(ClassFinder.findClasses(Servlet.class));
-                });
+                page.writeHtml("\n\n");
+                page.writeObject(error);
 
-            } else {
-                servletClasses.addAll(ClassFinder.findClasses(Servlet.class));
-            }
+                List<String> paramNames = page.paramNamesList();
 
-            for (Class<? extends Servlet> servletClass : servletClasses) {
-                try {
-                    if (Modifier.isAbstract(servletClass.getModifiers())) {
-                        continue;
-                    }
+                if (!ObjectUtils.isBlank(paramNames)) {
+                    page.writeHtml("Parameters:\n");
 
-                    String path = null;
-                    Path pathAnnotation = servletClass.getAnnotation(Path.class);
-
-                    if (pathAnnotation != null) {
-                        path = pathAnnotation.value();
-                    }
-
-                    if (ObjectUtils.isBlank(path)) {
-                        Name nameAnnotation = servletClass.getAnnotation(Name.class);
-
-                        if (nameAnnotation != null) {
-                            path = nameAnnotation.value();
+                    for (String name : paramNames) {
+                        for (String value : page.params(String.class, name)) {
+                            page.writeHtml(name);
+                            page.writeHtml('=');
+                            page.writeHtml(value);
+                            page.writeHtml('\n');
                         }
                     }
 
-                    if (ObjectUtils.isBlank(path)) {
-                        continue;
-                    }
-
-                    wrappers.put(path, new ServletWrapper(servletClass));
-
-                } catch (Throwable ex) {
-                    LOGGER.warn(String.format(
-                            "Can't load debug servlet [%s]!",
-                            servletClass.getName()), ex);
+                    page.writeHtml('\n');
                 }
-            }
+            page.writeEnd();
+        page.writeEnd();
 
-            LOGGER.info("Found debug servlets: {}", wrappers.keySet());
-            return wrappers;
+        page.writeStart("script", "type", "text/javascript");
+            page.writeRaw("(function() {");
+                page.writeRaw("var f = document.createElement('iframe');");
+                page.writeRaw("f.frameBorder = '0';");
+                page.writeRaw("var fs = f.style;");
+                page.writeRaw("fs.background = 'transparent';");
+                page.writeRaw("fs.border = 'none';");
+                page.writeRaw("fs.overflow = 'hidden';");
+                page.writeRaw("fs.width = '100%';");
+                page.writeRaw("f.src = '");
+                page.writeRaw(page.js(JspUtils.getAbsolutePath(page.getRequest(), "/_resource/dari/alert.html", "id", id)));
+                page.writeRaw("';");
+                page.writeRaw("var a = document.getElementById('");
+                page.writeRaw(id);
+                page.writeRaw("');");
+                page.writeRaw("a.parentNode.insertBefore(f, a.nextSibling);");
+            page.writeRaw("})();");
+        page.writeEnd();
+    }
+
+    /**
+     * Makes sure that the given {@code request} is authenticated for access
+     * to the debugging interface.
+     *
+     * <p>When this method returns {@code false}, it sets the appropriate
+     * HTTP headers in the given {@code response} to require authentication,
+     * and the caller should stop processing:</p>
+     *
+     * <blockquote><pre>
+     *     if (!authenticate(request, response)) {
+     *         return;
+     *     }
+     * </pre></blockquote>
+     *
+     * @param request Nonnull.
+     * @param response Nonnull.
+     * @return {@code true} if authenticated.
+     * @see #USERNAME_SETTING
+     * @see #PASSWORD_SETTING
+     * @see #REALM_SETTING
+     */
+    public static boolean authenticate(HttpServletRequest request, HttpServletResponse response) {
+        Preconditions.checkNotNull(request);
+        Preconditions.checkNotNull(response);
+
+        LdapContext context = LdapUtils.createContext();
+        String[] credentials = JspUtils.getBasicCredentials(request);
+
+        if (context != null
+                && credentials != null
+                && LdapUtils.authenticate(context, credentials[0], credentials[1])) {
+
+            return true;
         }
 
-        @Override
-        protected void destroy(Map<String, ServletWrapper> wrappers) {
-            for (ServletWrapper wrapper : wrappers.values()) {
-                wrapper.destroyServlet();
-            }
-        }
-    };
+        String username = ObjectUtils.firstNonNull(
+                Settings.get(String.class, USERNAME_SETTING),
+                Settings.get(String.class, "servlet/debugUsername"));
 
-    // --- AbstractFilter support ---
+        String password = ObjectUtils.firstNonNull(
+                Settings.get(String.class, PASSWORD_SETTING),
+                Settings.get(String.class, "servlet/debugPassword"));
+
+        if (context == null
+                && (StringUtils.isBlank(username)
+                || StringUtils.isBlank(password))) {
+
+            if (!Settings.isProduction()) {
+                return true;
+            }
+
+        } else if (credentials != null
+                && credentials[0].equals(username)
+                && credentials[1].equals(password)) {
+
+            return true;
+        }
+
+        String realm = ObjectUtils.firstNonNull(
+                Settings.get(String.class, REALM_SETTING),
+                Settings.get(String.class, "servlet/debugRealm"),
+                "Dari Debugging Interface");
+
+        JspUtils.setBasicAuthenticationHeader(response, realm);
+
+        return false;
+    }
 
     @Override
     protected Iterable<Class<? extends Filter>> dependencies() {
-        List<Class<? extends Filter>> dependencies = new ArrayList<Class<? extends Filter>>();
-        dependencies.add(SettingsOverrideFilter.class);
+        List<Class<? extends Filter>> dependencies = new ArrayList<>();
+
+        dependencies.add(DebugSettingsOverrideFilter.class);
         dependencies.add(SourceFilter.class);
-        dependencies.add(LogCaptureFilter.class);
         dependencies.add(ResourceFilter.class);
+
         return dependencies;
     }
 
     @Override
     protected void doDestroy() {
-        debugServletWrappers.reset();
+        DebugServletWrapper.INSTANCES.invalidate(getServletContext());
     }
 
     @Override
@@ -178,59 +361,16 @@ public class DebugFilter extends AbstractFilter {
                 // message here will most likely not reach the user, so don't
                 // substitute.
                 if (JspUtils.isFormPost(request)
-                        && ObjectUtils.isBlank(capturing.getOutput())) {
+                        && StringUtils.isBlank(capturing.getOutput())) {
+
                     throw error;
 
                 // Discard the output so far and write the error instead.
                 } else {
-                    Static.writeError(request, response, error);
+                    writeError(request, response, error);
                 }
             }
         }
-    }
-
-    private static String getInterceptPath() {
-        return StringUtils.ensureSurrounding(Settings.getOrDefault(String.class, INTERCEPT_PATH_SETTING, DEFAULT_INTERCEPT_PATH), "/");
-    }
-
-    private static boolean authenticate(HttpServletRequest request, HttpServletResponse response) {
-        LdapContext context = LdapUtils.createContext();
-        String[] credentials = JspUtils.getBasicCredentials(request);
-
-        if (context != null
-                && credentials != null
-                && LdapUtils.authenticate(context, credentials[0], credentials[1])) {
-            return true;
-        }
-
-        String username = ObjectUtils.firstNonNull(
-                Settings.get(String.class, "dari/debugUsername"),
-                Settings.get(String.class, "servlet/debugUsername"));
-
-        String password = ObjectUtils.firstNonNull(
-                Settings.get(String.class, "dari/debugPassword"),
-                Settings.get(String.class, "servlet/debugPassword"));
-
-        if (context == null
-                && (ObjectUtils.isBlank(username)
-                || ObjectUtils.isBlank(password))) {
-            if (!Settings.isProduction()) {
-                return true;
-            }
-
-        } else if (credentials != null
-                && credentials[0].equals(username)
-                && credentials[1].equals(password)) {
-            return true;
-        }
-
-        String realm = ObjectUtils.firstNonNull(
-                Settings.get(String.class, "dari/debugRealm"),
-                Settings.get(String.class, "servlet/debugRealm"),
-                "Debugging Tool");
-
-        JspUtils.setBasicAuthenticationHeader(response, realm);
-        return false;
     }
 
     @Override
@@ -241,12 +381,14 @@ public class DebugFilter extends AbstractFilter {
             throws IOException, ServletException {
 
         String interceptPath = getInterceptPath();
-        String path = request.getServletPath();
-        if (path.equals(interceptPath.substring(0, interceptPath.length() - 1))) {
-            JspUtils.redirect(request, response, interceptPath);
-            return;
+        String servletPath = request.getServletPath();
 
-        } else if (!path.startsWith(interceptPath)) {
+        if (StringUtils.removeEnd(interceptPath, "/").equals(servletPath)) {
+            response.sendRedirect(request.getContextPath() + servletPath + "/");
+            return;
+        }
+
+        if (!servletPath.startsWith(interceptPath)) {
             chain.doFilter(request, response);
             return;
         }
@@ -255,50 +397,61 @@ public class DebugFilter extends AbstractFilter {
             return;
         }
 
-        final ServletContext context = getServletContext();
-        final String pathInfo;
-        String action = path.substring(interceptPath.length());
-        int slashAt = action.indexOf('/');
+        String debugPath = servletPath.substring(interceptPath.length());
+        ServletContext context = getServletContext();
+        Map<Class<? extends Servlet>, DebugServletWrapper> wrappers = DebugServletWrapper.INSTANCES.getUnchecked(context);
 
-        if (slashAt > -1) {
-            pathInfo = action.substring(slashAt);
-            action = action.substring(0, slashAt);
+        if (!StringUtils.isBlank(debugPath)) {
+            String debugPathSlash = StringUtils.ensureEnd(debugPath, "/");
 
-        } else {
-            pathInfo = "/";
-        }
+            for (DebugServletWrapper wrapper : wrappers.values()) {
+                for (String path : wrapper.getPaths()) {
+                    if (debugPathSlash.startsWith(path)) {
+                        int pathLength = path.length();
 
-        if (!ObjectUtils.isBlank(action)) {
-            ServletWrapper wrapper = debugServletWrappers.get().get(action);
-            if (wrapper != null) {
-                wrapper.serviceServlet(new PathInfoOverrideRequest(request, pathInfo), response);
-                return;
+                        wrapper.service(
+                                request,
+                                debugPath.length() - pathLength > 1
+                                        ? debugPath.substring(pathLength)
+                                        : null,
+                                response);
+
+                        return;
+                    }
+                }
             }
 
-            String actionJsp = WEB_INF_DEBUG + action;
+            String debugJsp = WEB_INF_DEBUG + debugPath;
+
             try {
-                if (context.getResource(actionJsp) != null) {
-                    JspUtils.forward(request, response, actionJsp);
+                if (context.getResource(debugJsp) != null) {
+                    JspUtils.forward(request, response, debugJsp);
                     return;
                 }
+
             } catch (MalformedURLException error) {
-                // If actionJsp isn't a valid URL, pretend that the action
-                // parameter wasn't provided by falling through to the code
-                // path below.
+                chain.doFilter(request, response);
+                return;
             }
         }
 
-        new PageWriter(getServletContext(), request, response) { {
+        new PageWriter(context, request, response) { {
             startPage();
                 writeStart("div", "class", "row-fluid");
 
                     writeStart("div", "class", "span3");
                         writeStart("h2").writeHtml("Standard Tools").writeEnd();
+
                         writeStart("ul");
-                            for (Map.Entry<String, ServletWrapper> entry : debugServletWrappers.get().entrySet()) {
+                            for (Iterator<DebugServletWrapper> i = wrappers.values().stream()
+                                    .sorted(Comparator.comparing(DebugServletWrapper::getName))
+                                    .iterator(); i.hasNext();) {
+
+                                DebugServletWrapper wrapper = i.next();
+
                                 writeStart("li");
-                                    writeStart("a", "href", entry.getKey());
-                                        writeHtml(entry.getKey());
+                                    writeStart("a", "href", wrapper.getPaths().get(0));
+                                        writeHtml(wrapper.getName());
                                     writeEnd();
                                 writeEnd();
                             }
@@ -308,23 +461,21 @@ public class DebugFilter extends AbstractFilter {
                     writeStart("div", "class", "span3");
                         writeStart("h2").writeHtml("Custom Tools").writeEnd();
 
-                        @SuppressWarnings("unchecked")
-                        Set<String> resources = (Set<String>) context.getResourcePaths(WEB_INF_DEBUG);
-                        if (resources != null && !resources.isEmpty()) {
-                            Set<String> jsps = new TreeSet<String>();
-                            for (String jsp : resources) {
-                                if (jsp.endsWith(".jsp")) {
-                                    jsps.add(jsp);
-                                }
-                            }
+                        Set<String> debugResources = context.getResourcePaths(WEB_INF_DEBUG);
 
-                            if (!jsps.isEmpty()) {
+                        if (debugResources != null && !debugResources.isEmpty()) {
+                            Set<String> debugJsps = debugResources.stream()
+                                    .filter(r -> r.endsWith(".jsp"))
+                                    .collect(Collectors.toCollection(TreeSet::new));
+
+                            if (!debugJsps.isEmpty()) {
                                 writeStart("ul");
-                                    for (String jsp : jsps) {
-                                        jsp = jsp.substring(WEB_INF_DEBUG.length());
+                                    for (String debugJsp : debugJsps) {
+                                        debugJsp = debugJsp.substring(WEB_INF_DEBUG.length());
+
                                         writeStart("li");
-                                            writeStart("a", "href", jsp);
-                                                writeHtml(jsp);
+                                            writeStart("a", "href", debugJsp);
+                                                writeHtml(debugJsp);
                                             writeEnd();
                                         writeEnd();
                                     }
@@ -336,7 +487,8 @@ public class DebugFilter extends AbstractFilter {
                     writeStart("div", "class", "span6");
                         writeStart("h2").writeHtml("Pings").writeEnd();
 
-                        Map<String, Throwable> errors = new CompactMap<String, Throwable>();
+                        Map<String, Throwable> errors = new CompactMap<>();
+
                         writeStart("table", "class", "table table-condensed");
                             writeStart("thead");
                                 writeStart("tr");
@@ -344,6 +496,7 @@ public class DebugFilter extends AbstractFilter {
                                     writeStart("th").writeHtml("Status").writeEnd();
                                 writeEnd();
                             writeEnd();
+
                             writeStart("tbody");
                                 for (Map.Entry<Class<?>, Throwable> entry : Ping.pingAll().entrySet()) {
                                     String name = entry.getKey().getName();
@@ -379,28 +532,21 @@ public class DebugFilter extends AbstractFilter {
         } };
     }
 
-    private static final class PathInfoOverrideRequest extends HttpServletRequestWrapper {
-
-        private final String pathInfo;
-
-        public PathInfoOverrideRequest(HttpServletRequest request, String pathInfo) {
-            super(request);
-            this.pathInfo = pathInfo;
-        }
-
-        @Override
-        public String getPathInfo() {
-            return pathInfo;
-        }
-    }
-
-    /** {@link DebugFilter} utility methods. */
+    /**
+     * {@link DebugFilter} utility methods.
+     *
+     * @deprecated Use the static methods in {@link DebugFilter} instead.
+     */
+    @Deprecated
     public static final class Static {
 
         /**
-         * Returns the path to the debugging servlet described in the
-         * given parameters.
+         * Returns the path to the debugging servlet described by the method
+         * parameters.
+         *
+         * @deprecated Use {@link DebugFilter#getPath(HttpServletRequest, Class, Object...)} instead.
          */
+        @Deprecated
         public static String getServletPath(HttpServletRequest request, String path, Object... parameters) {
             return JspUtils.getAbsolutePath(request, getInterceptPath() + path, parameters);
         }
@@ -408,106 +554,29 @@ public class DebugFilter extends AbstractFilter {
         /**
          * Writes a pretty message about the given {@code error}.
          *
-         * @param request Can't be {@code null}.
-         * @param response Can't be {@code null}.
-         * @param error Can't be {@code null}.
+         * @param request Nonnull.
+         * @param response Nonnull.
+         * @param error Nonnnull.
+         * @deprecated Use {@link DebugFilter#writeError(HttpServletRequest, HttpServletResponse, Throwable)} instead.
          */
+        @Deprecated
         public static void writeError(
                 HttpServletRequest request,
                 HttpServletResponse response,
                 Throwable error)
                 throws IOException {
 
-            @SuppressWarnings("resource")
-            WebPageContext page = new WebPageContext((ServletContext) null, request, response);
-            String id = page.createId();
-            String servletPath = JspUtils.getCurrentServletPath(request);
-
-            response.setContentType("text/html");
-            page.putAllStandardDefaults();
-
-            page.writeStart("div", "id", id);
-                page.writeStart("pre", "class", "alert alert-error");
-                    String noFile = null;
-
-                    if (error instanceof ServletException) {
-                        String message = error.getMessage();
-
-                        if (message != null) {
-                            Matcher noFileMatcher = NO_FILE_PATTERN.matcher(message);
-
-                            if (noFileMatcher.matches()) {
-                                noFile = noFileMatcher.group(1);
-                            }
-                        }
-                    }
-
-                    if (noFile != null) {
-                        page.writeStart("strong");
-                            page.writeHtml(servletPath);
-                        page.writeEnd();
-                        page.writeHtml(" doesn't exist!");
-
-                    } else {
-                        page.writeHtml("Can't render ");
-                        page.writeStart("a",
-                                "target", "_blank",
-                                "href", DebugFilter.Static.getServletPath(request, "code",
-                                        "action", "edit",
-                                        "type", "JSP",
-                                        "servletPath", servletPath));
-                            page.writeHtml(servletPath);
-                        page.writeEnd();
-                        page.writeHtml("!");
-                    }
-
-                    page.writeHtml("\n\n");
-                    page.writeObject(error);
-
-                    List<String> paramNames = page.paramNamesList();
-
-                    if (!ObjectUtils.isBlank(paramNames)) {
-                        page.writeHtml("Parameters:\n");
-
-                        for (String name : paramNames) {
-                            for (String value : page.params(String.class, name)) {
-                                page.writeHtml(name);
-                                page.writeHtml('=');
-                                page.writeHtml(value);
-                                page.writeHtml('\n');
-                            }
-                        }
-
-                        page.writeHtml('\n');
-                    }
-                page.writeEnd();
-            page.writeEnd();
-
-            page.writeStart("script", "type", "text/javascript");
-                page.writeRaw("(function() {");
-                    page.writeRaw("var f = document.createElement('iframe');");
-                    page.writeRaw("f.frameBorder = '0';");
-                    page.writeRaw("var fs = f.style;");
-                    page.writeRaw("fs.background = 'transparent';");
-                    page.writeRaw("fs.border = 'none';");
-                    page.writeRaw("fs.overflow = 'hidden';");
-                    page.writeRaw("fs.width = '100%';");
-                    page.writeRaw("f.src = '");
-                    page.writeRaw(page.js(JspUtils.getAbsolutePath(page.getRequest(), "/_resource/dari/alert.html", "id", id)));
-                    page.writeRaw("';");
-                    page.writeRaw("var a = document.getElementById('");
-                    page.writeRaw(id);
-                    page.writeRaw("');");
-                    page.writeRaw("a.parentNode.insertBefore(f, a.nextSibling);");
-                page.writeRaw("})();");
-            page.writeEnd();
+            DebugFilter.writeError(request, response, error);
         }
     }
 
     /**
-     * Specifies that the target servlet should be available through
-     * the debugging interface at the given path {@code value}.
+     * Specifies that the target servlet should be available through the
+     * debugging interface under the given path {@code value}.
+     *
+     * @deprecated Use {@link DebugServlet} instead.
      */
+    @Deprecated
     @Documented
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.TYPE)
@@ -515,7 +584,12 @@ public class DebugFilter extends AbstractFilter {
         String value();
     }
 
-    /** Use {@link Path} instead. */
+    /**
+     * Specifies that the target servlet should be available through the
+     * debugging interface under the given name {@code value}.
+     *
+     * @deprecated Use {@link DebugServlet} instead.
+     */
     @Deprecated
     @Documented
     @Retention(RetentionPolicy.RUNTIME)
@@ -572,13 +646,15 @@ public class DebugFilter extends AbstractFilter {
             includeStylesheet("/_resource/codemirror/lib/codemirror.css");
             includeStylesheet("/_resource/codemirror/addon/dialog/dialog.css");
 
+            HttpServletRequest request = page.getRequest();
+
             writeStart("style", "type", "text/css");
-                write("@font-face { font-family: 'AauxNextMedium'; src: url('/_resource/aauxnext-md-webfont.eot'); src: local('☺'), url('/_resource/aauxnext-md-webfont.woff') format('woff'), url('/_resource/aauxnext-md-webfont.ttf') format('truetype'), url('/_resource/aauxnext-md-webfont.svg#webfontfLsPAukW') }");
+                write("@font-face { font-family: 'AauxNextMedium'; src: url('"); write(JspUtils.getAbsolutePath(request, "/_resource/aauxnext-md-webfont.eot")); write("'); src: local('☺'), url('"); write(JspUtils.getAbsolutePath(request, "/_resource/aauxnext-md-webfont.woff")); write("') format('woff'), url('"); write(JspUtils.getAbsolutePath(request, "/_resource/aauxnext-md-webfont.ttf")); write("') format('truetype'), url('"); write(JspUtils.getAbsolutePath(request, "/_resource/aauxnext-md-webfont.svg#webfontfLsPAukW")); write("') }");
                 write("body { word-wrap: break-word; }");
                 write("select { word-wrap: normal; }");
                 write("h1, h2, h3, h4, h5, h6 { font-family: AauxNextMedium, sans-serif; }");
                 write(".navbar-inner { background: #0a5992; }");
-                write(".navbar .brand { background: url(/_resource/bridge.png) no-repeat 55px 0; font-family: AauxNextMedium, sans-serif; height: 40px; line-height: 40px; margin: 0; min-width: 200px; padding: 0; }");
+                write(".navbar .brand { background: url("); write(JspUtils.getAbsolutePath(request, "/_resource/bridge.png")); write(") no-repeat 55px 0; font-family: AauxNextMedium, sans-serif; height: 40px; line-height: 40px; margin: 0; min-width: 200px; padding: 0; }");
                 write(".navbar .brand a { color: #fff; float: left; font-size: 30px; padding-right: 60px; text-transform: uppercase; }");
                 write(".popup { width: 60%; }");
                 write(".popup .content { background-color: white; -moz-border-radius: 5px; -webkit-border-radius: 5px; border-radius: 5px; -moz-box-shadow: 0 0 10px #777; -webkit-box-shadow: 0 0 10px #777; box-shadow: 0 0 10px #777; position: relative; top: 10px; }");
@@ -623,7 +699,7 @@ public class DebugFilter extends AbstractFilter {
                     writeStart("div", "class", "navbar-inner");
                         writeStart("div", "class", "container-fluid");
                             writeStart("span", "class", "brand");
-                                writeStart("a", "href", DebugFilter.Static.getServletPath(page.getRequest(), ""));
+                                writeStart("a", "href", page.getRequest().getContextPath() + getInterceptPath());
                                     writeHtml("Dari");
                                 writeEnd();
                                 if (!ObjectUtils.isBlank(titles)) {
@@ -664,95 +740,6 @@ public class DebugFilter extends AbstractFilter {
         public void endPage() throws IOException {
                 endBody();
             endHtml();
-        }
-    }
-
-    private class ServletWrapper implements ServletConfig {
-
-        private final Servlet servlet;
-        private final AtomicBoolean isInitialized = new AtomicBoolean();
-
-        public ServletWrapper(Class<? extends Servlet> servletClass) {
-            this.servlet = TypeDefinition.getInstance(servletClass).newInstance();
-        }
-
-        public void serviceServlet(
-                HttpServletRequest request,
-                HttpServletResponse response)
-                throws IOException, ServletException {
-
-            if (isInitialized.compareAndSet(false, true)) {
-                servlet.init(this);
-                LOGGER.info("Initialized [{}] servlet", getServletName());
-            }
-            servlet.service(request, response);
-        }
-
-        public void destroyServlet() {
-            if (isInitialized.compareAndSet(true, false)) {
-                servlet.destroy();
-                LOGGER.info("Destroyed [{}] servlet", getServletName());
-            }
-        }
-
-        // --- ServletConfig support ---
-
-        @Override
-        public String getInitParameter(String name) {
-            return null;
-        }
-
-        @Override
-        public Enumeration<String> getInitParameterNames() {
-            return Collections.enumeration(Collections.<String>emptyList());
-        }
-
-        @Override
-        public ServletContext getServletContext() {
-            return DebugFilter.this.getServletContext();
-        }
-
-        @Override
-        public String getServletName() {
-            return getFilterConfig().getFilterName() + "$" + servlet.getClass().getName();
-        }
-    }
-
-    /** Overrides certain settings based on request parameters. */
-    private static class SettingsOverrideFilter extends AbstractFilter {
-
-        @Override
-        protected void doRequest(
-                HttpServletRequest request,
-                HttpServletResponse response,
-                FilterChain chain)
-                throws IOException, ServletException {
-
-            try {
-                Boolean production = ObjectUtils.to(Boolean.class, request.getParameter(PRODUCTION_PARAMETER));
-                if (production != null && !authenticate(request, response)) {
-                    return;
-                }
-
-                Settings.setOverride(Settings.PRODUCTION_SETTING, production);
-
-                if (ObjectUtils.to(boolean.class, request.getParameter(DEBUG_PARAMETER))) {
-                    if (authenticate(request, response)) {
-                        Settings.setOverride(Settings.DEBUG_SETTING, Boolean.TRUE);
-                        if (production == null) {
-                            Settings.setOverride(Settings.PRODUCTION_SETTING, Boolean.FALSE);
-                        }
-                    } else {
-                        return;
-                    }
-                }
-
-                chain.doFilter(request, response);
-
-            } finally {
-                Settings.setOverride(Settings.PRODUCTION_SETTING, null);
-                Settings.setOverride(Settings.DEBUG_SETTING, null);
-            }
         }
     }
 }

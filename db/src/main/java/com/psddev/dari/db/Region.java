@@ -234,6 +234,60 @@ public class Region {
         return ObjectUtils.toJson(featureCollection);
     }
 
+    /**
+     * Returns the well-known text representation of this region.
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/Well-known_text">WKT</a>
+     */
+    public String toWkt() {
+        StringBuilder mp = new StringBuilder();
+
+        mp.append("MULTIPOLYGON(");
+
+        List<Region.Polygon> polygons = getPolygons();
+
+        if (polygons != null) {
+            for (Region.Polygon polygon : polygons) {
+                for (Region.LinearRing ring : polygon) {
+                    mp.append("((");
+                    for (Region.Coordinate coordinate : ring) {
+                        mp.append(coordinate.getLatitude());
+                        mp.append(' ');
+                        mp.append(coordinate.getLongitude());
+                        mp.append(", ");
+                    }
+                    mp.setLength(mp.length() - 2);
+                    mp.append(")), ");
+                }
+            }
+        }
+
+        List<Region.Circle> circles = getCircles();
+
+        if (circles != null) {
+            for (Region.Circle circle : circles) {
+                for (Region.Polygon polygon : circle.getPolygons()) {
+                    for (Region.LinearRing ring : polygon) {
+                        mp.append("((");
+                        for (Region.Coordinate coordinate : ring) {
+                            mp.append(coordinate.getLatitude());
+                            mp.append(' ');
+                            mp.append(coordinate.getLongitude());
+                            mp.append(", ");
+                        }
+                        mp.setLength(mp.length() - 2);
+                        mp.append(")), ");
+                    }
+                }
+            }
+        }
+
+        mp.setLength(mp.length() - 2);
+        mp.append(")");
+
+        return mp.toString();
+    }
+
     @SuppressWarnings("unchecked")
     public static Region fromGeoJson(String geoJson) {
         Map<String, Object> json = (Map<String, Object>) ObjectUtils.fromJson(geoJson);

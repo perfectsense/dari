@@ -27,7 +27,7 @@ class ColorImageData extends Modification<ColorImage> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ColorImageData.class);
 
     @Override
-    protected void beforeSave() {
+    protected void beforeCommit() {
         ColorDistribution.Data distributionData = as(ColorDistribution.Data.class);
 
         if (distributionData.getDistribution() == null) {

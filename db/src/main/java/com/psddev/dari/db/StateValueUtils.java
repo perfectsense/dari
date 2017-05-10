@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -23,18 +24,6 @@ import com.psddev.dari.util.StorageItem;
 /** State value utility methods. */
 abstract class StateValueUtils {
 
-    /** Key for the embedded object's unique ID. */
-    public static final String ID_KEY = "_id";
-
-    /** Key for the embedded object's type. */
-    public static final String TYPE_KEY = "_type";
-
-    /**
-     * Key for the reference to the object that should replace the
-     * embedded object map.
-     */
-    public static final String REFERENCE_KEY = "_ref";
-
     /**
      * Thread local map used for detecting circular references in
      * {@link #resolveReferences}.
@@ -44,22 +33,22 @@ abstract class StateValueUtils {
     /** Converts the given {@code object} into an ID if it's a reference. */
     public static UUID toIdIfReference(Object object) {
         return object instanceof Map
-                ? ObjectUtils.to(UUID.class, ((Map<?, ?>) object).get(REFERENCE_KEY))
+                ? ObjectUtils.to(UUID.class, ((Map<?, ?>) object).get(StateSerializer.REFERENCE_KEY))
                 : null;
     }
 
     public static Object toObjectIfReference(Database database, Object object) {
         if (object instanceof Map) {
             Map<?, ?> objectMap = (Map<?, ?>) object;
-            UUID id = ObjectUtils.to(UUID.class, objectMap.get(REFERENCE_KEY));
+            UUID id = ObjectUtils.to(UUID.class, objectMap.get(StateSerializer.REFERENCE_KEY));
 
             if (id != null) {
-                UUID typeId = ObjectUtils.to(UUID.class, objectMap.get(TYPE_KEY));
+                UUID typeId = ObjectUtils.to(UUID.class, objectMap.get(StateSerializer.TYPE_KEY));
                 ObjectType type;
                 if (typeId != null) {
                     type = database.getEnvironment().getTypeById(typeId);
                 } else {
-                    type = database.getEnvironment().getTypeByName(ObjectUtils.to(String.class, objectMap.get(TYPE_KEY)));
+                    type = database.getEnvironment().getTypeByName(ObjectUtils.to(String.class, objectMap.get(StateSerializer.TYPE_KEY)));
                 }
                 if (type == null || type.isAbstract()) {
                     return database.readFirst(Query.from(Object.class).where("_id = ?", id));
@@ -129,7 +118,7 @@ abstract class StateValueUtils {
                        references.put(id, parentState.getExtras().get(State.SUB_DATA_STATE_EXTRA_PREFIX + id));
                     } else {
                         unresolvedIds.add(id);
-                        unresolvedTypeIds.add(ObjectUtils.to(UUID.class, ((Map<?, ?>) item).get(TYPE_KEY)));
+                        unresolvedTypeIds.add(ObjectUtils.to(UUID.class, ((Map<?, ?>) item).get(StateSerializer.TYPE_KEY)));
                     }
                 }
             }
@@ -443,13 +432,10 @@ abstract class StateValueUtils {
                     String subType,
                     Object value) {
 
-                if (value instanceof Recordable) {
-                    return value;
-
-                } else if (value instanceof Map) {
+                if (value instanceof Map) {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> valueMap = (Map<String, Object>) value;
-                    Object typeId = valueMap.get(TYPE_KEY);
+                    Object typeId = valueMap.get(StateSerializer.TYPE_KEY);
 
                     if (typeId != null) {
                         State objectState = State.getInstance(object);
@@ -461,26 +447,50 @@ abstract class StateValueUtils {
                         }
 
                         if (valueType != null) {
-                            value = valueType.createObject(ObjectUtils.to(UUID.class, valueMap.get(ID_KEY)));
+                            value = valueType.createObject(ObjectUtils.to(UUID.class, valueMap.get(StateSerializer.ID_KEY)));
                             State valueState = State.getInstance(value);
 
                             valueState.setDatabase(database);
                             valueState.setResolveToReferenceOnly(objectState.isResolveToReferenceOnly());
                             valueState.setResolveInvisible(objectState.isResolveInvisible());
                             valueState.putAll(valueMap);
-
-                            return value;
                         }
                     }
 
-                } else {
+                } else if (!(value instanceof Recordable)) {
                     UUID id = ObjectUtils.to(UUID.class, value);
+
                     if (id != null) {
-                        return Query.findById(Object.class, id);
+                        value = Query.fromAll().where("_id = ?", id).first();
                     }
                 }
 
-                throw new IllegalArgumentException();
+                if (value == null) {
+                    throw new IllegalArgumentException();
+                }
+
+                ObjectType valueType = State.getInstance(value).getType();
+                UUID valueTypeId = valueType.getId();
+                Set<ObjectType> fieldTypes = field.findConcreteTypes();
+
+                if (!fieldTypes.isEmpty()
+                        && !fieldTypes.stream().anyMatch(type -> type.getId().equals(valueTypeId))) {
+
+                    Object source = value;
+                    Object target = fieldTypes.stream()
+                            .map(type -> database.getEnvironment().getStateValueAdapter(valueTypeId, type.getId()))
+                            .filter(Objects::nonNull)
+                            .map(adapter -> adapter.adapt(source))
+                            .filter(Objects::nonNull)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (target != null) {
+                        value = target;
+                    }
+                }
+
+                return value;
             }
         });
 

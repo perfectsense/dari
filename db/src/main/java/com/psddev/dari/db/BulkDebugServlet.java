@@ -9,26 +9,33 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.psddev.dari.util.AsyncQueue;
 import com.psddev.dari.util.DebugFilter;
+import com.psddev.dari.util.DebugServlet;
 import com.psddev.dari.util.StringUtils;
 import com.psddev.dari.util.TaskExecutor;
 import com.psddev.dari.util.UuidUtils;
 import com.psddev.dari.util.WebPageContext;
 
 /** Debug servlet for running bulk database operations. */
-@DebugFilter.Path("db-bulk")
 @SuppressWarnings("serial")
-public class BulkDebugServlet extends HttpServlet {
+public class BulkDebugServlet extends DebugServlet {
 
     public static final String INDEXER_PREFIX = "Database: Indexer: ";
     public static final String COPIER_PREFIX = "Database: Copier: ";
 
-    // --- HttpServlet support ---
+    @Override
+    public String getName() {
+        return "Database: Bulk Operations";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-bulk");
+    }
 
     @Override
     protected void service(
@@ -335,6 +342,9 @@ public class BulkDebugServlet extends HttpServlet {
                     writeEnd();
                 writeEnd();
 
+                includeStylesheet("/_resource/chosen/chosen.css");
+                includeScript("/_resource/chosen/chosen.jquery.min.js");
+
                 writeStart("script", "type", "text/javascript");
                     write("$(document).ready(function() {");
                         write("$('#" + resumableControlId + "').hide();");
@@ -352,7 +362,12 @@ public class BulkDebugServlet extends HttpServlet {
                             write("} else {");
                                 write("$('#" + resumeIdControlId + "').hide();");
                             write("}");
-                        write("})");
+                        write("});");
+
+                        //Initialize chosen select
+                        write("$('select[name=typeId]').chosen({ 'search_contains': true });");
+                        write("$('.chzn-drop').css({'width': 'auto', 'white-space': 'nowrap', 'border-top': '1px solid #aaa'});");
+
                     write("})");
                 writeEnd();
 

@@ -45,10 +45,16 @@ public class S3StorageItem extends AbstractStorageItem implements StorageItemOri
      */
     public static final String ORIGIN_BASE_URL_SUB_SETTING = "originBaseUrl";
 
+    /**
+     * Sub-setting key for S3 {@link CannedAccessControlList}.
+     */
+    public static final String CANNED_ACCESS_CONTROL_LIST_SETTING = "cannedAccessControlList";
+
     private transient String secret;
     private transient String bucket;
     private transient String access;
     private transient String originBaseUrl;
+    private transient CannedAccessControlList cannedAccessControlList;
 
     public String getBucket() {
         return bucket;
@@ -82,6 +88,14 @@ public class S3StorageItem extends AbstractStorageItem implements StorageItemOri
         this.originBaseUrl = originBaseUrl;
     }
 
+    public CannedAccessControlList getCannedAccessControlList() {
+        return cannedAccessControlList;
+    }
+
+    public void setCannedAccessControlList(CannedAccessControlList cannedAccessControlList) {
+        this.cannedAccessControlList = cannedAccessControlList;
+    }
+
     @Override
     public void initialize(String settingsKey, Map<String, Object> settings) {
         super.initialize(settingsKey, settings);
@@ -95,6 +109,7 @@ public class S3StorageItem extends AbstractStorageItem implements StorageItemOri
         setAccess(ObjectUtils.to(String.class, settings.get(ACCESS_SUB_SETTING)));
         setSecret(ObjectUtils.to(String.class, settings.get(SECRET_SUB_SETTING)));
         setOriginBaseUrl(ObjectUtils.to(String.class, settings.get(ORIGIN_BASE_URL_SUB_SETTING)));
+        setCannedAccessControlList(ObjectUtils.to(CannedAccessControlList.class, settings.get(CANNED_ACCESS_CONTROL_LIST_SETTING)));
     }
 
     private AmazonS3Client createClient() {
@@ -138,8 +153,7 @@ public class S3StorageItem extends AbstractStorageItem implements StorageItemOri
         }
 
         PutObjectRequest poRequest = new PutObjectRequest(getBucket(), getPath(), data, metadata);
-
-        poRequest.setCannedAcl(CannedAccessControlList.PublicRead);
+        poRequest.setCannedAcl(ObjectUtils.firstNonNull(getCannedAccessControlList(), CannedAccessControlList.PublicRead));
         createClient().putObject(poRequest);
     }
 

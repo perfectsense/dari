@@ -599,12 +599,14 @@ public final class JspUtils {
      * <ul>
      * <li>{@link ServletRequest#isSecure}</li>
      * <li>{@code X-Forwarded-Proto} header</li>
+     * <li>{@code CloudFront-Forwarded-Proto} header</li>
      * <li>{@code HTTPS} environment variable</li>
      * </ul>
      */
     public static boolean isSecure(HttpServletRequest request) {
         return request.isSecure()
                 || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"))
+                || "https".equalsIgnoreCase(request.getHeader("CloudFront-Forwarded-Proto"))
                 || System.getenv("HTTPS") != null;
     }
 

@@ -77,10 +77,18 @@ public class QueryJvmAnalyzer extends JvmAnalyzer {
 
                 try {
                     try {
-                        Database.Static.getFirst(SqlDatabase.class).buildSelectStatement(query);
+                        SqlDatabase db = Database.Static.getFirst(SqlDatabase.class);
+
+                        if (db != null) {
+                            db.buildSelectStatement(query);
+                        }
 
                     } catch (UnsupportedOperationException error) {
-                        Database.Static.getFirst(SolrDatabase.class).buildQuery(query);
+                        SolrDatabase db = Database.Static.getFirst(SolrDatabase.class);
+
+                        if (db != null) {
+                            db.buildQuery(query);
+                        }
                     }
 
                 } catch (Exception error) {

@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,10 +51,10 @@ public class DatabaseEnvironment implements ObjectStruct {
             public void redefined(Set<Class<?>> classes) {
                 for (Class<?> c : classes) {
                     if (Recordable.class.isAssignableFrom(c)) {
-                        TypeDefinition.Static.invalidateAll();
                         refreshTypes();
                         Introspector.flushCaches();
                         dynamicProperties.reset();
+                        adaptersBySourceTypeId.reset();
                         break;
                     }
                 }
@@ -311,7 +312,7 @@ public class DatabaseEnvironment implements ObjectStruct {
                         Class<? extends Recordable> objectClass = i.next();
 
                         try {
-                            if (objectClass.isAnonymousClass()) {
+                            if (objectClass.isAnonymousClass() || Substitution.class.isAssignableFrom(objectClass)) {
                                 i.remove();
                             }
 
@@ -333,6 +334,15 @@ public class DatabaseEnvironment implements ObjectStruct {
                             type = new ObjectType();
                             type.getState().setDatabase(database);
 
+                            Recordable.TypeId typeIdAnnotation = objectClass.getAnnotation(Recordable.TypeId.class);
+
+                            if (typeIdAnnotation != null) {
+                                UUID typeId = ObjectUtils.to(UUID.class, typeIdAnnotation.value());
+
+                                if (typeId != null) {
+                                    type.getState().setId(typeId);
+                                }
+                            }
                         } else {
                             type.getState().clear();
                         }
@@ -743,6 +753,7 @@ public class DatabaseEnvironment implements ObjectStruct {
 
         if (name != null) {
             name = name.toLowerCase(Locale.ENGLISH);
+            name = SubstitutionUtils.getOriginalName(name);
         }
 
         TypesCache temporaryTypes = temporaryTypesLocal.get();
@@ -765,6 +776,7 @@ public class DatabaseEnvironment implements ObjectStruct {
 
         if (group != null) {
             group = group.toLowerCase(Locale.ENGLISH);
+            group = SubstitutionUtils.getOriginalName(group);
         }
 
         TypesCache temporaryTypes = temporaryTypesLocal.get();
@@ -798,6 +810,7 @@ public class DatabaseEnvironment implements ObjectStruct {
     public ObjectType getTypeByClass(Class<?> objectClass) {
         bootstrapOnce.ensure();
 
+        objectClass = SubstitutionUtils.getOriginalClass(objectClass);
         String className = objectClass.getName().toLowerCase(Locale.ENGLISH);
         TypesCache temporaryTypes = temporaryTypesLocal.get();
 
@@ -809,6 +822,53 @@ public class DatabaseEnvironment implements ObjectStruct {
         }
 
         return permanentTypes.byClassName.get(className);
+    }
+
+    private final transient Lazy<Map<UUID, Map<UUID, StateValueAdapter<Object, Object>>>> adaptersBySourceTypeId = new Lazy<Map<UUID, Map<UUID, StateValueAdapter<Object, Object>>>>() {
+
+        @Override
+        protected Map<UUID, Map<UUID, StateValueAdapter<Object, Object>>> create() {
+            bootstrapOnce.ensure();
+
+            Map<UUID, Map<UUID, StateValueAdapter<Object, Object>>> adaptersBySourceTypeId = new ConcurrentHashMap<>();
+
+            for (Class<?> c : ClassFinder.findConcreteClasses(StateValueAdapter.class)) {
+                TypeDefinition<?> d = TypeDefinition.getInstance(c);
+                Class<?> source = d.getInferredGenericTypeArgumentClass(StateValueAdapter.class, 0);
+
+                if (source != null) {
+                    Class<?> target = d.getInferredGenericTypeArgumentClass(StateValueAdapter.class, 1);
+
+                    if (target != null) {
+                        ObjectType sourceType = getTypeByClass(source);
+
+                        if (sourceType != null) {
+                            ObjectType targetType = getTypeByClass(target);
+
+                            if (targetType != null) {
+                                UUID sourceTypeId = sourceType.getId();
+                                UUID targetTypeId = targetType.getId();
+                                Map<UUID, StateValueAdapter<Object, Object>> adapters = adaptersBySourceTypeId.get(sourceTypeId);
+
+                                if (adapters == null) {
+                                    adapters = new ConcurrentHashMap<>();
+                                    adaptersBySourceTypeId.put(sourceTypeId, adapters);
+                                }
+
+                                adapters.put(targetTypeId, (StateValueAdapter<Object, Object>) TypeDefinition.getInstance(c).newInstance());
+                            }
+                        }
+                    }
+                }
+            }
+
+            return adaptersBySourceTypeId;
+        }
+    };
+
+    public StateValueAdapter<Object, Object> getStateValueAdapter(UUID sourceTypeId, UUID targetTypeId) {
+        Map<UUID, StateValueAdapter<Object, Object>> adapters = adaptersBySourceTypeId.get().get(sourceTypeId);
+        return adapters != null ? adapters.get(targetTypeId) : null;
     }
 
     /**
@@ -841,7 +901,7 @@ public class DatabaseEnvironment implements ObjectStruct {
             hasClass = false;
         }
 
-        Object object = TypeDefinition.getInstance(objectClass).newInstance();
+        Object object = SubstitutionUtils.newInstance(objectClass);
         State state;
 
         try {

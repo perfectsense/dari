@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,6 +63,12 @@ class MySQLBinaryLogReader {
                 jdbcUrl = (String) dataSourceClass.getMethod("getJdbcUrl").invoke(dataSource);
                 username = (String) dataSourceClass.getMethod("getUsername").invoke(dataSource);
                 password = (String) dataSourceClass.getMethod("getPassword").invoke(dataSource);
+
+            } else if (dataSource instanceof HikariDataSource) {
+                HikariDataSource hikari = (HikariDataSource) dataSource;
+                jdbcUrl = hikari.getJdbcUrl();
+                username = hikari.getUsername();
+                password = hikari.getPassword();
 
             } else if (dataSourceClassName.equals("org.apache.tomcat.jdbc.pool.DataSource")) {
                 jdbcUrl = (String) dataSourceClass.getMethod("getUrl").invoke(dataSource);

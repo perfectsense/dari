@@ -39,9 +39,12 @@ class StateValueSet extends AbstractSet<Object> {
 
         } else if (items instanceof Set) {
             set = (Set<Object>) items;
+            hasConvertedAll = field != null && field.isRaw();
 
         } else {
             set = new LinkedHashSet<Object>();
+            hasConvertedAll = field != null && field.isRaw();
+
             for (Object item : items) {
                 set.add(item);
             }

@@ -24,6 +24,78 @@ import org.imgscalr.Scalr;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Image editor built on {@link javax.imageio.ImageIO}.
+ * ImageIO's image type compatibly can be expanded with the inclusion of
+ * <a href="https://github.com/haraldk/TwelveMonkeys">TwelveMonkeys</a>.
+ *
+ * <pre>
+ *
+ * Example usage of TwelveMonkeys :
+ * </pre>
+ *
+ * <pre>
+ * <strong><u>TwelveMonkeys' listener that implements dynamic loading and unloading of ImageIO plugins for web applications</u></strong>
+ * {@code
+ *
+ * <listener>
+ *    <display-name>ImageIO service provider loader/unloader</display-name>
+ *    <listener-class>com.twelvemonkeys.servlet.image.IIOProviderContextListener</listener-class>
+ * </listener>
+ * }
+ * </pre>
+ *
+ * <pre>
+ * <strong><u>TwelveMonkeys' dependencies</u></strong>
+ * {@code
+ *
+ * <properties>
+ *    <twelvemonkeys.version>3.2.1</twelvemonkeys.version>
+ * </properties>
+ *
+ * <dependency>
+ *    <groupId>com.twelvemonkeys.common</groupId>
+ *    <artifactId>common-io</artifactId>
+ *    <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * <dependency>
+ *    <groupId>com.twelvemonkeys.common</groupId>
+ *    <artifactId>common-lang</artifactId>
+ *    <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * <dependency>
+ *    <groupId>com.twelvemonkeys.common</groupId>
+ *    <artifactId>common-image</artifactId>
+ *    <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * <dependency>
+ *    <groupId>com.twelvemonkeys.imageio</groupId>
+ *    <artifactId>imageio-core</artifactId>
+ *    <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * <dependency>
+ *     <groupId>com.twelvemonkeys.imageio</groupId>
+ *     <artifactId>imageio-metadata</artifactId>
+ *     <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * <dependency>
+ *     <groupId>com.twelvemonkeys.imageio</groupId>
+ *     <artifactId>imageio-jpeg</artifactId>
+ *     <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * <dependency>
+ *     <groupId>com.twelvemonkeys.imageio</groupId>
+ *     <artifactId>imageio-tiff</artifactId>
+ *     <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * <dependency>
+ *     <groupId>com.twelvemonkeys.servlet</groupId>
+ *     <artifactId>servlet</artifactId>
+ *     <version>${twelvemonkeys.version}</version>
+ * </dependency>
+ * }
+ * </pre>
+ */
 public class JavaImageEditor extends AbstractUrlImageEditor {
 
     private static final String DEFAULT_IMAGE_FORMAT = "png";
@@ -115,11 +187,23 @@ public class JavaImageEditor extends AbstractUrlImageEditor {
     }
 
     @Override
-    public StorageItem edit(StorageItem storageItem, String command, Map<String, Object> options, Object... arguments) {
+    public String getBaseUrl() {
 
-        if (StringUtils.isBlank(this.getBasePath())) {
-            setBaseUrlFromRequest(PageContextFilter.Static.getRequestOrNull());
+        String baseUrl = this.baseUrl;
+
+        if (StringUtils.isBlank(baseUrl)) {
+            baseUrl = getBaseUrlFromRequest(PageContextFilter.Static.getRequestOrNull());
         }
+
+        if (StringUtils.isBlank(baseUrl)) {
+            return super.getBaseUrl();
+        }
+
+        return baseUrl;
+    }
+
+    @Override
+    public StorageItem edit(StorageItem storageItem, String command, Map<String, Object> options, Object... arguments) {
 
         if (ImageEditor.CROP_COMMAND.equals(command)
                 && options != null
@@ -398,7 +482,7 @@ public class JavaImageEditor extends AbstractUrlImageEditor {
         }
     }
 
-    protected void setBaseUrlFromRequest(HttpServletRequest request) {
+    protected String getBaseUrlFromRequest(HttpServletRequest request) {
 
         StringBuilder baseUrlBuilder = new StringBuilder();
 
@@ -418,7 +502,7 @@ public class JavaImageEditor extends AbstractUrlImageEditor {
         }
 
         baseUrlBuilder.append(JavaImageServlet.SERVLET_PATH);
-        setBaseUrl(baseUrlBuilder.toString());
+        return baseUrlBuilder.toString();
     }
 
     protected Scalr.Method findQualityByInteger(Integer quality) {

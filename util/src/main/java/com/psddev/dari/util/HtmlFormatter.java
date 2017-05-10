@@ -206,19 +206,9 @@ public interface HtmlFormatter<T> {
             if (jspServletPath != null) {
                 jspServletPath = StringUtils.ensureStart(jspServletPath, "/");
                 lineNumber = CodeUtils.getJspLineNumber(className, lineNumber);
-                writer.writeStart("a",
-                        "class", cssClass,
-                        "target", "_blank",
-                        "href", StringUtils.addQueryParameters(
-                                "/_debug/code",
-                                "action", "edit",
-                                "type", "JSP",
-                                "servletPath", jspServletPath,
-                                "line", lineNumber));
-                    writer.writeHtml(jspServletPath);
-                    writer.writeHtml(':');
-                    writer.writeHtml(lineNumber);
-                writer.writeEnd();
+                writer.writeHtml(jspServletPath);
+                writer.writeHtml(':');
+                writer.writeHtml(lineNumber);
 
             } else {
                 File source = CodeUtils.getSource(className);
@@ -228,24 +218,15 @@ public interface HtmlFormatter<T> {
                     writer.writeEnd();
 
                 } else {
-                    writer.writeStart("a",
-                            "class", cssClass,
-                            "target", "_blank",
-                            "href", StringUtils.addQueryParameters(
-                                    "/_debug/code",
-                                    "action", "edit",
-                                    "file", source,
-                                    "line", lineNumber));
-                        int dotAt = className.lastIndexOf('.');
-                        if (dotAt > -1) {
-                            className = className.substring(dotAt + 1);
-                        }
-                        writer.writeHtml(className);
-                        writer.writeHtml('.');
-                        writer.writeHtml(element.getMethodName());
-                        writer.writeHtml(':');
-                        writer.writeHtml(lineNumber);
-                    writer.writeEnd();
+                    int dotAt = className.lastIndexOf('.');
+                    if (dotAt > -1) {
+                        className = className.substring(dotAt + 1);
+                    }
+                    writer.writeHtml(className);
+                    writer.writeHtml('.');
+                    writer.writeHtml(element.getMethodName());
+                    writer.writeHtml(':');
+                    writer.writeHtml(lineNumber);
                 }
             }
         }

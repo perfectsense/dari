@@ -12,20 +12,27 @@ import java.util.Set;
 import java.util.UUID;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.psddev.dari.util.CodeUtils;
 import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.DebugFilter;
+import com.psddev.dari.util.DebugServlet;
 import com.psddev.dari.util.ObjectUtils;
 
-@DebugFilter.Path("db-schema")
 @SuppressWarnings("serial")
-public class SchemaDebugServlet extends HttpServlet {
+public class SchemaDebugServlet extends DebugServlet {
 
-    // --- HttpServlet support ---
+    @Override
+    public String getName() {
+        return "Database: Schema Viewer";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-schema");
+    }
 
     @Override
     protected void service(

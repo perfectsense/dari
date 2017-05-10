@@ -3,6 +3,7 @@ package com.psddev.dari.db;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -10,26 +11,33 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.psddev.dari.util.DebugServlet;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.ISODateTimeFormat;
 
-import com.psddev.dari.util.DebugFilter;
 import com.psddev.dari.util.HtmlWriter;
 import com.psddev.dari.util.JspUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.WebPageContext;
 
-@DebugFilter.Path("db-odata")
+@Deprecated
 @SuppressWarnings("serial")
-public class ODataServlet extends HttpServlet {
+public class ODataServlet extends DebugServlet {
 
-    // --- HttpServlet support ---
+    @Override
+    public String getName() {
+        return null;
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-odata");
+    }
 
     @Override
     protected void service(

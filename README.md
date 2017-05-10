@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/perfectsense/dari.svg)](https://travis-ci.org/perfectsense/dari)
+
 Welcome to Dari!
 ================
 

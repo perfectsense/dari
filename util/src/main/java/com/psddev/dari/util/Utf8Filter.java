@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
 
+import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -16,10 +18,17 @@ import javax.servlet.http.HttpServletResponse;
  * Forces {@link StringUtils#UTF_8} character encoding on all requests
  * and responses.
  */
-public class Utf8Filter extends AbstractFilter {
+public class Utf8Filter extends AbstractFilter implements AbstractFilter.Auto {
 
     public static final String CHECK_PARAMETER = "_u";
     public static final String CHECK_VALUE = "\u2713";
+
+    @Override
+    public void updateDependencies(Class<? extends AbstractFilter> filterClass, List<Class<? extends Filter>> dependencies) {
+        if (!getClass().isAssignableFrom(filterClass)) {
+            dependencies.add(0, getClass());
+        }
+    }
 
     // --- AbstractFilter support ---
 

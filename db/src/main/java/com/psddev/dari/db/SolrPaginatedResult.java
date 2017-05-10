@@ -107,37 +107,9 @@ public class SolrPaginatedResult<E> extends PaginatedResult<E> implements HtmlOb
 
         if (Settings.isDebug() && this.getSolrQuery() != null) {
             String solrFullQuery = this.getSolrQuery().toString();
-            String solrQuery = this.getSolrQuery().getQuery();
-            String solrSort = StringUtils.join(this.getSolrQuery().getSortFields(), ",");
 
-            // Use a form instead of a link if the URL will be too long.
-            if (solrFullQuery.length() > 2000) {
-                writer.writeStart("span", "class", "solr-query");
-                    writer.writeHtml("Solr Query: ");
-                    writer.writeHtml(StringUtils.decodeUri(solrFullQuery));
-
-                    writer.writeStart("form",
-                            "class", "solrQueryDebugForm",
-                            "method", "post",
-                            "action", "/_debug/db-solr",
-                            "target", "query");
-                        writer.writeElement("input", "type", "hidden", "name", "query", "value", StringUtils.decodeUri(solrQuery));
-                        writer.writeElement("input", "type", "hidden", "name", "sort", "value", StringUtils.decodeUri(solrSort));
-                        writer.writeElement("input", "class", "btn", "type", "submit", "value", "Execute");
-                    writer.writeEnd();
-                writer.writeEnd();
-
-            } else {
-                writer.writeHtml("Solr Query: ");
-                writer.writeHtml(StringUtils.decodeUri(solrFullQuery));
-                writer.writeHtml(" (");
-                    writer.writeStart("a",
-                            "href", StringUtils.addQueryParameters("/_debug/db-solr", "query", solrQuery, "sort", solrSort),
-                            "target", "query");
-                        writer.writeHtml("Execute");
-                    writer.writeEnd();
-                writer.writeHtml(")");
-            }
+            writer.writeHtml("Solr Query: ");
+            writer.writeHtml(StringUtils.decodeUri(solrFullQuery));
         }
 
         writer.writeStart("ol");

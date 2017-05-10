@@ -47,6 +47,7 @@ import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.servlet.ServletContext;
 import javax.tools.DiagnosticCollector;
@@ -59,6 +60,7 @@ import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 
+import com.google.common.base.Throwables;
 import com.psddev.dari.util.asm.ClassReader;
 import com.psddev.dari.util.asm.ClassVisitor;
 import com.psddev.dari.util.asm.ClassWriter;
@@ -437,18 +439,26 @@ public final class CodeUtils {
 
         if (result instanceof Set) {
             for (Class<?> c : (Set<Class<?>>) result) {
-                for (Method method : c.getDeclaredMethods()) {
-                    if (Modifier.isStatic(method.getModifiers())
-                            && method.getReturnType() != Void.class
-                            && method.getParameterTypes().length == 0) {
+                List<Method> declaredMethods = Arrays.stream(c.getDeclaredMethods())
+                    .filter(method -> Modifier.isStatic(method.getModifiers())
+                        && method.getReturnType() != Void.class
+                        && method.getParameterTypes().length == 0
+                    )
+                    .collect(Collectors.toList());
 
-                        method.setAccessible(true);
-                        try {
-                            return method.invoke(null);
-                        } catch (InvocationTargetException ex) {
-                            Throwable cause = ex.getCause();
-                            throw cause instanceof Exception ? (Exception) cause : ex;
-                        }
+                Method chosenOne = declaredMethods
+                    .stream()
+                    .filter(method -> "main".equals(method.getName()))
+                    .findAny()
+                    .orElseGet(() -> declaredMethods.stream().findAny().orElse(null));
+
+                if (chosenOne != null) {
+                    chosenOne.setAccessible(true);
+                    try {
+                        return chosenOne.invoke(null);
+                    } catch (InvocationTargetException ex) {
+                        Throwable cause = ex.getCause();
+                        throw cause instanceof Exception ? (Exception) cause : ex;
                     }
                 }
             }
@@ -570,6 +580,23 @@ public final class CodeUtils {
     private static final ClassFileTransformer JSP_CLASS_RECORDER = new JspTransformer();
 
     private static class JspTransformer implements ClassFileTransformer {
+
+        // Preload the classes used in the transform method to prevent
+        // infinite recursion.
+        static {
+            preload(ClassReader.class);
+            preload(ClassWriter.class);
+            preload(SmapAdapter.class);
+        }
+
+        private static void preload(Class<?> c) {
+            try {
+                Class.forName(c.getName());
+
+            } catch (ClassNotFoundException error) {
+                throw Throwables.propagate(error);
+            }
+        }
 
         @Override
         public byte[] transform(
@@ -895,8 +922,13 @@ public final class CodeUtils {
         if (!successes.isEmpty()) {
             LOGGER.info("Redefined {}", successes);
 
-            for (RedefineClassesListener listener : REDEFINE_CLASSES_LISTENERS) {
-                listener.redefined(successes);
+            try {
+                for (RedefineClassesListener listener : REDEFINE_CLASSES_LISTENERS) {
+                    listener.redefined(successes);
+                }
+
+            } catch (Throwable error) {
+                return definitions;
             }
         }
 

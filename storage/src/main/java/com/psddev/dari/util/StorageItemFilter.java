@@ -157,7 +157,9 @@ public class StorageItemFilter extends AbstractFilter {
 
             StorageItemUploadPart part = new StorageItemUploadPart();
             part.setContentType(fileItem.getContentType());
-            part.setName(fileItem.getName());
+
+            // Using StringUtils.getFileName as fileItem.getName may include the path
+            part.setName(StringUtils.getFileName(fileItem.getName()));
             part.setFile(file);
             part.setStorageName(storageName);
 

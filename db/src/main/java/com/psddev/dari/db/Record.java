@@ -14,7 +14,6 @@ import com.psddev.dari.util.HtmlObject;
 import com.psddev.dari.util.HtmlWriter;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.SettingsException;
-import com.psddev.dari.util.StringUtils;
 import com.psddev.dari.util.TypeDefinition;
 
 /** Represents a generic record. */
@@ -348,14 +347,7 @@ public class Record implements BeanInfo, Cloneable, Comparable<Record>, HtmlObje
                 writer.writeHtml(": ");
             }
 
-            writer.writeStart("a",
-                    "target", "_blank",
-                    "href", StringUtils.addQueryParameters(
-                            "/_debug/query",
-                            "where", "id = " + state.getId(),
-                            "action", "Run"));
-                writer.writeHtml(getLabel());
-            writer.writeEnd();
+            writer.writeHtml(getLabel());
             writer.writeElement("br");
 
             writer.writeHtml(ObjectUtils.toJson(state.getSimpleValues(), true));

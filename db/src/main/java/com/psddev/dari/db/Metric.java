@@ -3,6 +3,7 @@ package com.psddev.dari.db;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -477,7 +478,13 @@ public class Metric extends Record {
             Long startTimestamp = (start == null ? null : start.getMillis());
             Long endTimestamp = (end == null ? null : end.getMillis());
             MetricAccess mdb = MetricAccess.Static.getMetricAccess(database, null, field);
-            return MetricAccess.Static.getDistinctIds(mdb.getDatabase(), type != null ? type.getId() : null, mdb.getSymbolId(), startTimestamp, endTimestamp);
+            MetricAccessDatabase mdbDatabase = mdb.getDatabase();
+
+            if (mdbDatabase == null) {
+                return Collections.emptyIterator();
+            }
+
+            return MetricAccess.Static.getDistinctIds(mdbDatabase, type != null ? type.getId() : null, mdb.getSymbolId(), startTimestamp, endTimestamp);
         }
     }
 

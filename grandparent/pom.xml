@@ -109,6 +109,7 @@
                             <source><![CDATA[
 import java.io.*
 import java.util.*
+import java.util.regex.*
 
 def packaging = project.packaging
 if (!(packaging == 'jar' || packaging == 'war')) {
@@ -133,9 +134,10 @@ try {
 
     def scm = project.scm
     if (scm) {
-        map['scmConnection'] = scm.connection
-        map['scmDeveloperConnection'] = scm.developerConnection
-        map['scmUrl'] = scm.url
+        def suffix = '\\.git/.*$'
+        map['scmConnection'] = scm.connection?.replaceFirst(suffix, '.git')
+        map['scmDeveloperConnection'] = scm.developerConnection?.replaceFirst(suffix, '.git')
+        map['scmUrl'] = scm.url?.replaceFirst(suffix, '.git')
     }
 
     map['classFinder.include'] = 'true'
@@ -275,7 +277,7 @@ try {
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>versions-maven-plugin</artifactId>
-                        <version>2.2</version>
+                        <version>2.3</version>
                         <executions>
                             <execution>
                                 <id>set-release-version</id>
@@ -515,6 +517,12 @@ try {
                                     <goal>aggregate-jar</goal>
                                 </goals>
                             </execution>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
                         </executions>
                     </plugin>
 
@@ -528,6 +536,12 @@ try {
                                 <phase>package</phase>
                                 <goals>
                                     <goal>aggregate</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar</goal>
                                 </goals>
                             </execution>
                         </executions>

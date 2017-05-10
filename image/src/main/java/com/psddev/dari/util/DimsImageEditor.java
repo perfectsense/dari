@@ -344,14 +344,9 @@ public class DimsImageEditor extends AbstractUrlImageEditor {
             this.usePrivateUrl = usePrivateUrl;
 
             String url = item.getPublicUrl();
-            String publicUrl = url;
             LOGGER.trace("Creating new DIMS URL from [" + url + "]");
             if (url == null) {
                 throw new MalformedURLException("Cannot create DIMS URL for item [" + item + "] with url [null]");
-            }
-
-            if (url.startsWith("/")) {
-                url = "file:" + url;
             }
 
             String baseUrl = null;
@@ -363,7 +358,7 @@ public class DimsImageEditor extends AbstractUrlImageEditor {
                 baseUrl = StringUtils.removeEnd(DimsImageEditor.this.getBaseUrlForImageUrl(url), "/");
             }
 
-            if (publicUrl.startsWith(baseUrl)) {
+            if (url.startsWith(baseUrl)) {
 
                 // It's an existing DIMS URL that we're further modifying
 
@@ -409,8 +404,12 @@ public class DimsImageEditor extends AbstractUrlImageEditor {
                 }
 
             } else {
-
                 // It's a new DIMS request
+                // If it's relative, prepend the path with "file:" so it can be validated as a proper file URL.
+                if (url.startsWith("/")) {
+                    url = "file:" + url;
+                }
+
                 // need to decode the url because DIMS expects a non encoded URL
                 // and will take care of encoding it before it fetches the image
                 url = StringUtils.decodeUri(url);

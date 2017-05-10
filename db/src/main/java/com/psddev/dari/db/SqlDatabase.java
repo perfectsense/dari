@@ -75,7 +75,7 @@ import com.psddev.dari.util.TypeDefinition;
 import com.psddev.dari.util.UuidUtils;
 
 /** Database backed by a SQL engine. */
-public class SqlDatabase extends AbstractDatabase<Connection> {
+public class SqlDatabase extends AbstractDatabase<Connection> implements MetricAccessDatabase {
 
     public static final String DATA_SOURCE_SETTING = "dataSource";
     public static final String DATA_SOURCE_JNDI_NAME_SETTING = "dataSourceJndiName";
@@ -337,6 +337,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
      * @return May be {@code null}.
      *
      **/
+    @Override
     public String getMetricCatalog() {
         return metricCatalog;
     }
@@ -365,6 +366,11 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
     /** Returns the vendor-specific SQL engine information. */
     public SqlVendor getVendor() {
         return vendor;
+    }
+
+    @Override
+    public SqlVendor getMetricVendor() {
+        return getVendor();
     }
 
     /** Sets the vendor-specific SQL engine information. */
@@ -571,6 +577,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
     /**
      * Returns an unique numeric ID for the given {@code symbol}.
      */
+    @Override
     public int getSymbolId(String symbol) {
         Integer id = symbols.get().get(symbol);
         if (id == null) {
@@ -995,7 +1002,15 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
         State objectState = State.getInstance(object);
 
         if (object instanceof Singleton) {
-            singletonIds.put(object.getClass(), objectState.getId());
+            ObjectType objectType = objectState.getType();
+
+            if (objectType != null) {
+                Class<?> objectClass = objectType.getObjectClass();
+
+                if (objectClass != null) {
+                    singletonIds.put(objectClass, objectState.getId());
+                }
+            }
         }
 
         if (!objectState.isReferenceOnly()) {
@@ -1164,7 +1179,8 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
      * Executes the given read {@code statement} (created from the given
      * {@code sqlQuery}) before the given {@code timeout} (in seconds).
      */
-    ResultSet executeQueryBeforeTimeout(
+    @Override
+    public ResultSet executeQueryBeforeTimeout(
             Statement statement,
             String sqlQuery,
             int timeout)
@@ -1350,7 +1366,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
                         UUID id = ObjectUtils.to(UUID.class, result.getBytes(3));
                         byte[] data = result.getBytes(2);
                         Map<String, Object> dataJson = unserializeData(data);
-                        byte[] typeIdBytes = UuidUtils.toBytes(ObjectUtils.to(UUID.class, dataJson.get(StateValueUtils.TYPE_KEY)));
+                        byte[] typeIdBytes = UuidUtils.toBytes(ObjectUtils.to(UUID.class, dataJson.get(StateSerializer.TYPE_KEY)));
 
                         if (!Arrays.equals(typeIdBytes, UuidUtils.ZERO_BYTES) && id != null) {
                             replicationCache.put(id, new Object[] { typeIdBytes, data, dataJson });
@@ -1999,9 +2015,10 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
                                 + "\n\turl={}"
                                 + "\n\tusername={}"
                                 + "\n\tpoolSize={}",
-                        url,
-                        user,
-                        poolSize);
+                        new Object[] {
+                                url,
+                                user,
+                                poolSize });
 
                 HikariDataSource ds = new HikariDataSource();
 
@@ -2031,6 +2048,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
 
     private boolean checkReplicationCache(Query<?> query) {
         return query.isCache()
+                && !query.isMaster()
                 && isEnableReplicationCache()
                 && !Boolean.TRUE.equals(query.getOptions().get(DISABLE_REPLICATION_CACHE_QUERY_OPTION))
                 && mysqlBinaryLogReader != null
@@ -2385,7 +2403,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> {
                     if (ObjectField.RECORD_TYPE.equals(itemType)) {
                         for (Map.Entry<String, Object> entry : rawKeys.entrySet()) {
                             Map<String, Object> ref = new HashMap<String, Object>();
-                            ref.put(StateValueUtils.REFERENCE_KEY, entry.getValue());
+                            ref.put(StateSerializer.REFERENCE_KEY, entry.getValue());
                             entry.setValue(ref);
                         }
                     }
