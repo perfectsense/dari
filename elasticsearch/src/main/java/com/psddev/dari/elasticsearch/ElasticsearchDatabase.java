@@ -19,6 +19,7 @@ import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Predicate;
 import com.psddev.dari.db.PredicateParser;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.QueryPhrase;
 import com.psddev.dari.db.Recordable;
 import com.psddev.dari.db.Region;
 import com.psddev.dari.db.Sorter;
@@ -68,6 +69,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.GeoShapeQueryBuilder;
+import org.elasticsearch.index.query.MatchPhraseQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -2158,6 +2160,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             : (v instanceof Region
                             ? QueryBuilders.boolQuery().must(
                             equalsAnyQuery(simpleKey, key, key, query, v, ShapeRelation.CONTAINS))
+                            : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator) && (v instanceof QueryPhrase))
+                            ? QueryBuilders.boolQuery().should(addQueryPhrase((QueryPhrase) v, matchesAnalyzer(operator, key, typeIds)))
                             : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
                             ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
                             .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesWildcard(operator, matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
@@ -2167,11 +2171,29 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     v == null ? QueryBuilders.matchAllQuery()
                             : "*".equals(v)
                             ? QueryBuilders.matchAllQuery()
+                            : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator) && (v instanceof QueryPhrase))
+                            ? QueryBuilders.boolQuery().should(addQueryPhrase((QueryPhrase) v, matchesAnalyzer(operator, key, typeIds)))
                             : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
                             ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
                             .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesWildcard(operator, matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
                             : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)));
         }
+    }
+
+    /**
+     * This switches to phrase with slop and boost optionally
+     */
+    private MatchPhraseQueryBuilder addQueryPhrase(QueryPhrase qp, String key) {
+
+        MatchPhraseQueryBuilder qb = QueryBuilders.matchPhraseQuery(key, qp.getPhrase());
+        if (qp.getSlop() != null) {
+            qb.slop(Math.round(qp.getSlop()));
+        }
+
+        if (qp.getBoost() != null) {
+            qb.boost(qp.getBoost());
+        }
+        return qb;
     }
 
     /**
@@ -2227,6 +2249,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             : (v instanceof Region
                             ? QueryBuilders.boolQuery().must(
                             equalsAnyQuery(simpleKey, key, key, query, v, ShapeRelation.CONTAINS))
+                            : (v instanceof QueryPhrase)
+                            ? QueryBuilders.boolQuery().should(addQueryPhrase((QueryPhrase) v, matchesAnalyzer(operator, key, typeIds)))
                             : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
                             .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesWildcard(operator, matchesAnyUUID(operator, key, v, false)))).boost(0.1f)))));
         } else {
@@ -2234,6 +2258,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     v == null ? QueryBuilders.matchAllQuery()
                             : "*".equals(v)
                             ? QueryBuilders.matchAllQuery()
+                            : (v instanceof QueryPhrase)
+                            ? QueryBuilders.boolQuery().should(addQueryPhrase((QueryPhrase) v, matchesAnalyzer(operator, key, typeIds)))
                             : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
                             .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(matchesWildcard(operator, matchesAnyUUID(operator, key, v, false)))).boost(0.1f)));
         }

@@ -4,6 +4,7 @@ import com.psddev.dari.test.LocationIndexTest;
 import com.psddev.dari.test.ModificationDenormalizedTest;
 import com.psddev.dari.test.ModificationEmbeddedTest;
 import com.psddev.dari.test.NumberIndexTest;
+import com.psddev.dari.test.PhraseIndexTest;
 import com.psddev.dari.test.ReadTest;
 import com.psddev.dari.test.RegionCircleIndexTest;
 import com.psddev.dari.test.RegionIndexTest;
@@ -161,6 +162,7 @@ public class ElasticDBSuite {
             ElasticSetupDatabase();
             Runtime.getRuntime().addShutdownHook(new Thread(EmbeddedElasticsearchServer::shutdown));
             TestSuite suite = new TestSuite();
+            suite.addTest(new JUnit4TestAdapter(PhraseIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticInitializationTest.class));
