@@ -17,24 +17,27 @@ public class QueryPhrase {
         return phrase;
     }
 
-    public void setPhrase(String phrase) {
+    public QueryPhrase setPhrase(String phrase) {
         this.phrase = phrase;
+        return this;
     }
 
     public Float getSlop() {
         return slop;
     }
 
-    public void setSlop(Float distance) {
+    public QueryPhrase setSlop(Float distance) {
         this.slop = distance;
+        return this;
     }
 
     public Float getBoost() {
         return boost;
     }
 
-    public void setBoost(Float boost) {
+    public QueryPhrase setBoost(Float boost) {
         this.boost = boost;
+        return this;
     }
 
 }

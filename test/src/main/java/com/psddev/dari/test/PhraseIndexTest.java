@@ -44,6 +44,12 @@ public class PhraseIndexTest extends AbstractTest {
         assertThat("actual1 expected", actual1, is(expected));
         assertThat("actual1 expected.testString", actual1.testString, is(expected.testString));
 
+        QueryPhrase qp1 = new QueryPhrase("Develop Astronomers").setSlop(2.0f);
+        PhraseIndexModel actual10 = Query.from(PhraseIndexModel.class).where("testString matches ?", qp).first();
+        assertThat("actual10 notnull", actual10, is(notNullValue()));
+        assertThat("actual10 expected", actual10, is(expected));
+        assertThat("actual10 expected.testString", actual10.testString, is(expected.testString));
+
         qp.setPhrase("Astronomers Develop");
         PhraseIndexModel actual4 = Query.from(PhraseIndexModel.class).where("testString matches ?", qp).first();
         assertThat("actual4 notnull", actual4, is(notNullValue()));
