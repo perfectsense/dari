@@ -4,7 +4,7 @@
 
 See src/main/resources/SETUP for further details
 
-Make sure you install Elasticsearch 5.4.1 and Kibana 5.4.1. Kibana is optional.
+Make sure you install Elasticsearch 5.4.2 and Kibana 5.4.2. Kibana is optional.
 
 This works on Brightspot 3.3-SNAPSHOT
 

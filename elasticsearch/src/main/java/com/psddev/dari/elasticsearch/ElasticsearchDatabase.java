@@ -132,14 +132,14 @@ import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 /**
- * ElasticsearchDatabase for Elasticsearch 5.4.1
+ * ElasticsearchDatabase for Elasticsearch 5.4.2
  *
  */
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
-    static final String ELASTIC_VERSION = "5.4.1";
+    static final String ELASTIC_VERSION = "5.4.2";
     static final String PREFIX_TEMPLATE_NAME = "bright_";
     static final String TEMPLATE_NAME = PREFIX_TEMPLATE_NAME + "1";   // bright_version increment
 

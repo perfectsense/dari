@@ -1,4 +1,4 @@
-Elasticsearch v5.4.1 README
+Elasticsearch v5.4.2 README
 
 1. Please setup conf/context.xml - Elastic can be the Database, or AggregateDatabase. As a Database it can replace MySQL. As an Aggregate it can replace Solr.
 
