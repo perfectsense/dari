@@ -1,6 +1,5 @@
 package com.psddev.dari.test;
 
-import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.QueryPhrase;
 import org.junit.After;
@@ -8,7 +7,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
@@ -81,8 +81,8 @@ public class PhraseIndexTest extends AbstractTest {
         qp.setPhrase("Hubble Astronomers");
         qp.setSlop(1.0f);
         qp.setBoost(10.0f);
-        PhraseIndexModel actual8 = Query.from(PhraseIndexModel.class).where("testString matches ?", qp).
-                or("testString matches ?", "eat")
+        PhraseIndexModel actual8 = Query.from(PhraseIndexModel.class).where("testString matches ?", qp)
+                .or("testString matches ?", "eat")
                 .sortRelevant(10.0d, "testString matches ?", qp).first();
         assertThat("actual8 notnull", actual8, is(notNullValue()));
         assertThat("actual8 expected", actual8, is(expected));
