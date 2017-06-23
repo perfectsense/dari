@@ -33,6 +33,8 @@
         <module>asm</module>
         <module>aws</module>
         <module>db</module>
+        <module>elastic</module>
+        <module>test</module>
         <module>elasticsearch</module>
         <module>grandparent</module>
         <module>h2</module>
@@ -329,12 +331,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.elasticsearch</groupId>
-                <artifactId>elasticsearch</artifactId>
-                <version>1.7.1</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.imgscalr</groupId>
                 <artifactId>imgscalr-lib</artifactId>
                 <version>4.2</version>
@@ -361,7 +357,7 @@
             <dependency>
                 <groupId>org.jsoup</groupId>
                 <artifactId>jsoup</artifactId>
-                <version>1.9.1</version>
+                <version>1.10.2</version>
             </dependency>
 
             <dependency>

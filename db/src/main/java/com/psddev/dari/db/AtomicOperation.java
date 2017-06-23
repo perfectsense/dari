@@ -66,6 +66,10 @@ public abstract class AtomicOperation {
             this.value = value;
         }
 
+        public double getValue() {
+            return this.value;
+        }
+
         @Override
         public void execute(State state) {
             String field = getField();
@@ -107,6 +111,10 @@ public abstract class AtomicOperation {
             super(field);
 
             this.value = value;
+        }
+
+        public Object getValue() {
+            return this.value;
         }
 
         @Override
@@ -158,6 +166,10 @@ public abstract class AtomicOperation {
             this.value = value;
         }
 
+        public Object getValue() {
+            return this.value;
+        }
+
         @Override
         public void execute(State state) {
             String field = getField();
@@ -207,6 +219,13 @@ public abstract class AtomicOperation {
             this.newValue = newValue;
         }
 
+        public Object getOldValue() {
+            return this.oldValue;
+        }
+        public Object getNewValue() {
+            return this.newValue;
+        }
+
         @Override
         public void execute(State state) {
             String field = getField();
@@ -245,6 +264,10 @@ public abstract class AtomicOperation {
             super(field);
 
             this.value = value;
+        }
+
+        public Object getValue() {
+            return this.value;
         }
 
         @Override

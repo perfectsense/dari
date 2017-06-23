@@ -1,3 +1,5 @@
+dist: trusty
+sudo: required
 branches:
   except:
     - /^v[-.0-9]+$/
@@ -14,6 +16,8 @@ addons:
 
 env:
   global:
+    - export JAVA_OPTS="-Xmx3g -Xms3g"
+    - export MAVEN_OPTS="-Xmx1g -Xms1g"
     - secure: "cwcbZHRjNFAAZvQd8fd8WhDfB7vpzkGED+ANMGxi4gnBsHPbjZrQnrV6Du9KKNb+eQMcrMuuMEO3H23lZ+W2awGQ1FCdNBe9AxkWMcitXOHfRabIeIhqtqDFBfEdlumzAdTEss/UhEBVWTWE+033HstEbgegmoIBsfF7CvhYaCM="
     - secure: "h2oELiIilIuKQzrpUaTJkwNqCka6zAu7I8V0cpL5JaolP0RGmGFwwTf4zD32NkSaLUSuYXQzzewasUJ/rF34+cCQC29PKgBAZejV1mXSduS2bG/oW89lbIqwdMGKX+5KIFqlSr4q9eHMwlzos4EqJClxxv0wH3guNIGI8Xk3zKk="
 
@@ -25,5 +29,10 @@ cache:
   directories:
     - $HOME/.m2
 
+before_script:
+  - echo "MAVEN_OPTS='-Xmx2g -Xms2g'" > $HOME/.mavenrc
+  - echo "JAVA_OPTS='-Xmx3g -Xms3g'" >> $HOME/.mavenrc
+
 after_success:
   - git clone https://github.com/perfectsense/travis-maven-deploy.git && travis-maven-deploy/deploy.sh
+

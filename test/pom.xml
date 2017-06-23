@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+        http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.psddev</groupId>
+        <artifactId>dari</artifactId>
+        <version>3.3-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dari-db-test</artifactId>
+    <version>3.3-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Dari: Integration - Db - Test</name>
+
+    <dependencies>
+
+<!--        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-elastic</artifactId>
+            <version>3.3-SNAPSHOT</version>
+        </dependency>-->
+
+<!--        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-elasticsearch</artifactId>
+            <version>3.3-SNAPSHOT</version>
+        </dependency>-->
+
+<!--        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-h2</artifactId>
+            <version>3.3-SNAPSHOT</version>
+        </dependency>-->
+
+        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-asm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-sql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-util</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.psddev</groupId>
+            <artifactId>dari-db</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20090211</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-web</artifactId>
+            <version>2.7</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>1.1.3</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest-all</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.18.1</version>
+                <configuration>
+                    <skipTests>true</skipTests>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+
+<!--    <profiles>
+        <profile>
+            <id>ElasticTests</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <testcase.groups>com.psddev.dari.test.ElasticTest</testcase.groups>
+                <testcase.excludegroups>com.psddev.dari.test.ElasticExcludeTest</testcase.excludegroups>
+            </properties>
+        </profile>
+        <profile>
+            <id>H2Tests</id>
+            <properties>
+                <testcase.groups>com.psddev.dari.test.H2Test</testcase.groups>
+                <testcase.excludegroups>com.psddev.dari.test.H2ExcludeTest</testcase.excludegroups>
+            </properties>
+        </profile>
+    </profiles>
+
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.18.1</version>
+                <configuration>
+                    <skip>false</skip>
+                    <argLine>-DDBTYPE=${testcase.groups}</argLine>
+                    <reportNameSuffix>${testcase.groups}</reportNameSuffix>
+                    <groups>${testcase.groups}</groups>
+                    <excludedGroups>${testcase.excludegroups}</excludedGroups>
+                </configuration>
+              &lt;!&ndash;  <executions>
+                    <execution>
+                        <id>elastic</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <skip>false</skip>
+                            <argLine>-DDBTYPE=h2</argLine>
+                            <reportNameSuffix>H2</reportNameSuffix>
+                            <groups>com.psddev.dari.test.H2Test</groups>
+                        </configuration>
+                    </execution>
+                </executions>&ndash;&gt;
+            </plugin>
+        </plugins>
+    </build>-->
+
+
+</project>

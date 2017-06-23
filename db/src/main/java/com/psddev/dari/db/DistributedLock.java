@@ -117,7 +117,15 @@ public class DistributedLock implements Lock {
             try {
                 key.replaceAtomically("lockId", lockId);
                 key.replaceAtomically("lastPing", database.now());
-                key.saveImmediately();
+
+                // saveImmediately (unsafely)
+                database.beginIsolatedWrites();
+                try {
+                    database.saveUnsafely(key);
+                    database.commitWrites();
+                } finally {
+                    database.endWrites();
+                }
 
             } catch (DatabaseException ex) {
                 Throwable cause = ex.getCause();

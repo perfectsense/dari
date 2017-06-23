@@ -1,0 +1,49 @@
+{
+  "dynamic_templates": [
+    {
+      "locationgeo": {
+        "match": "_location",
+        "match_mapping_type": "string",
+        "mapping": {
+          "type": "geo_point"
+        }
+      }
+    },
+    {
+      "shapegeo": {
+        "match": "_polygon",
+        "match_mapping_type": "object",
+        "mapping": {
+          "type": "geo_shape"
+        }
+      }
+    },
+    {
+      "int_template": {
+        "match": "_*",
+        "match_mapping_type": "string",
+        "mapping": {
+          "type": "keyword"
+        }
+      }
+    },
+    {
+      "notanalyzed": {
+        "match": "*",
+        "match_mapping_type": "string",
+        "mapping": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            },
+            "match": {
+              "type": "text",
+              "analyzer": "text_analyzer"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

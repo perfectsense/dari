@@ -435,25 +435,6 @@ public interface Recordable {
         String validationMessage() default "";
     }
 
-    /**
-     * Specifies the valid mime types for the target
-     * {@link com.psddev.dari.util.StorageItem} field using the provided
-     * {@link com.psddev.dari.util.SparseSet} representation. For example, to
-     * specify a file be a pdf or image:</p>
-     *
-     * <p><blockquote><pre><code data-type="java">
-     *     {@literal @}MimeTypes("+application/pdf +image/")
-     *     private StorageItem file;
-     * </pre></blockquote></p>
-     */
-    @Documented
-    @ObjectField.AnnotationProcessorClass(MimeTypesProcessor.class)
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.FIELD)
-    @interface MimeTypes {
-        String value();
-    }
-
     // --- Deprecated ---
 
     /** @deprecated Use {@link Denormalized} instead. */
@@ -977,14 +958,6 @@ class WhereProcessor implements ObjectField.AnnotationProcessor<Recordable.Where
     public void process(ObjectType type, ObjectField field, Recordable.Where annotation) {
         field.setPredicate(annotation.value());
         field.setPredicateValidationMessage(annotation.validationMessage());
-    }
-}
-
-class MimeTypesProcessor implements ObjectField.AnnotationProcessor<Recordable.MimeTypes> {
-
-    @Override
-    public void process(ObjectType type, ObjectField field, Recordable.MimeTypes annotation) {
-        field.setMimeTypes(annotation.value());
     }
 }
 

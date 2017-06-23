@@ -15,7 +15,6 @@ import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.TimeZone;
 import javax.imageio.ImageIO;
 import javax.servlet.ServletException;
@@ -52,9 +51,9 @@ public class JavaImageServlet extends HttpServlet {
         if (!StringUtils.isBlank(imageUrl)) {
 
             String imageType = "png";
-            if (imageUrl.toLowerCase(Locale.ENGLISH).endsWith(".jpg") || imageUrl.toLowerCase(Locale.ENGLISH).endsWith(".jpeg")) {
+            if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".jpeg")) {
                 imageType = "jpeg";
-            } else if (imageUrl.toLowerCase(Locale.ENGLISH).endsWith(".gif")) {
+            } else if (imageUrl.endsWith(".gif")) {
                 imageType = "gif";
             }
 

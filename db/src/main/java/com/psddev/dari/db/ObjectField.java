@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringJoiner;
 import java.util.UUID;
 
 import com.google.common.base.Optional;
@@ -34,7 +33,6 @@ import com.google.common.cache.LoadingCache;
 import com.psddev.dari.util.CollectionUtils;
 import com.psddev.dari.util.CompactMap;
 import com.psddev.dari.util.ObjectUtils;
-import com.psddev.dari.util.SparseSet;
 import com.psddev.dari.util.StorageItem;
 import com.psddev.dari.util.StringUtils;
 import com.psddev.dari.util.TypeDefinition;
@@ -149,7 +147,6 @@ public class ObjectField extends Record {
     private static final String JAVA_FIELD_NAME_KEY = "java.field";
     private static final String JAVA_DECLARING_CLASS_NAME_KEY = "java.declaringClass";
     private static final String JAVA_ENUM_CLASS_NAME_KEY = "java.enumClass";
-    private static final String MIME_TYPES_KEY = "mimeTypes";
 
     private final transient ObjectStruct parent;
 
@@ -201,8 +198,6 @@ public class ObjectField extends Record {
     @InternalName("java.enumClass")
     private String javaEnumClassName;
 
-    private String mimeTypes;
-
     private transient Map<String, Object> options;
 
     public ObjectField(ObjectField field) {
@@ -235,7 +230,6 @@ public class ObjectField extends Record {
         javaFieldName = field.javaFieldName;
         javaDeclaringClassName = field.javaDeclaringClassName;
         javaEnumClassName = field.javaEnumClassName;
-        mimeTypes = field.mimeTypes;
         options = field.options != null ? new CompactMap<String, Object>(field.options) : null;
     }
 
@@ -281,7 +275,6 @@ public class ObjectField extends Record {
         predicateValidationMessage = (String) definition.remove(PREDICATE_VALIDATION_MESSAGE);
         raw = Boolean.TRUE.equals(definition.remove(RAW_KEY));
         groups = ObjectUtils.to(SET_STRING_TYPE_REF, definition.remove(GROUPS_KEY));
-        mimeTypes = (String) definition.remove(MIME_TYPES_KEY);
 
         @SuppressWarnings("unchecked")
         Collection<String> typeIds = (Collection<String>) definition.remove(VALUE_TYPES_KEY);
@@ -393,7 +386,6 @@ public class ObjectField extends Record {
         definition.put(JAVA_FIELD_NAME_KEY, javaFieldName);
         definition.put(JAVA_DECLARING_CLASS_NAME_KEY, javaDeclaringClassName);
         definition.put(JAVA_ENUM_CLASS_NAME_KEY, javaEnumClassName);
-        definition.put(MIME_TYPES_KEY, mimeTypes);
 
         return definition;
     }
@@ -826,14 +818,6 @@ public class ObjectField extends Record {
         this.javaEnumClassName = className;
     }
 
-    public String getMimeTypes() {
-        return mimeTypes;
-    }
-
-    public void setMimeTypes(String mimeTypes) {
-        this.mimeTypes = mimeTypes;
-    }
-
     /** Returns the map of custom option values. */
     public Map<String, Object> getOptions() {
         if (options == null) {
@@ -996,55 +980,7 @@ public class ObjectField extends Record {
                         ? patternMessage
                         : String.format("Must match %s pattern!", pattern));
             }
-
-        } else if (FILE_TYPE.equals(internalType) && value != null) {
-            String mimeTypes = getMimeTypes();
-
-            if (!StringUtils.isBlank(mimeTypes)
-                    && !new SparseSet(mimeTypes).contains(ObjectUtils.to(StorageItem.class, value).getContentType())) {
-
-                state.addError(this, createMimeTypesValidationMessage());
-            }
         }
-    }
-
-    private String createMimeTypesValidationMessage() {
-        StringJoiner validJoiner = new StringJoiner(", ");
-        StringJoiner invalidJoiner = new StringJoiner(", ");
-
-        for (String mimeType : getMimeTypes().split(" ")) {
-            if (mimeType.equals("+/")) {
-                continue;
-            }
-
-            String typeToAdd = mimeType.substring(1) + (mimeType.endsWith("/") ? "*" : "");
-
-            if (mimeType.startsWith("+")) {
-                validJoiner.add(typeToAdd);
-
-            } else if (mimeType.startsWith("-")) {
-                invalidJoiner.add(typeToAdd);
-            }
-        }
-
-        String message = null;
-
-        if (validJoiner.length() > 0) {
-            message = String.format("MIME type must match one of the following: [%s]", validJoiner.toString());
-        }
-
-        if (invalidJoiner.length() > 0) {
-            if (message == null) {
-                message = "MIME type";
-
-            } else {
-                message += " and";
-            }
-
-            message += String.format(" may not match any of the following: [%s]", invalidJoiner.toString());
-        }
-
-        return message;
     }
 
     /**

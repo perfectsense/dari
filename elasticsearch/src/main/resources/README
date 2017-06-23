@@ -1,0 +1,100 @@
+Elasticsearch v5.4.2 README
+
+1. Please setup conf/context.xml - Elastic can be the Database, or AggregateDatabase. As a Database it can replace MySQL. As an Aggregate it can replace Solr.
+
+Example as AggregateDatabase:
+    <!-- Database -->
+    <Environment  name="dari/defaultDatabase"                                             type="java.lang.String" value="project" />
+    <Environment  name="dari/database/project/class"                                      type="java.lang.String" value="com.psddev.dari.db.AggregateDatabase" />
+    <Environment  name="dari/database/project/defaultDelegate"                            type="java.lang.String" value="sql" />
+
+    <Environment  name="dari/database/project/delegate/sql/class"                         type="java.lang.String" value="com.psddev.dari.db.SqlDatabase" />
+    <Environment  name="dari/database/project/delegate/sql/jdbcUrl"                       type="java.lang.String" value="jdbc:msyql://localhost:3306/project" />
+    <Environment  name="dari/database/project/delegate/sql/enableReplicationCache"        type="java.lang.String" value="true" />
+    <Environment  name="dari/database/project/delegate/sql/enableFunnelCache"             type="java.lang.String" value="false" />
+    <Environment  name="dari/database/project/delegate/sql/indexSpatial"                  type="java.lang.String" value="false" />
+    <!-- Database Resource Links, see server.xml for connection settings. -->
+    <ResourceLink name="dari/database/project/delegate/sql/dataSource"                    type="javax.sql.DataSource" global="dari/database/project/delegate/sql/dataSource"  />
+    <ResourceLink name="dari/database/project/delegate/sql/readDataSource"                type="javax.sql.DataSource" global="dari/database/project/delegate/sql/readDataSource"  />
+
+    <Environment name="dari/database/project/delegate/elasticsearch/class"                type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
+    <Environment name="dari/database/project/delegate/elasticsearch/clusterName"          type="java.lang.String" value="elasticsearch" />
+    <Environment name="dari/database/project/delegate/elasticsearch/preferFilters"        type="java.lang.String" value="true" />
+    <Environment name="dari/database/project/delegate/elasticsearch/clientTransportSniff" type="java.lang.String" value="false" />
+    <Environment name="dari/database/project/delegate/elasticsearch/dfsQueryThenFetch"    type="java.lang.String" value="false" />
+    <Environment name="dari/database/project/delegate/elasticsearch/indexName"            type="java.lang.String" value="index1" />
+    <Environment name="dari/database/project/delegate/elasticsearch/shardsMax"            type="java.lang.String" value="5000" />
+    <Environment name="dari/database/project/delegate/elasticsearch/defaultDataFieldType" type="java.lang.String" value="json" />
+    <Environment name="dari/database/project/delegate/elasticsearch/dataTypesRaw"         type="java.lang.String" value="-* +com.psddev.dari.test.WriteModel " />
+    <Environment name="dari/database/project/delegate/elasticsearch/subQueryResolveLimit" type="java.lang.String" value="1000" />
+    <Environment name="dari/database/project/delegate/elasticsearch/1/clusterPort"        type="java.lang.String" value="9300" />
+    <Environment name="dari/database/project/delegate/elasticsearch/1/clusterRestPort"    type="java.lang.String" value="9200" />
+    <Environment name="dari/database/project/delegate/elasticsearch/1/clusterHostname"    type="java.lang.String" value="172.28.128.XXX" />
+    
+Some explanation:
+
+- defaultDataFieldType - Can use "json" or "raw". "json" indicates storing data Stringified into Elastic. "raw" indicates storing as real objects.
+- shardsMax - the default in Elastic is 1,000 shards max. This allows you to increase it.  When using defaultDataFieldType = "raw" each index is unique, due to conflicts.
+- indexName - this is the indexName in Elastic - it is the begins with name. When using defaultDataFieldType = "raw" this is appended the typeId withoiut "-".
+- clusterName - make sure this is correct for your cluster.
+- the 1/clusterPort, 1/clusterRestPort, and 1/clusterHostname indicates the first Node in the Cluster. If you want you can include 2, 3... Or just the Load Balancer.
+- When using defaultDataFieldType = "json" you can set some types to "raw" by setting SparseSet like below.
+<Environment name="dari/database/project/delegate/elasticsearch/dataTypesRaw"          type="java.lang.String" value="-* +com.psddev.dari.test.WriteModel " />
+
+- preferFilters - when not sorting, prefer filters since that Caches better - performance is better when set to true (default). Set to false to prefer queries for legacy operation.
+- dfsQueryThenFetch - Queries are more accurate but might slow down depending on size of results and # of shards. Only use if results are not accurate.
+- clientTransportSniff - setting the TransportClient client.transport.sniff setting (default is false)
+
+2. Here is a sample query specific to ElasticsearchDatabase.
+
+import com.psddev.dari.elasticsearch.*;
+import java.util.*;
+
+public class Code {
+    public static Object main() throws Throwable {
+        ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+        return Query.fromAll().using(db).where("_type = 00000000-0000-0000-0000-000000000000").count();
+    }
+}
+
+3. Dari Query syntax as per docs
+
+4. Static.escapeValue(special) only needed on matchesany, contains, and matchesall. startswith and =,<,>,<=,>=,!= generally Elastic already handles these.
+   But remember you can decide just not send these specialty characters to Elastic on matchesany, matchesall since they would be tokenized out in most cases.
+
+    Also, you might want to send where("name matches bill*") so we don't escape for you.
+
+    For example escaping on contains for "story\\" will query which is correct.
+    query_string" : {
+            "query" : "*story\\|\\|*",
+            "fields" : [
+              "com.psddev.dari.test.SearchIndexModel/one._string^1.0"
+            ]
+    }
+
+5. After setting up AggregateDatabase and Bulk loading. Run this to verify:
+
+        import com.psddev.dari.elasticsearch.*;
+
+        public class Code {
+            public static Object main() throws Throwable {
+                Database source =  Database.Static.getFirst(SqlDatabase.class);
+                Database elastic =  Database.Static.getFirst(ElasticsearchDatabase.class);
+
+                Set<ObjectType> dbTypes = source.getEnvironment().getTypes();
+                List<String> diff = new ArrayList<>();
+                for (ObjectType o : dbTypes) {
+        	   		UUID id = o.getId();
+                    long count = Query.fromAll().timeout(50000d).using(elastic).where("_type = ?", id).count();
+                    long count2 = Query.fromAll().timeout(50000d).using(source).where("_type = ?", id).count();
+                    if (count != count2) {
+                        diff.add("_typeId = " + id + " elastic/mysql: " + count + "/" + count2);
+                    }
+                }
+                return diff;
+            }
+        }
+
+6. If you deploy a new version, and it has a new template, you need to delete the old template by running the following and restarting Brightspot
+
+curl -XDELETE "http://IPADDRESS:9200/_template/bright_1"

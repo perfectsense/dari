@@ -70,6 +70,7 @@ public class Region {
         this.y = y;
         this.radius = radius;
         this.polygons = polygons;
+        this.circles = new ArrayList<>();
     }
 
     /**
@@ -181,6 +182,18 @@ public class Region {
 
     public Double getRadius() {
         return radius;
+    }
+
+    public void setX(Double x) {
+        this.x = x;
+    }
+
+    public void setY(Double y) {
+        this.y = y;
+    }
+
+    public void setRadius(Double radius) {
+        this.radius = radius;
     }
 
     public MultiPolygon getPolygons() {
@@ -296,13 +309,15 @@ public class Region {
     }
 
     protected static void parseCircles(Region region, List<List<Double>> geo) {
-        for (List<Double> c : geo) {
-            Double radius = ObjectUtils.to(Double.class, c.get(2));
-            Double lat = ObjectUtils.to(Double.class, c.get(1));
-            Double lng = ObjectUtils.to(Double.class, c.get(0));
+        if (geo != null) {
+            for (List<Double> c : geo) {
+                Double radius = ObjectUtils.to(Double.class, c.get(2));
+                Double lat = ObjectUtils.to(Double.class, c.get(1));
+                Double lng = ObjectUtils.to(Double.class, c.get(0));
 
-            Circle circle = new Circle(lat, lng, radius);
-            region.addCircle(circle);
+                Circle circle = new Circle(lat, lng, radius);
+                region.addCircle(circle);
+            }
         }
     }
 

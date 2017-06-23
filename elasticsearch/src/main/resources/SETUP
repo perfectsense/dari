@@ -1,0 +1,570 @@
+Config for Elastic Search 5.4.2 Setup Ubuntu
+
+Note:
+
+For Tomcat - Recommend 3 new settings. JAVA_HOME to point to 1.8.131 and 2000m for memory, and start GC at 70%.
+
+cd /servers/projectXXX/bin
+edit setenv.sh
+export JAVA_HOME='/usr/lib/jvm/java-8-oracle'
+export HEAP_SIZE='2000m'
+
+Add to JAVA-OPTS:
+-XX:+UseConcMarkSweepGC -XX:CMSInitiatingOccupancyFraction=70 -XX:+UseCMSInitiatingOccupancyOnly -XX:+ExitOnOutOfMemoryError \
+
+1. Install Elasticsearch / Kibana
+
+apt-get update
+apt-get install apt-transport-https
+
+wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.4.2.deb
+dpkg -i elasticsearch-5.4.2.deb
+
+wget https://artifacts.elastic.co/downloads/kibana/kibana-5.4.2-amd64.deb
+dpkg -i kibana-5.4.2-amd64.deb
+
+update-rc.d elasticsearch defaults
+update-rc.d kibana defaults
+update-rc.d -f solr remove
+
+2. Install Oracle Java JDK 1.8.0_73 or later (Vagrant boxes need to be upgraded). Lucene has an issue with Java JDK < 1.8.0_73
+apt-get update
+apt-get install python-software-properties
+add-apt-repository ppa:webupd8team/java
+apt-get update
+apt-get install oracle-java8-installer
+apt install oracle-java8-set-default
+
+3. Setup elasticsearch.yml for performance /etc/elasticsearch/elasticsearch.yml. This is needed to boost performance.
+the *.size gives more power to Elastic since you give it number of cores. If you have an 8 core box you probably want to
+give most of it to Elastic for searching. If you are indexing, increase bulk higher.
+
+#elasticsearch.yml - set size to # of cores
+#for search operation
+thread_pool.search.size: 2
+thread_pool.search.queue_size: 2000
+
+#for bulk operations
+thread_pool.bulk.size: 2
+thread_pool.bulk.queue_size: 1000
+
+#for indexing operations
+thread_pool.index.size: 2
+thread_pool.index.queue_size: 1000
+
+# Force all memory to be locked, forcing the JVM to never swap. This is recommended - no  swappiness on Elastic.
+bootstrap.memory_lock: true
+
+# Indices settings
+indices.fielddata.cache.size: 30%
+indices.queries.cache.size: 10%
+indices.requests.cache.size: 2%
+
+network.host: 172.28.128.XXX
+http.port: 9200
+
+4. Set - this sets the memory so that Elastic does not hang. Also, turn off swappiness
+sysctl -w vm.max_map_count=262144
+sysctl -w vm.swappiness=1
+
+In /etc/sysctl.conf
+echo "vm.max_map_count = 262144" >> /etc/sysctl.conf
+echo "vm.swappiness = 1" >> /etc/sysctl.conf
+echo "net.core.somaxconn = 65535" >> /etc/sysctl.conf
+echo "fs.file-max = 518144" >> /etc/sysctl.conf
+
+sysctl -p
+
+5. Set memory edit /etc/elasticsearch/jvm.options file: set half of memory - "/etc/init.d/solr stop" to save mem since you are using elastic now.
+-Xms1900m
+-Xmx1900m
+
+Also lower to 70%.
+
+-XX:CMSInitiatingOccupancyFraction=70
+
+Comment out HeapDumpOnOutOfMemoryError and add ExitOnOutOfMemoryError for Java 8 over v92
+#-XX:+HeapDumpOnOutOfMemoryError
+-XX:+ExitOnOutOfMemoryError
+
+
+6. Start /etc/security/limits.conf - Need to give root and elasticsearch user more open files, and nproc for threads.
+root    -   nofile 100000
+root	-	nproc  5000
+elasticsearch   soft  nofile  65535
+elasticsearch   hard  nofile  65535
+elasticsearch   soft  memlock unlimited
+elasticsearch   hard  memlock unlimited
+elasticsearch	-     nproc	  5000
+
+7. Uncomment /etc/pam.d/su on Ubuntu - you need to do that on Unbuntu or it won't use limits.conf
+session    required   pam_limits.so
+
+8. Systemd file change /usr/lib/systemd/system/elasticsearch.service
+
+cd /etc/systemd/system
+mkdir elasticsearch.service.d
+cd elasticsearch.service.d/
+edit elasticsearch.conf
+
+[Service]
+LimitMEMLOCK=infinity
+
+Also set /etc/default/elasticsearch by uncommenting:
+
+MAX_OPEN_FILES=65536
+MAX_LOCKED_MEMORY=unlimited
+MAX_MAP_COUNT=262144
+
+9. Start Elastic -- also set to auto start
+ /etc/init.d/elasticsearch start
+
+ Check http://localhost:9200/_nodes/stats/process?filter_path=**.max_file_descriptor
+ Check http://localhost:9200/_nodes?filter_path=**.mlockall
+
+ 10. You should run Kibana since that is how most people interface with Elastic
+ Edit /etc/kibana/kibana.yml
+ server.host: "172.28.128.XXX"
+ elasticsearch.url: "http://172.28.128.XXX:9200"
+
+ /etc/init.d/kibana start
+
+11. See example-tomcat-context.xml for Sample config - edit /servers/projectXXX/conf/context.xml
+
+12. Then copy ROOT.war into /servers/projectXXX/webapps
+
+ cd webapps
+ rm -rf ROOT
+ cp ROOT.war /servers/projectXXX/webapps
+
+Also, set JAVA to latest:
+
+edit /servers/projectXXX/bin/setenv.sh
+
+export JAVA_HOME='/usr/lib/jvm/java-8-oracle'
+
+To get JDBC to work /etc/hosts:
+
+127.0.0.1 host.reader.service.qa.projectXXX.internal
+
+/etc/init.d/projectXXX stop
+/etc/init.d/projectXXX start
+/etc/init.d/projectXXX start
+
+13. .kibana has default of 1 replica. For cluster health "green" set this to 0:
+
+PUT _settings
+{
+    "index" : {
+        "number_of_replicas" : 0
+    }
+}
+
+14. If not using SSD - set "index.merge.scheduler.max_thread_count": 1 - if using SSD leave it as default
+
+15. Setup Template (Dari Elastic will set this if not set)
+
+curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: application/json' -d '
+{
+    "template": "index1*",
+    "settings": {
+      "index": {
+        "mapping": {
+          "total_fields": {
+            "limit": "100000"
+          },
+          "ignore_malformed": "true"
+        },
+        "refresh_interval": "10s",
+        "number_of_shards": "1",
+        "translog": {
+          "sync_interval": "5s",
+          "durability": "async"
+        },
+        "merge": {
+          "scheduler": {
+            "max_thread_count": "1"
+          }
+        },
+        "query": {
+          "default_field": "_any"
+        },
+        "analysis": {
+          "filter": {
+            "truncate_suggest_filter": {
+              "length": "12",
+              "type": "truncate"
+            },
+            "suggest_delimiter": {
+              "generate_word_parts": "true",
+              "catenate_words": "true",
+              "generate_number_parts": "true",
+              "catenate_all": "false",
+              "split_on_case_change": "true",
+              "type": "word_delimiter",
+              "catenate_numbers": "false"
+            },
+            "ngram_filter": {
+              "type": "edgeNGram",
+              "min_gram": "1",
+              "max_gram": "12"
+            },
+            "text_stemmer": {
+              "type": "porter_stem"
+            },
+            "search_delimiter": {
+              "generate_word_parts": "true",
+              "catenate_words": "true",
+              "generate_number_parts": "true",
+              "catenate_all": "false",
+              "split_on_case_change": "true",
+              "type": "word_delimiter",
+              "catenate_numbers": "false"
+            },
+            "truncate_contains_filter": {
+              "length": "25",
+              "type": "truncate"
+            },
+            "text_delimiter": {
+              "generate_word_parts": "true",
+              "catenate_words": "true",
+              "generate_number_parts": "true",
+              "catenate_all": "false",
+              "split_on_case_change": "true",
+              "type": "word_delimiter",
+              "catenate_numbers": "true"
+            },
+            "unique_words": {
+              "type": "unique"
+            },
+            "gram_filter": {
+              "type": "nGram",
+              "min_gram": "1",
+              "max_gram": "25"
+            }
+          },
+          "normalizer": {
+            "lower_normalizer": {
+              "filter": [
+                "lowercase",
+                "asciifolding"
+              ],
+              "type": "custom"
+            }
+          },
+          "analyzer": {
+            "search_contains_analyzer": {
+              "filter": [
+                "lowercase",
+                "asciifolding"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "suggest_analyzer": {
+              "filter": [
+                "suggest_delimiter",
+                "lowercase",
+                "asciifolding",
+                "ngram_filter"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "search_match_analyzer": {
+              "filter": [
+                "lowercase",
+                "search_delimiter",
+                "asciifolding",
+                "text_stemmer"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "contains_analyzer": {
+              "filter": [
+                "lowercase",
+                "asciifolding"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "any_analyzer": {
+              "filter": [
+                "text_delimiter",
+                "lowercase",
+                "asciifolding",
+                "text_stemmer",
+                "unique_words"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "search_suggest_analyzer": {
+              "filter": [
+                "lowercase",
+                "suggest_delimiter",
+                "asciifolding",
+                "truncate_suggest_filter"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "search_any_analyzer": {
+              "filter": [
+                "lowercase",
+                "search_delimiter",
+                "asciifolding",
+                "text_stemmer"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "match_analyzer": {
+              "filter": [
+                "text_delimiter",
+                "lowercase",
+                "asciifolding",
+                "text_stemmer"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            }
+          }
+        },
+        "number_of_replicas": "0"
+      }
+    },
+    "mappings": {
+      "_default_": {
+        "dynamic_templates": [
+          {
+            "locationgeo": {
+              "mapping": {
+                "type": "geo_point"
+              },
+              "match_mapping_type": "string",
+              "match": "_location"
+            }
+          },
+          {
+            "boolean_type": {
+              "mapping": {
+                "norms": false,
+                "type": "boolean"
+              },
+              "match": "_boolean"
+            }
+          },
+          {
+            "long_type": {
+              "mapping": {
+                "norms": false,
+                "type": "long"
+              },
+              "match": "_long"
+            }
+          },
+          {
+            "double_type": {
+              "mapping": {
+                "norms": false,
+                "type": "double"
+              },
+              "match": "_double"
+            }
+          },
+          {
+            "string_type": {
+              "mapping": {
+                "search_analyzer": "search_contains_analyzer",
+                "analyzer": "contains_analyzer",
+                "type": "text",
+                "fields": {
+                  "match": {
+                    "search_analyzer": "search_match_analyzer",
+                    "analyzer": "match_analyzer",
+                    "type": "text"
+                  },
+                  "raw": {
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  },
+                  "rawci": {
+                    "normalizer": "lower_normalizer",
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  }
+                }
+              },
+              "match_mapping_type": "string",
+              "match": "_string"
+            }
+          },
+          {
+            "suggest_type": {
+              "mapping": {
+                "search_analyzer": "search_suggest_analyzer",
+                "norms": false,
+                "analyzer": "suggest_analyzer",
+                "type": "text"
+              },
+              "match": "_suggest"
+            }
+          },
+          {
+            "shapegeo": {
+              "mapping": {
+                "type": "geo_shape"
+              },
+              "match_mapping_type": "object",
+              "match": "_polygon"
+            }
+          },
+          {
+            "data_template_top": {
+              "mapping": {
+                "index": false,
+                "ignore_malformed": true,
+                "type": "{dynamic_type}"
+              },
+              "match": "data"
+            }
+          },
+          {
+            "data_template": {
+              "path_match": "data.*",
+              "mapping": {
+                "index": false,
+                "ignore_malformed": true,
+                "type": "{dynamic_type}"
+              }
+            }
+          },
+          {
+            "int_template": {
+              "mapping": {
+                "ignore_above": 1024,
+                "type": "keyword"
+              },
+              "match_mapping_type": "string",
+              "match": "_*"
+            }
+          },
+          {
+            "notanalyzed": {
+              "mapping": {
+                "search_analyzer": "search_contains_analyzer",
+                "analyzer": "contains_analyzer",
+                "type": "text",
+                "fields": {
+                  "match": {
+                    "search_analyzer": "search_match_analyzer",
+                    "analyzer": "match_analyzer",
+                    "type": "text"
+                  },
+                  "raw": {
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  },
+                  "rawci": {
+                    "normalizer": "lower_normalizer",
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  }
+                }
+              },
+              "match_mapping_type": "string",
+              "match": "*"
+            }
+          }
+        ],
+        "_all": {
+          "enabled": false
+        },
+        "properties": {
+          "_any": {
+            "search_analyzer": "search_any_analyzer",
+            "analyzer": "any_analyzer",
+            "type": "text"
+          },
+          "_ids": {
+            "norms": false,
+            "type": "keyword"
+          }
+        }
+      }
+    },
+    "aliases": {}
+}'
+
+16. Setup Runit in /etc/sv/elastic and link in /etc/service
+
+mkdir -p /etc/sv/elastic
+ln -s /etc/sv/elastic/ /etc/service/elastic
+
+/etc/sv/elastic/run file -
+
+#!/bin/bash
+
+SERVER=elasticsearch
+JAVA_HOME=/usr/bin/java
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+NAME=elasticsearch
+DESC="Elasticsearch Server"
+DEFAULT=/etc/default/$NAME
+ES_USER=elasticsearch
+ES_GROUP=elasticsearch
+ES_HOME=/usr/share/$NAME
+MAX_OPEN_FILES=65536
+LOG_DIR=/var/log/$NAME
+DATA_DIR=/var/lib/$NAME
+CONF_DIR=/etc/$NAME
+MAX_MAP_COUNT=262144
+PID_DIR="/var/run/elasticsearch"
+if [ -f "$DEFAULT" ]; then
+	. "$DEFAULT"
+fi
+
+PID_FILE="$PID_DIR/$NAME.pid"
+DAEMON=$ES_HOME/bin/elasticsearch
+DAEMON_OPTS="-p $PID_FILE -Edefault.path.logs=$LOG_DIR -Edefault.path.data=$DATA_DIR -Edefault.path.conf=$CONF_DIR"
+
+export ES_JAVA_OPTS
+export JAVA_HOME
+export ES_INCLUDE
+export ES_JVM_OPTIONS
+
+if [ -n "$MAX_OPEN_FILES" ]; then
+	ulimit -n $MAX_OPEN_FILES
+fi
+
+if [ -n "$MAX_LOCKED_MEMORY" ]; then
+	ulimit -l $MAX_LOCKED_MEMORY
+fi
+
+if [ -n "$MAX_MAP_COUNT" -a -f /proc/sys/vm/max_map_count ]; then
+	sysctl -q -w vm.max_map_count=$MAX_MAP_COUNT
+fi
+
+# exec 2>&1
+exec chpst -u $ES_USER -U $ES_USER -- bash $DAEMON $DAEMON_OPTS
+
+

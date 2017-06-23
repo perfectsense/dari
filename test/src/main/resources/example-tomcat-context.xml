@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context>
+    <Resources cachingAllowed="false" />
+
+    <Environment name="PRODUCTION" type="java.lang.Boolean" value="false" />
+    <Environment name="SECRET" type="java.lang.String" value="tutorial" />
+
+    <!-- Elastic -->
+    <Environment name="dari/defaultDatabase" type="java.lang.String" value="elasticsearch" />
+    <Environment name="dari/database/elasticsearch/class" type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
+    <Environment name="dari/database/elasticsearch/clusterName" type="java.lang.String" value="elasticsearch_a" />
+    <Environment name="dari/database/elasticsearch/indexName" type="java.lang.String" value="index1" />
+    <Environment name="dari/database/elasticsearch/subQueryResolveLimit" type="java.lang.String" value="1000" />
+    <Environment name="dari/database/elasticsearch/1/clusterPort" type="java.lang.String" value="9300" />
+    <Environment name="dari/database/elasticsearch/1/clusterRestPort" type="java.lang.String" value="9200" />
+    <Environment name="dari/database/elasticsearch/1/clusterHostname" type="java.lang.String" value="localhost" />
+
+    <!-- Storage -->
+    <Environment name="dari/defaultStorage" type="java.lang.String" value="tutorial.local" />
+    <Environment name="dari/storage/tutorial.local/class" type="java.lang.String" value="com.psddev.dari.util.LocalStorageItem" />
+    <Environment name="dari/storage/tutorial.local/baseUrl" type="java.lang.String" value="http://localhost:9480/storage" />
+    <Environment name="dari/storage/tutorial.local/rootPath" type="java.lang.String" value="<project-dir>.storage" />
+</Context>

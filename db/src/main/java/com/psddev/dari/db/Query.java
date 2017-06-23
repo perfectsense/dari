@@ -1028,9 +1028,13 @@ public class Query<E> extends Record {
 
         public ObjectField getField();
 
+        public List<ObjectField> getFields();
+
         public Set<ObjectIndex> getIndexes();
 
         public boolean hasSubQuery();
+
+        public Query<?> getSubQueryTypeWithComparison(ComparisonPredicate comparison);
 
         public Query<?> getSubQueryWithComparison(ComparisonPredicate comparison);
 
@@ -1122,6 +1126,11 @@ public class Query<E> extends Record {
         }
 
         @Override
+        public List<ObjectField> getFields() {
+            return fields;
+        }
+
+        @Override
         public Set<ObjectIndex> getIndexes() {
             return indexes;
         }
@@ -1129,6 +1138,35 @@ public class Query<E> extends Record {
         @Override
         public boolean hasSubQuery() {
             return subQueryTypes != null;
+        }
+
+        @Override
+        public Query<?> getSubQueryTypeWithComparison(ComparisonPredicate comparison) {
+            if (subQueryTypes == null) {
+                return comparison.findValueQuery();
+            }
+
+            Query<?> subQueryType = Query.fromAll();
+            for (ObjectType type : subQueryTypes) {
+                subQueryType.or("_type = ?", type.getId());
+            }
+
+            Query<?> subQuery = Query.fromAll();
+
+            String keySuffix = "/" + subQueryKey;
+
+            for (ObjectType type : subQueryTypes) {
+                subQuery.or(new ComparisonPredicate(
+                        comparison.getOperator(),
+                        comparison.isIgnoreCase(),
+                        type.getInternalName() + keySuffix,
+                        comparison.getValues()));
+            }
+
+            Query<?> subReturn = Query.fromAll();
+            subReturn.where(subQueryType.getPredicate()).and(subQuery.getPredicate());
+
+            return subReturn;
         }
 
         @Override
@@ -1238,6 +1276,11 @@ public class Query<E> extends Record {
         }
 
         @Override
+        public List<ObjectField> getFields() {
+            return null;
+        }
+
+        @Override
         public Set<ObjectIndex> getIndexes() {
             return Collections.emptySet();
         }
@@ -1245,6 +1288,11 @@ public class Query<E> extends Record {
         @Override
         public boolean hasSubQuery() {
             return false;
+        }
+
+        @Override
+        public Query<?> getSubQueryTypeWithComparison(ComparisonPredicate comparison) {
+            return null;
         }
 
         @Override

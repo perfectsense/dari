@@ -1,0 +1,161 @@
+{
+  "_default_": {
+    "_all": {
+      "enabled": false
+    },
+    "properties": {
+      "_ids": {
+        "type": "keyword",
+        "norms": false
+      },
+      "_any": {
+        "type": "text",
+        "analyzer": "any_analyzer",
+        "search_analyzer": "search_any_analyzer"
+      }
+    },
+    "dynamic_templates": [
+      {
+        "locationgeo": {
+          "match": "_location",
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "geo_point"
+          }
+        }
+      },
+      {
+        "boolean_type": {
+          "match": "_boolean",
+          "mapping": {
+            "type": "boolean",
+            "norms": false
+          }
+        }
+      },
+      {
+        "long_type": {
+          "match": "_long",
+          "mapping": {
+            "type": "long",
+            "norms": false
+          }
+        }
+      },
+      {
+        "double_type": {
+          "match": "_double",
+          "mapping": {
+            "type": "double",
+            "norms": false
+          }
+        }
+      },
+      {
+        "string_type": {
+          "match": "_string",
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "text",
+            "analyzer": "contains_analyzer",
+            "search_analyzer": "search_contains_analyzer",
+            "fields": {
+              "raw": {
+                "type": "keyword",
+                "ignore_above": 512
+              },
+              "rawci": {
+                "type": "keyword",
+                "normalizer": "lower_normalizer",
+                "ignore_above": 512
+              },
+              "match": {
+                "type": "text",
+                "analyzer": "match_analyzer",
+                "search_analyzer": "search_match_analyzer"
+              }
+            }
+          }
+        }
+      },
+      {
+        "suggest_type": {
+          "match": "_suggest",
+          "mapping": {
+            "type": "text",
+            "analyzer": "suggest_analyzer",
+            "search_analyzer": "search_suggest_analyzer",
+            "norms": false
+          }
+        }
+      },
+      {
+        "shapegeo": {
+          "match": "_polygon",
+          "match_mapping_type": "object",
+          "mapping": {
+            "type": "geo_shape"
+          }
+        }
+      },
+      {
+        "data_template_top": {
+          "match": "data",
+          "mapping": {
+            "type": "{dynamic_type}",
+            "index": false,
+            "ignore_malformed": true
+          }
+        }
+      },
+      {
+        "data_template": {
+          "path_match": "data.*",
+          "mapping": {
+            "type": "{dynamic_type}",
+            "index": false,
+            "ignore_malformed": true
+          }
+        }
+      },
+      {
+        "int_template": {
+          "match": "_*",
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword",
+            "ignore_above": 1024
+          }
+        }
+      },
+      {
+        "notanalyzed": {
+          "match": "*",
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "text",
+            "analyzer": "contains_analyzer",
+            "search_analyzer": "search_contains_analyzer",
+            "fields": {
+              "rawci": {
+                "type": "keyword",
+                "normalizer": "lower_normalizer",
+                "ignore_above": 512
+              },
+              "raw": {
+                "type": "keyword",
+                "ignore_above": 512
+              },
+              "match": {
+                "type": "text",
+                "analyzer": "match_analyzer",
+                "search_analyzer": "search_match_analyzer"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+

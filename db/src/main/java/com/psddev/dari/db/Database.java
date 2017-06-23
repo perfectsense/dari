@@ -226,37 +226,6 @@ public interface Database extends AutoCloseable, SettingsBackedObject {
     default void close() throws Exception {
     }
 
-    /**
-     * Resets all thread locals related to database operations.
-     */
-    @SuppressWarnings("deprecated")
-    static void resetThreadLocals() {
-
-        // Clear all default database overrides
-        try {
-            while (true) {
-                Database.Static.restoreDefault();
-            }
-        } catch (NoSuchElementException error) {
-            // No more defaults to restore.
-        }
-
-        // Make sure the databases aren't stuck in read-only mode.
-        Database.Static.setIgnoreReadConnection(false);
-
-        // Clear all batch writes.
-        for (Database database : Database.Static.getAll()) {
-            try {
-                while (true) {
-                    database.endWrites();
-                }
-
-            } catch (IllegalStateException error) {
-                continue;
-            }
-        }
-    }
-
     /** {@link Database} utility methods. */
     public static final class Static {
 

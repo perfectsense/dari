@@ -922,13 +922,8 @@ public final class CodeUtils {
         if (!successes.isEmpty()) {
             LOGGER.info("Redefined {}", successes);
 
-            try {
-                for (RedefineClassesListener listener : REDEFINE_CLASSES_LISTENERS) {
-                    listener.redefined(successes);
-                }
-
-            } catch (Throwable error) {
-                return definitions;
+            for (RedefineClassesListener listener : REDEFINE_CLASSES_LISTENERS) {
+                listener.redefined(successes);
             }
         }
 

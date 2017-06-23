@@ -494,7 +494,7 @@ public class State implements Map<String, Object> {
      * Converts the given {@code value} into an instance of one of
      * the simple types listed in {@link #getSimpleValues}.
      */
-    protected static Object toSimpleValue(Object value, boolean isEmbedded, boolean withTypeNames) {
+    public static Object toSimpleValue(Object value, boolean isEmbedded, boolean withTypeNames) {
 
         if (value == null) {
             return null;

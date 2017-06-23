@@ -372,7 +372,13 @@ abstract class StateValueUtils {
                     Map<String, Object> map = (Map<String, Object>) value;
 
                     Region region = Region.parseGeoJson(map);
-                    Region.parseCircles(region, (List<List<Double>>) map.get("circles"));
+                    if (map.get("circles") != null) {
+                        Region.parseCircles(region, (List<List<Double>>) map.get("circles"));
+                    }
+                    // yes this is deprecated but still pass it for now
+                    region.setX((Double) map.get("x"));
+                    region.setY((Double) map.get("y"));
+                    region.setRadius((Double) map.get("radius"));
 
                     return region;
                 }

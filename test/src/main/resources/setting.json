@@ -1,0 +1,26 @@
+{
+  "analysis": {
+    "analyzer": {
+      "text_analyzer": {
+        "char_filter":  [ "html_strip" ],
+        "tokenizer": "whitespace",
+        "filter" : ["text_delimiter", "lowercase", "text_stemmer"]
+      }
+    },
+    "filter" : {
+      "text_delimiter" : {
+        "type" : "word_delimiter",
+        "catenate_all": false,
+        "catenate_numbers": true,
+        "catenate_words": true,
+        "generate_number_parts": true,
+        "generate_word_parts": true,
+        "split_on_case_change": true
+      },
+      "text_stemmer" : {
+        "type" : "stemmer",
+        "name" : "porter2"
+      }
+    }
+  }
+}
