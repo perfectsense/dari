@@ -11,10 +11,6 @@ target
 /docs/documentation/_site
 /asm/dependency-reduced-pom.xml
 /reflections/dependency-reduced-pom.xml
-.idea
-.DS_Store
-*.iml
-.ruby-version
 
 # Jekyll
 _site
