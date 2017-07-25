@@ -2698,6 +2698,7 @@ public class SqlDatabase extends AbstractDatabase<Connection> implements MetricA
                                 .from(Object.class)
                                 .where("_id = ?", id)
                                 .using(this)
+                                .noCache()
                                 .option(CONNECTION_QUERY_OPTION, connection)
                                 .option(RETURN_ORIGINAL_DATA_QUERY_OPTION, Boolean.TRUE)
                                 .option(USE_READ_DATA_SOURCE_QUERY_OPTION, Boolean.FALSE)

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 import java.util.regex.Matcher;
 
@@ -972,8 +973,16 @@ public abstract class AbstractDatabase<C> implements Database {
         try {
             if (locks != null && !locks.isEmpty()) {
                 for (DistributedLock lock : locks) {
-                    lock.lock();
+                    try {
+                        if (!lock.tryLock(15, TimeUnit.SECONDS)) {
+                            throw new DatabaseException(this, String.format("Can't lock on [%s]!", lock));
+                        }
+
+                    } catch (InterruptedException error) {
+                        throw new DatabaseException(this, error);
+                    }
                 }
+
                 validate(validates, false);
             }
 
