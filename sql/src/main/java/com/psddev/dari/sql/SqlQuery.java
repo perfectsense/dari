@@ -15,6 +15,7 @@ import com.psddev.dari.db.ObjectIndex;
 import com.psddev.dari.db.Predicate;
 import com.psddev.dari.db.PredicateParser;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.QueryPhrase;
 import com.psddev.dari.db.Region;
 import com.psddev.dari.db.Sorter;
 import com.psddev.dari.db.SqlDatabase;
@@ -307,6 +308,9 @@ class SqlQuery {
                 for (Object value : comparisonPredicate.resolveValues(database)) {
                     if (value == null) {
                         comparisonConditions.add(DSL.falseCondition());
+
+                    } else if (value instanceof QueryPhrase) {
+                        throw new UnsupportedOperationException();
 
                     } else if (value == Query.MISSING_VALUE) {
                         hasMissing = true;

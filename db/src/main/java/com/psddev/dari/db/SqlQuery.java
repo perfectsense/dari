@@ -701,6 +701,9 @@ class SqlQuery {
                             comparisonBuilder.append(" IS NULL");
                         }
 
+                    } else if (value instanceof QueryPhrase) {
+                        throw new UnsupportedOperationException();
+
                     } else if (value instanceof Region) {
                         if (!database.isIndexSpatial()) {
                             throw new UnsupportedOperationException();
@@ -826,6 +829,9 @@ class SqlQuery {
 
                         if (value == null) {
                             comparisonBuilder.append("0 = 1");
+
+                        } else if (value instanceof QueryPhrase) {
+                            throw new UnsupportedOperationException();
 
                         } else if (value instanceof Location) {
                             if (!database.isIndexSpatial()) {
