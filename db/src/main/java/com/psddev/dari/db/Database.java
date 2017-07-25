@@ -202,13 +202,32 @@ public interface Database extends AutoCloseable, SettingsBackedObject {
     }
 
     /** Ensures that given {@code index} is up-to-date across all states. */
-    public void indexAll(ObjectIndex index);
+    public default void indexAll(ObjectIndex index) {
+	}
 
     /** Deletes the given {@code state}. */
     public void delete(State state);
 
     /** Deletes all objects matching the given {@code query}. */
-    public void deleteByQuery(Query<?> query);
+    public default void deleteByQuery(Query<?> query) {
+	    int batchSize = 200;
+	    try {
+	        beginWrites();
+	
+	        int i = 0;
+	        for (Object item : readIterable(query, batchSize)) {
+	            delete(State.getInstance(item));
+	            ++ i;
+	            if (i % batchSize == 0) {
+	                commitWrites();
+	            }
+	        }
+	
+	        commitWrites();
+	    } finally {
+	        endWrites();
+	    }
+	}
 
     default void addUpdateNotifier(UpdateNotifier<?> notifier) {
         throw new UnsupportedOperationException();

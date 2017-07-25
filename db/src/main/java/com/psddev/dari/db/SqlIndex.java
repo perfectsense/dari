@@ -189,7 +189,9 @@ public enum SqlIndex {
 
         public int getVersion();
 
-        public boolean isReadOnly(ObjectIndex index);
+        public default boolean isReadOnly(ObjectIndex index) {
+		    return false;
+		}
 
         public String getName(SqlDatabase database, ObjectIndex index);
 
@@ -205,7 +207,9 @@ public enum SqlIndex {
             return convertKey(database, index, key);
         }
 
-        public Object convertKey(SqlDatabase database, ObjectIndex index, String key);
+        public default Object convertKey(SqlDatabase database, ObjectIndex index, String key) {
+		    return key;
+		}
 
         public String prepareInsertStatement(
                 SqlDatabase database,
@@ -262,11 +266,6 @@ public enum SqlIndex {
         }
 
         @Override
-        public boolean isReadOnly(ObjectIndex index) {
-            return false;
-        }
-
-        @Override
         public String getIdField(SqlDatabase database, ObjectIndex index) {
             return idField;
         }
@@ -306,11 +305,6 @@ public enum SqlIndex {
             }
 
             return fieldIndex > 0 ? valueField + (fieldIndex + 1) : valueField;
-        }
-
-        @Override
-        public Object convertKey(SqlDatabase database, ObjectIndex index, String key) {
-            return key;
         }
 
         protected Object convertValue(SqlDatabase database, ObjectIndex index, int fieldIndex, Object value) {

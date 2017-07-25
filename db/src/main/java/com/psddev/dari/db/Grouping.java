@@ -10,7 +10,9 @@ public interface Grouping<T> {
 
     /** Use {@link #createItemsQuery} instead. */
     @Deprecated
-    public Query<T> getItemsQuery();
+    public default Query<T> getItemsQuery() {
+	    return createItemsQuery();
+	}
 
     public long getCount();
 

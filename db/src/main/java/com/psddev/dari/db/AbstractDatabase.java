@@ -888,10 +888,6 @@ public abstract class AbstractDatabase<C> implements Database {
     }
 
     @Override
-    public void indexAll(ObjectIndex index) {
-    }
-
-    @Override
     public void recalculate(State state, ObjectIndex... indexes) {
         checkState(state);
         Writes writes = getCurrentWrites();
@@ -924,27 +920,6 @@ public abstract class AbstractDatabase<C> implements Database {
 
         } else {
             write(null, null, null, Arrays.asList(state), null, true);
-        }
-    }
-
-    @Override
-    public void deleteByQuery(Query<?> query) {
-        int batchSize = 200;
-        try {
-            beginWrites();
-
-            int i = 0;
-            for (Object item : readIterable(query, batchSize)) {
-                delete(State.getInstance(item));
-                ++ i;
-                if (i % batchSize == 0) {
-                    commitWrites();
-                }
-            }
-
-            commitWrites();
-        } finally {
-            endWrites();
         }
     }
 
