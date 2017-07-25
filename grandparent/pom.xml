@@ -146,6 +146,10 @@ try {
     map['resourceDirectory'] = new File(pom.basedir, [ 'src', 'main', 'resources' ].join(File.separator)).getPath()
     map['webappSourceDirectory'] = new File(pom.basedir, [ 'src', 'main', 'webapp' ].join(File.separator)).getPath()
 
+    if (packaging == 'war') {
+        map['webappBuildDirectory'] = new File(project.build.directory, [ project.build.finalName ].join(File.separator)).getPath()
+    }
+
     map['sourceFilter.javaSources'] = project.build.sourceDirectory
     map['sourceFilter.javaGeneratedSources'] = new File(project.build.directory, ['generated-sources'].join(File.separator)).getPath()
     map['sourceFilter.webappSources'] = new File(pom.basedir, [ 'src', 'main', 'webapp' ].join(File.separator)).getPath()

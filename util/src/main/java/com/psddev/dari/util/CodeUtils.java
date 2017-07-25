@@ -33,6 +33,7 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -94,6 +95,7 @@ public final class CodeUtils {
 
     private static final String ATTRIBUTE_PREFIX = CodeUtils.class.getName() + ".";
     private static final String WEBAPP_SOURCE_DIRECTORIES_ATTRIBUTE = ATTRIBUTE_PREFIX + "webappSourceDirectories";
+    private static final String WEBAPP_BUILD_DIRECTORIES_ATTRIBUTE = ATTRIBUTE_PREFIX + "webappBuildDirectories";
 
     private static final Set<File> SOURCE_DIRECTORIES;
     private static final Set<File> RESOURCE_DIRECTORIES;
@@ -189,40 +191,54 @@ public final class CodeUtils {
     }
 
     /**
-     * Returns an immuntable map of all web application source directories
+     * Returns an immutable map of all web application source directories
      * keyed by their context paths.
      */
     public static Map<String, File> getWebappSourceDirectories(ServletContext context) {
+        return getWebappDirectories(context, WEBAPP_SOURCE_DIRECTORIES_ATTRIBUTE, SourceFilter.WEBAPP_SOURCE_DIRECTORY_PROPERTY);
+    }
+
+    /**
+     * Returns an immutable map of all web application build directories
+     * keyed by their context paths.
+     */
+    public static Map<String, File> getWebappBuildDirectories(ServletContext context) {
+        return getWebappDirectories(context, WEBAPP_BUILD_DIRECTORIES_ATTRIBUTE, SourceFilter.WEBAPP_BUILD_DIRECTORY_PROPERTY);
+    }
+
+    private static Map<String, File> getWebappDirectories(ServletContext context, String attribute, String property) {
         @SuppressWarnings("unchecked")
-        Map<String, File> sourceDirectories = (Map<String, File>) context.getAttribute(WEBAPP_SOURCE_DIRECTORIES_ATTRIBUTE);
-        if (sourceDirectories != null) {
-            return sourceDirectories;
+        Map<String, File> directories = (Map<String, File>) context.getAttribute(attribute);
+
+        if (directories != null) {
+            return directories;
         }
 
-        Map<String, File> unsorted = new HashMap<String, File>();
+        Map<String, File> unsorted = new HashMap<>();
+
         try {
-            addWebappSourceDirectories(context, unsorted, "/");
+            addWebappDirectories(context, property, unsorted, "/");
+
         } catch (IOException error) {
             return Collections.emptyMap();
         }
 
-        List<String> prefixes = new ArrayList<String>(unsorted.keySet());
-        Collections.sort(prefixes);
-        Collections.reverse(prefixes);
+        directories = Collections.unmodifiableMap(
+                unsorted.keySet()
+                        .stream()
+                        .sorted(Comparator.reverseOrder())
+                        .collect(
+                                CompactMap::new,
+                                (map, prefix) -> map.put(prefix, unsorted.get(prefix)),
+                                CompactMap::putAll));
 
-        sourceDirectories = new CompactMap<String, File>();
-        for (String prefix : prefixes) {
-            sourceDirectories.put(prefix, unsorted.get(prefix));
-        }
+        context.setAttribute(attribute, directories);
 
-        sourceDirectories = Collections.unmodifiableMap(sourceDirectories);
-        context.setAttribute(WEBAPP_SOURCE_DIRECTORIES_ATTRIBUTE, sourceDirectories);
-        return sourceDirectories;
+        return directories;
     }
 
-    private static void addWebappSourceDirectories(ServletContext context, Map<String, File> sourceDirectories, String path) throws IOException {
-        @SuppressWarnings("unchecked")
-        Set<String> children = (Set<String>) context.getResourcePaths(path);
+    private static void addWebappDirectories(ServletContext context, String property, Map<String, File> directories, String path) throws IOException {
+        Set<String> children = context.getResourcePaths(path);
 
         if (children != null) {
             for (String child : children) {
@@ -230,26 +246,23 @@ public final class CodeUtils {
                     int webInfAt = child.indexOf("/WEB-INF/");
 
                     if (webInfAt > -1) {
-                        InputStream buildInput = context.getResourceAsStream(child);
                         Properties buildProperties = new Properties();
 
-                        try {
+                        try (InputStream buildInput = context.getResourceAsStream(child)) {
                             buildProperties.load(buildInput);
-                        } finally {
-                            buildInput.close();
                         }
 
-                        File sourceDirectory = ObjectUtils.to(File.class, buildProperties.get(SourceFilter.WEBAPP_SOURCES_PROPERTY));
+                        File directory = ObjectUtils.to(File.class, buildProperties.get(property));
 
-                        if (sourceDirectory.exists()) {
-                            sourceDirectories.put(
+                        if (directory.exists()) {
+                            directories.put(
                                     StringUtils.ensureEnd(child.substring(0, webInfAt), "/"),
-                                    sourceDirectory);
+                                    directory);
                         }
                     }
 
                 } else if (child.endsWith("/")) {
-                    addWebappSourceDirectories(context, sourceDirectories, child);
+                    addWebappDirectories(context, property, directories, child);
                 }
             }
         }
@@ -260,15 +273,44 @@ public final class CodeUtils {
      * in the given {@code context}.
      */
     public static File getWebappSource(ServletContext context, String path) {
+        File sourceFile = null;
+
         for (Map.Entry<String, File> entry : getWebappSourceDirectories(context).entrySet()) {
             String prefix = entry.getKey();
 
             if (path.startsWith(prefix)) {
-                return new File(entry.getValue(), path.substring(prefix.length()));
+                sourceFile = new File(entry.getValue(), path.substring(prefix.length()));
+                break;
             }
         }
 
-        return null;
+        File buildFile = null;
+
+        for (Map.Entry<String, File> entry : getWebappBuildDirectories(context).entrySet()) {
+            String prefix = entry.getKey();
+
+            if (path.startsWith(prefix)) {
+                buildFile = new File(entry.getValue(), path.substring(prefix.length()));
+                break;
+            }
+        }
+
+        if (sourceFile != null) {
+            if (buildFile != null
+                    && sourceFile.lastModified() < buildFile.lastModified()) {
+
+                return buildFile;
+
+            } else {
+                return sourceFile;
+            }
+
+        } else if (buildFile != null) {
+            return buildFile;
+
+        } else {
+            return null;
+        }
     }
 
     /**

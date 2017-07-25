@@ -77,12 +77,7 @@ import com.psddev.dari.util.sa.JvmLogger;
  * }</pre></blockquote>
  *
  * <p>And the application must include a {@code build.properties} file
- * that specifies the locations of the source code:
- *
- * <ul>
- * <li>{@link CodeUtils#JAVA_SOURCE_DIRECTORY_PROPERTY}
- * <li>{@link #WEBAPP_SOURCES_PROPERTY}
- * </ul>
+ * that specifies the locations of the source code.
  *
  * <p>You can skip this step if the project uses Apache Maven to manage
  * the build and inherits from {@code com.psddev:dari-parent}, because
@@ -95,7 +90,11 @@ public class SourceFilter extends AbstractFilter {
      * Build property that specifies the directory containing the
      * web application sources, such as JSPs.
      */
+    @Deprecated
     public static final String WEBAPP_SOURCES_PROPERTY = "webappSourceDirectory";
+
+    static final String WEBAPP_SOURCE_DIRECTORY_PROPERTY = "webappSourceDirectory";
+    static final String WEBAPP_BUILD_DIRECTORY_PROPERTY = "webappBuildDirectory";
 
     public static final String DEFAULT_INTERCEPT_PATH = "/_sourceFilter";
     public static final String INTERCEPT_PATH_SETTING = "dari/sourceFilterInterceptPath";
@@ -128,7 +127,8 @@ public class SourceFilter extends AbstractFilter {
     private File classOutput;
     private final Set<File> javaSourcesSet = new HashSet<File>();
     private Map<JavaFileObject, Long> javaSourceFileModifieds;
-    private final Map<String, File> webappSourcesMap = new HashMap<String, File>();
+    private final Map<String, File> webappSourceMap = new HashMap<String, File>();
+    private final Map<String, File> webappBuildMap = new HashMap<>();
     private final Map<String, Date> changedClassTimes = new TreeMap<String, Date>();
 
     private final Map<Class<?>, List<AnalysisResult>> analysisResultsByClass = new TreeMap<Class<?>, List<AnalysisResult>>(new Comparator<Class<?>>() {
@@ -200,12 +200,23 @@ public class SourceFilter extends AbstractFilter {
                     }
                 }
 
-                String webappSourcesString = buildProperties.getProperty(WEBAPP_SOURCES_PROPERTY);
-                if (webappSourcesString != null) {
-                    File webappSources = new File(webappSourcesString);
-                    if (webappSources.exists()) {
-                        LOGGER.info("Copying webapp sources from [{}] to [{}/]", webappSources, contextPath);
-                        webappSourcesMap.put(contextPath, webappSources);
+                String webappSourceString = buildProperties.getProperty(WEBAPP_SOURCE_DIRECTORY_PROPERTY);
+                if (webappSourceString != null) {
+                    File webappSource = new File(webappSourceString);
+                    if (webappSource.exists()) {
+                        LOGGER.info("Copying webapp source files from [{}] to [{}/]", webappSource, contextPath);
+                        webappSourceMap.put(contextPath, webappSource);
+                    }
+                }
+
+                String webappBuildString = buildProperties.getProperty(WEBAPP_BUILD_DIRECTORY_PROPERTY);
+
+                if (webappBuildString != null) {
+                    File webappBuild = new File(webappBuildString);
+
+                    if (webappBuild.exists()) {
+                        LOGGER.info("Copying webapp build files from [{}] to [{}/]", webappBuild, contextPath);
+                        webappBuildMap.put(contextPath, webappBuild);
                     }
                 }
 
@@ -223,7 +234,8 @@ public class SourceFilter extends AbstractFilter {
         classOutput = null;
         javaSourcesSet.clear();
         javaSourceFileModifieds = null;
-        webappSourcesMap.clear();
+        webappSourceMap.clear();
+        webappBuildMap.clear();
         changedClassTimes.clear();
     }
 
@@ -930,9 +942,10 @@ public class SourceFilter extends AbstractFilter {
         }
 
         String contextPath = JspUtils.getEmbeddedContextPath(context, path);
-        File webappSources = webappSourcesMap.get(contextPath);
+        File webappSource = webappSourceMap.get(contextPath);
+        File webappBuild = webappBuildMap.get(contextPath);
 
-        if (webappSources == null) {
+        if (webappSource == null && webappBuild == null) {
             return;
         }
 
@@ -957,7 +970,17 @@ public class SourceFilter extends AbstractFilter {
             copied.add(outputFileString);
         }
 
-        File sourceFile = new File(webappSources, path.substring(contextPath.length()).replace('/', File.separatorChar));
+        String relativePath = path.substring(contextPath.length()).replace('/', File.separatorChar);
+        File sourceFile = webappSource != null ? new File(webappSource, relativePath) : null;
+        File buildFile = webappBuild != null ? new File(webappBuild, relativePath) : null;
+
+        if (sourceFile == null
+                || (buildFile != null
+                && buildFile.lastModified() > sourceFile.lastModified())) {
+
+            sourceFile = buildFile;
+        }
+
         File outputFile = new File(outputFileString);
 
         if (sourceFile.isDirectory()
