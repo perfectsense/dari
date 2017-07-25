@@ -809,28 +809,6 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
             for (Object value : values) {
                 if (ObjectUtils.isBlank(value)) {
                     comparisonBuilder.append("(*:* && -*:*)");
-
-                } else if (value instanceof QueryPhrase) {
-                    QueryPhrase phrase = (QueryPhrase) value;
-
-                    comparisonBuilder.append('"');
-                    comparisonBuilder.append(escapeValue(phrase.getPhrase()));
-                    comparisonBuilder.append('"');
-
-                    int proximity = phrase.getProximity();
-
-                    if (proximity > 0) {
-                        comparisonBuilder.append('~');
-                        comparisonBuilder.append(proximity);
-                    }
-
-                    double weight = phrase.getWeight();
-
-                    if (weight > 0.0) {
-                        comparisonBuilder.append('^');
-                        comparisonBuilder.append(weight);
-                    }
-
                 } else {
                     addValue(comparisonBuilder, solrField, value);
                 }
