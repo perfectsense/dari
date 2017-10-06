@@ -510,6 +510,7 @@ public class ObjectType extends Record implements ObjectStruct {
      * Returns {@code true} if the objects of this type can be saved to the
      * database.
      */
+    @Indexed
     public boolean isConcrete() {
         return !(isAbstract() || isEmbedded());
     }
