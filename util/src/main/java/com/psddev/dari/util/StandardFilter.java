@@ -37,6 +37,7 @@ public class StandardFilter extends AbstractFilter {
         dependencies.add(Utf8Filter.class);
         dependencies.add(SourceFilter.class);
         dependencies.add(HeaderResponseFilter.class);
+        dependencies.add(AbsoluteLocationFilter.class);
         dependencies.add(LogCaptureFilter.class);
         dependencies.add(DebugFilter.class);
 
