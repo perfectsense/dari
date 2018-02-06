@@ -175,6 +175,7 @@ public class ObjectType extends Record implements ObjectStruct {
             field.setJavaFieldName(javaField.getName());
             field.setJavaDeclaringClassName(declaringClass);
             field.setDeprecated(javaField.isAnnotationPresent(Deprecated.class));
+            field.setJavaFieldTypePrimitive(javaField.getType().isPrimitive());
 
             for (Annotation annotation : javaField.getAnnotations()) {
                 ObjectField.AnnotationProcessorClass processorClass = annotation.annotationType().getAnnotation(ObjectField.AnnotationProcessorClass.class);

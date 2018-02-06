@@ -144,6 +144,7 @@ public class ObjectField extends Record {
     private static final String JAVA_FIELD_NAME_KEY = "java.field";
     private static final String JAVA_DECLARING_CLASS_NAME_KEY = "java.declaringClass";
     private static final String JAVA_ENUM_CLASS_NAME_KEY = "java.enumClass";
+    private static final String IS_JAVA_FIELD_TYPE_PRIMITIVE_KEY = "isJavaFieldTypePrimitive";
 
     private final transient ObjectStruct parent;
 
@@ -192,6 +193,9 @@ public class ObjectField extends Record {
     @InternalName("java.enumClass")
     private String javaEnumClassName;
 
+    @InternalName("java.isFieldTypePrimitive")
+    private boolean isJavaFieldTypePrimitive;
+
     private transient Map<String, Object> options;
 
     public ObjectField(ObjectField field) {
@@ -204,6 +208,7 @@ public class ObjectField extends Record {
         internalType = field.internalType;
         isDenormalized = field.isDenormalized;
         isEmbedded = field.isEmbedded;
+        isJavaFieldTypePrimitive = field.isJavaFieldTypePrimitive;
         isRequired = field.isRequired;
         junctionField = field.junctionField;
         junctionPositionField = field.junctionPositionField;
@@ -252,6 +257,7 @@ public class ObjectField extends Record {
         isDenormalized = Boolean.TRUE.equals(definition.remove(IS_DENORMALIZED_KEY));
         denormalizedFields = ObjectUtils.to(SET_STRING_TYPE_REF, definition.remove(DENORMALIZED_FIELDS_KEY));
         isEmbedded = Boolean.TRUE.equals(definition.remove(IS_EMBEDDED_KEY));
+        isJavaFieldTypePrimitive = Boolean.TRUE.equals(definition.remove(IS_JAVA_FIELD_TYPE_PRIMITIVE_KEY));
         isRequired = Boolean.TRUE.equals(definition.remove(IS_REQUIRED_KEY));
         junctionField = (String) definition.remove(JUNCTION_FIELD_KEY);
         junctionPositionField = (String) definition.remove(JUNCTION_POSITION_FIELD_KEY);
@@ -353,6 +359,7 @@ public class ObjectField extends Record {
         definition.put(IS_DENORMALIZED_KEY, isDenormalized);
         definition.put(DENORMALIZED_FIELDS_KEY, denormalizedFields);
         definition.put(IS_EMBEDDED_KEY, isEmbedded);
+        definition.put(IS_JAVA_FIELD_TYPE_PRIMITIVE_KEY, isJavaFieldTypePrimitive);
         definition.put(IS_REQUIRED_KEY, isRequired);
         definition.put(JUNCTION_FIELD_KEY, junctionField);
         definition.put(JUNCTION_POSITION_FIELD_KEY, junctionPositionField);
@@ -541,6 +548,16 @@ public class ObjectField extends Record {
     /** Sets whether the field value should be embedded. */
     public void setEmbedded(boolean isEmbedded) {
         this.isEmbedded = isEmbedded;
+    }
+
+    /** Returns {@code true} if the original java field is a primitive */
+    public boolean isJavaFieldTypePrimitive() {
+        return isJavaFieldTypePrimitive;
+    }
+
+    /** Sets whether the original java field is a javaFieldTypePrimitive. */
+    public void setJavaFieldTypePrimitive(boolean javaFieldTypePrimitive) {
+        isJavaFieldTypePrimitive = javaFieldTypePrimitive;
     }
 
     /** Returns {@code true} if the field value is required. */
@@ -1004,6 +1021,7 @@ public class ObjectField extends Record {
         // Simple translation like String to text.
         if (javaType instanceof Class) {
             Class<?> javaTypeClass = (Class<?>) javaType;
+            setJavaFieldTypePrimitive(javaTypeClass.isPrimitive());
 
             if (javaTypeClass.equals(Object.class)) {
                 return ANY_TYPE;
