@@ -6,15 +6,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.solr.client.solrj.SolrQuery;
-import org.apache.solr.client.solrj.response.FacetField;
+import java.util.UUID;
 
 import com.psddev.dari.util.HtmlObject;
 import com.psddev.dari.util.HtmlWriter;
+import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
 import com.psddev.dari.util.StringUtils;
+import org.apache.solr.client.solrj.SolrQuery;
+import org.apache.solr.client.solrj.response.FacetField;
+import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.RangeFacet;
 
 /**
@@ -61,6 +63,18 @@ public class SolrPaginatedResult<E> extends PaginatedResult<E> implements HtmlOb
         this.solrQuery = solrQuery;
     }
 
+    public SolrPaginatedResult(
+            long offset, int limit, long count, List<E> items, List<FacetField> facetedFields, List<RangeFacet> rangeFacets,
+            Class<?> klass, SolrQuery solrQuery, QueryResponse queryResponse) {
+        super(offset, limit, count, items);
+
+        this.klass = klass;
+        this.facetedFields = facetedFields;
+        this.rangeFacets = rangeFacets;
+        this.solrQuery = solrQuery;
+        this.queryResponse = queryResponse;
+    }
+
     public List<DariFacetField> getFacetedFields() {
         List<DariFacetField> fields = new ArrayList<DariFacetField>();
         if (this.facetedFields != null) {
@@ -83,7 +97,65 @@ public class SolrPaginatedResult<E> extends PaginatedResult<E> implements HtmlOb
         return ranges;
     }
 
+    /**
+     * See {@link SolrPaginatedResult#getHighlights(SolrDatabase, ObjectType, ObjectField, UUID)}
+     * @param type
+     * @param field
+     * @param id
+     * @return List of highlighted String, highlighted by default with the <em> tag
+     */
+    public List<String> getHighlights(ObjectType type, ObjectField field, UUID id) {
+        SolrDatabase solrDatabase = Database.Static.getFirst(SolrDatabase.class);
+        return getHighlights(solrDatabase, type, field, id);
+    }
+
+    /**
+   * <pre>
+    *    Method to retrieve highlights for a particular Record in a {@link com.psddev.dari.db.SolrPaginatedResult}
+    *    Requires field to be annotated {@link com.psddev.dari.db.SolrDatabase.Stored} and solr configured to use <code><a href="https://github.com/perfectsense/dari/blob/release/3.2/etc/solr/schema-13.xml">schema-13.xml</a></code> or greater
+    *    Requires highlighted fields to be set in {@link com.psddev.dari.db.Query#options} using the key {@link com.psddev.dari.db.SolrDatabase#HIGHLIGHT_FIELDS}
+    *
+    *    Example usage:
+    *    Query&lt;Searchable&gt; searchQuery = Query.from(Searchable.class);
+    *
+    *    ObjectType objectType = ObjectType.getInstance(Searchable.class);
+    *    ObjectField objectField = objectType.getField("text");
+    *
+    *    Map&lt;ObjectType, List&lt;ObjectField&gt;&gt; highlightFields = new CompactMap&lt;&gt;();
+    *    highlightFields.put(objectType, Arrays.asList(objectField));
+    *    searchQuery.getOptions().put(SolrDatabase.HIGHLIGHT_FIELDS, highlightFields);
+    *    searchQuery.getOptions().put(SolrDatabase.HIGHLIGHT_PRE, "&lt;span class='highlight'&gt;");
+    *    searchQuery.getOptions().put(SolrDatabase.HIGHLIGHT_POST, "&lt;/span&gt;");
+    *
+    *    SolrPaginatedResult&lt;Searchable&gt; solrPaginatedResult = (SolrPaginatedResult&lt;Searchable&gt;) searchQuery.select(0, 10);
+    *
+    *    for (Searchable searchable : solrPaginatedResult.getItems()) {
+    *        List&lt;String&gt; highlights = solrPaginatedResult.getHighlights(objectType, objectField, searchable.getState().getId());
+    *        ...
+    *    }
+    * </pre>
+    *
+    * @param solrDatabase
+    * @param type
+    * @param field
+    * @param id
+    * @return List of highlighted String, highlighted by default with the <em> tag
+    */
+    public List<String> getHighlights(SolrDatabase solrDatabase, ObjectType type, ObjectField field, UUID id) {
+        if (!ObjectUtils.isBlank(queryResponse.getHighlighting())) {
+            if (solrQuery != null && solrDatabase != null) {
+                Map<String, List<String>> recordHighlight = queryResponse.getHighlighting().get(id.toString());
+                if (!ObjectUtils.isBlank(recordHighlight)) {
+                    return recordHighlight.get(solrDatabase.getStoredFieldName(type, field));
+                }
+            }
+        }
+
+        return null;
+    }
+
     private transient SolrQuery solrQuery;
+    private transient QueryResponse queryResponse;
 
     public SolrQuery getSolrQuery() {
         return solrQuery;
@@ -91,6 +163,14 @@ public class SolrPaginatedResult<E> extends PaginatedResult<E> implements HtmlOb
 
     public void setSolrQuery(SolrQuery solrQuery) {
         this.solrQuery = solrQuery;
+    }
+
+    public QueryResponse getQueryResponse() {
+        return queryResponse;
+    }
+
+    public void setQueryResponse(QueryResponse queryResponse) {
+        this.queryResponse = queryResponse;
     }
 
     @Override
