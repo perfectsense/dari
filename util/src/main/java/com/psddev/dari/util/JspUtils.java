@@ -277,6 +277,15 @@ public final class JspUtils {
         return getEmbeddedAbsoluteUrl(null, request, url, parameters);
     }
 
+    /** Returns the absolute protocol relative version of the given {@code url}. */
+    public static String getAbsoluteProtocolRelativeUrl(
+            HttpServletRequest request,
+            String url,
+            Object... parameters) {
+
+        return getEmbeddedAbsoluteProtocolRelativeUrl(null, request, url, parameters);
+    }
+
     /**
      * Returns the cookie with the given {@code name} from the given
      * {@code request}.
@@ -1096,7 +1105,7 @@ public final class JspUtils {
             String url,
             Object... parameters) {
 
-        return getHostUrl(request) + getAbsolutePath(context, request, url, parameters);
+        return getHostUrl(request) + getEmbeddedAbsolutePath(context, request, url, parameters);
     }
 
     /** Returns the absolute protocol relative version of the given {@code url}. */
@@ -1106,7 +1115,7 @@ public final class JspUtils {
             String url,
             Object... parameters) {
 
-        return getProtocolRelativeHostUrl(request) + getAbsolutePath(context, request, url, parameters);
+        return getProtocolRelativeHostUrl(request) + getEmbeddedAbsolutePath(context, request, url, parameters);
     }
 
     /**
@@ -1217,7 +1226,7 @@ public final class JspUtils {
 
         response = (HttpServletResponse) getHeaderResponse(request, response);
         response.setStatus(status);
-        response.setHeader("Location", response.encodeRedirectURL(getAbsolutePath(context, request, path == null ? null : path.toString(), parameters)));
+        response.setHeader("Location", response.encodeRedirectURL(getEmbeddedAbsolutePath(context, request, path == null ? null : path.toString(), parameters)));
     }
 
     /**

@@ -61,7 +61,7 @@ public class HtmlApiFilter extends AbstractFilter {
                 writer.write("f.style.border = 'none';");
                 writer.write("f.style.width = '100%';");
                 writer.write("f.src = '");
-                writer.write(StringUtils.escapeJavaScript(JspUtils.getAbsoluteUrl(request, "", "_format", "_frame")));
+                writer.write(StringUtils.escapeJavaScript(JspUtils.getAbsoluteProtocolRelativeUrl(request, "", "_format", "_frame")));
                 writer.write("';");
 
                 writer.write("s.parentNode.insertBefore(f, s);");
@@ -93,7 +93,7 @@ public class HtmlApiFilter extends AbstractFilter {
                         "padding", 0));
                     html.writeStart("iframe",
                             "scrolling", "no",
-                            "src", JspUtils.getAbsoluteUrl(request, "", "_format", null),
+                            "src", JspUtils.getAbsoluteProtocolRelativeUrl(request, "", "_format", null),
                             "style", html.cssString(
                                     "border", "none",
                                     "width", "100%"));
@@ -156,7 +156,7 @@ public class HtmlApiFilter extends AbstractFilter {
 
             html.writeStart("script",
                     "type", "text/javascript",
-                    "src", JspUtils.getAbsoluteUrl(request, "", "_format", "js"));
+                    "src", JspUtils.getAbsoluteProtocolRelativeUrl(request, "", "_format", "js"));
             html.writeEnd();
 
             json.put("version", "1.0");
