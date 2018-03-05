@@ -14,9 +14,9 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class PageContextFilter extends AbstractFilter {
 
-    private static final ThreadLocal<HttpServletRequest> REQUEST = new ThreadLocal<HttpServletRequest>();
-    private static final ThreadLocal<HttpServletResponse> RESPONSE = new ThreadLocal<HttpServletResponse>();
-    private static final ThreadLocal<ServletContext> SERVLET_CONTEXT = new ThreadLocal<ServletContext>();
+    private static final ThreadLocalStack<HttpServletRequest> REQUEST = new ThreadLocalStack<>();
+    private static final ThreadLocalStack<HttpServletResponse> RESPONSE = new ThreadLocalStack<>();
+    private static final ThreadLocalStack<ServletContext> SERVLET_CONTEXT = new ThreadLocalStack<>();
 
     private static final String ATTRIBUTE_PREFIX = PageContextFilter.class.getName() + ".";
     private static final String RESPONSE_ATTRIBUTE = ATTRIBUTE_PREFIX + "response";
@@ -80,6 +80,18 @@ public class PageContextFilter extends AbstractFilter {
      * {@link PageContextFilter} utility methods.
      */
     public static final class Static {
+
+        public static ThreadLocalStack<HttpServletRequest> getThreadRequest() {
+            return REQUEST;
+        }
+
+        public static ThreadLocalStack<HttpServletResponse> getThreadResponse() {
+            return RESPONSE;
+        }
+
+        public static ThreadLocalStack<ServletContext> getThreadServletContext() {
+            return SERVLET_CONTEXT;
+        }
 
         private static <T> T checkResult(T result) {
             if (result != null) {
