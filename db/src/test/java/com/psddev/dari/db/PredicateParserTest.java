@@ -1,6 +1,7 @@
 package com.psddev.dari.db;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayDeque;
@@ -14,7 +15,6 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -426,6 +426,51 @@ public class PredicateParserTest {
     public void illegal_identity_indexed_redundant_syntax() {
 
         illegal_identity_syntax_recordable(REFLECTIVE_IDENTITY_INDEXED_REDUNDANT_SYNTAX);
+    }
+
+    /**
+     * Method to test {@link PredicateParser.Static#evaluate} with UUID or
+     * String "object equalsany [id]" predicates.
+     */
+    @Test
+    public void evaluate_id_equals() {
+        for (Database database : DATABASES) {
+
+            TestRecord current = TestRecord.getInstance(database);
+            TestRecord other = TestRecord.getInstance(database);
+            TestRecord nonMatchingOther = TestRecord.getInstance(database);
+
+            current.setOther(other);
+
+            // Test String predicates.
+            Predicate predicateStr = parser.parse("other = ?", other.getId().toString());
+            Predicate expectedStr = new ComparisonPredicate(PredicateParser.EQUALS_ANY_OPERATOR, false, "other", Arrays.asList(other.getId().toString()));
+
+            assertEquals(predicateStr, expectedStr);
+
+            assertTrue(PredicateParser.Static.evaluate(current, predicateStr));
+
+            current.setOther(nonMatchingOther);
+
+            assertFalse(PredicateParser.Static.evaluate(current, predicateStr));
+
+            // Reset and test UUID predicates.
+            current.setOther(other);
+
+            Predicate predicateUuid = parser.parse("other = ?", other.getId());
+            Predicate expectedUuid = new ComparisonPredicate(PredicateParser.EQUALS_ANY_OPERATOR, false, "other", Arrays.asList(other.getId()));
+
+            assertEquals(predicateUuid, expectedUuid);
+
+            assertTrue(PredicateParser.Static.evaluate(current, predicateUuid));
+
+            current.setOther(nonMatchingOther);
+
+            assertFalse(PredicateParser.Static.evaluate(current, predicateUuid));
+
+            // This currently fails:
+            // assertEquals(expectedStr, expectedUuid);
+        }
     }
 
     /**

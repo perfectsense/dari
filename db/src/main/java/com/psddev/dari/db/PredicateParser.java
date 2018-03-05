@@ -616,6 +616,10 @@ public class PredicateParser {
             } else if (object instanceof State) {
                 return ((State) object).getId();
 
+            } else if (object instanceof String) {
+                UUID uuid = ObjectUtils.to(UUID.class, object);
+                return uuid != null ? uuid : object;
+
             } else {
                 return object;
             }
