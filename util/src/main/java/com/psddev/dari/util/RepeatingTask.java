@@ -8,7 +8,7 @@ import org.joda.time.DateTimeFieldType;
 /** Task that repeatedly runs at a predictable interval. */
 public abstract class RepeatingTask extends Task {
 
-    private final AtomicReference<DateTime> previousRunTime = new AtomicReference<DateTime>(calculateRunTime(new DateTime()));
+    private final AtomicReference<DateTime> previousRunTime = new AtomicReference<DateTime>(new DateTime().minusMillis(1));
 
     protected RepeatingTask(String executor, String name) {
         super(executor, name);
