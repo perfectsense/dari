@@ -116,7 +116,7 @@ public class State implements Map<String, Object> {
      * Links the given {@code object} to this state so that changes on
      * either side are copied over.
      */
-    public void linkObject(Object object) {
+    public synchronized void linkObject(Object object) {
         if (object != null) {
             linkedObjects.put(object.getClass(), object);
         }
@@ -126,7 +126,7 @@ public class State implements Map<String, Object> {
      * Unlinks the given {@code object} from this state so that changes
      * on either side are no longer copied over.
      */
-    public void unlinkObject(Object object) {
+    public synchronized void unlinkObject(Object object) {
         if (object != null) {
             linkedObjects.remove(object.getClass());
         }
