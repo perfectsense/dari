@@ -359,7 +359,7 @@ try {
                             <dependency>
                                 <groupId>com.puppycrawl.tools</groupId>
                                 <artifactId>checkstyle</artifactId>
-                                <version>5.9</version>
+                                <version>8.29</version>
                             </dependency>
                         </dependencies>
                         <executions>
